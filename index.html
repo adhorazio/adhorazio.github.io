@@ -3,44 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>adhorazio</title>
+  <title>Spiking Neuromorphics</title>
   <style>
     :root {
-      /* GeoDataViz qualitative */
-      --gdv-q1: #FF1F5B;
-      --gdv-q2: #00CD6C;
-      --gdv-q3: #009ADE;
-      --gdv-q4: #AF58BA;
-      --gdv-q5: #FFC61E;
-      --gdv-q6: #F28522;
-      --gdv-q7: #A0B1BA;
-      --gdv-q8: #A6761D;
-
-      /* GeoDataViz sequential s1 (blue) */
-      --gdv-s1-0: #E4F1F7;
-      --gdv-s1-1: #C5E1EF;
-      --gdv-s1-2: #9EC9E2;
-      --gdv-s1-3: #6CB0D6;
-      --gdv-s1-4: #3C93C2;
-      --gdv-s1-5: #226E9C;
-      --gdv-s1-6: #0D4A70;
-
-      /* GeoDataViz diverging d1 */
-      --gdv-d1-0: #009392;
-      --gdv-d1-3: #E9E29C;
-      --gdv-d1-6: #CF597E;
-
-      /* GeoDataViz sequential m3 (fire) */
-      --gdv-m3-0: #FFF3B2;
-      --gdv-m3-3: #FD8D3C;
-      --gdv-m3-6: #B10026;
-
       --bg: #2b2b2b;
       --surface: #333333;
       --border: #444444;
       --text: #e0e0e0;
       --text-dim: #888888;
-      --accent: var(--gdv-q3);
+      --accent: #009ADE;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -53,447 +24,196 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       padding: 2rem;
     }
 
-    /* ── Widget container ── */
-    .widget {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem 2rem 2rem;
+    header {
       width: 100%;
       max-width: 760px;
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
+      padding: 1rem 0 1.5rem;
     }
 
-    .widget-title {
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-title img {
+      height: 4rem;
+      width: auto;
+      filter: brightness(0) saturate(100%) invert(19%) sepia(97%) saturate(2084%) hue-rotate(322deg) brightness(105%) contrast(103%);
+      opacity: 1;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    header h1 span { color: var(--text); }
+
+    header p {
+      margin-top: 0.6rem;
       font-size: 0.85rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
-
-    /* ── Canvas ── */
-    #canvas-wrap {
-      position: relative;
-      width: 100%;
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 200px;
-      border-radius: 6px;
-      background: #1e1e1e;
-    }
-
-    /* ── Controls ── */
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.8rem 1.2rem;
-    }
-
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
-
-    .control-group label {
-      font-size: 0.75rem;
       color: var(--text-dim);
-      display: flex;
-      justify-content: space-between;
+      letter-spacing: 0.02em;
     }
 
-    .control-group label span {
-      color: var(--gdv-q5);
-      font-variant-numeric: tabular-nums;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
+    main {
+      flex: 1;
       width: 100%;
-      height: 4px;
-      border-radius: 2px;
-      background: var(--border);
-      outline: none;
-      cursor: pointer;
+      max-width: 760px;
     }
 
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: 2px solid var(--bg);
-    }
-
-    /* ── Preset buttons ── */
-    .presets {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-
-    .preset-btn {
-      padding: 0.3rem 0.8rem;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-    }
-
-    .preset-btn:hover,
-    .preset-btn.active {
-      border-color: var(--gdv-q3);
-      color: var(--gdv-q3);
-    }
-
-    /* ── Phase plane ── */
-    #phase-wrap {
+    /* ── Nav items ── */
+    .nav-grid {
       display: flex;
       gap: 1rem;
     }
 
-    #phase-wrap canvas {
-      width: 160px;
-      height: 160px;
-      flex-shrink: 0;
+    .nav-item {
+      position: relative;
     }
 
-    .legend {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      justify-content: center;
-      font-size: 0.72rem;
+    .nav-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
       color: var(--text-dim);
-    }
-
-    .legend-item {
+      font-family: inherit;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.1rem;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.5rem;
+      transition: border-color 0.15s, color 0.15s;
+      user-select: none;
     }
 
-    .legend-dot {
-      width: 10px;
-      height: 3px;
-      border-radius: 2px;
+    .nav-btn .arrow {
+      font-size: 0.6rem;
+      transition: transform 0.15s;
     }
+
+    .nav-item:hover .nav-btn,
+    .nav-item:focus-within .nav-btn {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .nav-item:hover .arrow,
+    .nav-item:focus-within .arrow {
+      transform: rotate(180deg);
+    }
+
+    /* ── Dropdown ── */
+    .dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0;
+      min-width: 180px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.15s, transform 0.15s;
+      z-index: 10;
+    }
+
+    .nav-item:hover .dropdown,
+    .nav-item:focus-within .dropdown {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0);
+    }
+
+    .dropdown a {
+      display: block;
+      padding: 0.45rem 1rem;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.12s, background 0.12s;
+    }
+
+    .dropdown a:hover {
+      color: var(--accent);
+      background: rgba(0,154,222,0.06);
+    }
+
+    /* ── Disabled nav item ── */
+    .nav-btn.disabled {
+      opacity: 0.4;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    /* ── Footer ── */
+    footer {
+      width: 100%;
+      max-width: 760px;
+      padding: 2rem 0 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      margin-top: 2.5rem;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
 
-<div class="widget">
-  <div class="widget-title">Izhikevich neuron model — real-time simulation</div>
-
-  <!-- Presets -->
-  <div class="presets" id="presets">
-    <button class="preset-btn active" data-preset="RS">Regular spiking</button>
-    <button class="preset-btn" data-preset="IB">Intrinsically bursting</button>
-    <button class="preset-btn" data-preset="CH">Chattering</button>
-    <button class="preset-btn" data-preset="FS">Fast spiking</button>
-    <button class="preset-btn" data-preset="LTS">Low-threshold spiking</button>
-    <button class="preset-btn" data-preset="RZ">Resonator</button>
+<header>
+  <div class="header-title">
+    <h1>Spiking <span>Neuromorphics</span></h1>
+    <img src="assets/img/AP_HH.svg" alt="HH action potential" />
   </div>
+  <p>How Far Can Minimal Models Reproduce Neural Dynamics?</p>
+</header>
 
-  <!-- Membrane potential trace -->
-  <div id="canvas-wrap">
-    <canvas id="trace" height="200"></canvas>
-  </div>
+<main>
+  <nav class="nav-grid">
 
-  <!-- Phase plane -->
-  <div id="phase-wrap">
-    <canvas id="phase" width="160" height="160"></canvas>
-    <div class="legend">
-      <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-        <span>v (membrane potential)</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q1);"></div>
-        <span>u (recovery variable)</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q5); opacity:.6;"></div>
-        <span>phase trajectory</span>
+    <div class="nav-item">
+      <div class="nav-btn">Neuron Models <span class="arrow">▼</span></div>
+      <div class="dropdown">
+        <a href="models/izhikevich.html">Izhikevich Model</a>
       </div>
     </div>
-  </div>
 
-  <!-- Parameter sliders -->
-  <div class="controls" id="controls">
-    <div class="control-group">
-      <label>a — recovery timescale <span id="val-a">0.02</span></label>
-      <input type="range" id="sl-a" min="0.01" max="0.15" step="0.005" value="0.02" />
+    <div class="nav-item">
+      <div class="nav-btn">Networks <span class="arrow">▼</span></div>
+      <div class="dropdown">
+        <a href="networks/clione.html">Clione</a>
+      </div>
     </div>
-    <div class="control-group">
-      <label>b — recovery sensitivity <span id="val-b">0.20</span></label>
-      <input type="range" id="sl-b" min="0.1" max="0.3" step="0.01" value="0.20" />
-    </div>
-    <div class="control-group">
-      <label>c — reset value (mV) <span id="val-c">-65</span></label>
-      <input type="range" id="sl-c" min="-75" max="-40" step="1" value="-65" />
-    </div>
-    <div class="control-group">
-      <label>d — recovery reset <span id="val-d">8</span></label>
-      <input type="range" id="sl-d" min="0.05" max="10" step="0.05" value="8" />
-    </div>
-    <div class="control-group">
-      <label>I — input current <span id="val-I">10</span></label>
-      <input type="range" id="sl-I" min="0" max="25" step="0.5" value="10" />
-    </div>
-    <div class="control-group">
-      <label>speed <span id="val-spd">1×</span></label>
-      <input type="range" id="sl-spd" min="1" max="8" step="1" value="1" />
-    </div>
-  </div>
-</div>
 
-<script>
-// ── GeoDataViz palette helpers ──────────────────────────────────────────────
-const GDV = {
-  q:  ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'],
-  s1: ['#E4F1F7','#C5E1EF','#9EC9E2','#6CB0D6','#3C93C2','#226E9C','#0D4A70'],
-  m3: ['#FFF3B2','#FED976','#FEB24C','#FD8D3C','#FC4E2A','#E31A1C','#B10026'],
-  d1: ['#009392','#39B185','#9CCB86','#E9E29C','#EEB479','#E88471','#CF597E'],
-};
+  </nav>
+</main>
 
-// ── Izhikevich presets ───────────────────────────────────────────────────────
-const PRESETS = {
-  RS:  { a:0.02, b:0.20, c:-65, d:8,    I:10  },
-  IB:  { a:0.02, b:0.20, c:-55, d:4,    I:10  },
-  CH:  { a:0.02, b:0.20, c:-50, d:2,    I:10  },
-  FS:  { a:0.10, b:0.20, c:-65, d:2,    I:10  },
-  LTS: { a:0.02, b:0.25, c:-65, d:2,    I:10  },
-  RZ:  { a:0.10, b:0.26, c:-65, d:2,    I:10  },
-};
-
-// ── State ────────────────────────────────────────────────────────────────────
-let params = { ...PRESETS.RS };
-let v = -65, u = params.b * v;
-const TRACE_LEN = 600;
-const vHistory  = new Float32Array(TRACE_LEN);
-const uHistory  = new Float32Array(TRACE_LEN);
-const PHASE_LEN = 800;
-const phaseV    = new Float32Array(PHASE_LEN);
-const phaseU    = new Float32Array(PHASE_LEN);
-let phaseHead   = 0;
-let frameCount  = 0;
-
-// ── Canvas setup ─────────────────────────────────────────────────────────────
-const traceCanvas = document.getElementById('trace');
-const tctx = traceCanvas.getContext('2d');
-const phaseCanvas = document.getElementById('phase');
-const pctx = phaseCanvas.getContext('2d');
-
-function resizeTrace() {
-  traceCanvas.width = traceCanvas.offsetWidth;
-  traceCanvas.height = traceCanvas.offsetHeight;
-}
-window.addEventListener('resize', resizeTrace);
-resizeTrace();
-
-// ── Simulation step ──────────────────────────────────────────────────────────
-function step(I) {
-  // Euler integration, dt=0.5ms, two substeps
-  for (let s = 0; s < 2; s++) {
-    const dv = 0.04*v*v + 5*v + 140 - u + I;
-    const du = params.a * (params.b*v - u);
-    v += dv * 0.5;
-    u += du * 0.5;
-  }
-  if (v >= 30) {
-    v = params.c;
-    u += params.d;
-  }
-}
-
-// ── Draw trace ───────────────────────────────────────────────────────────────
-function drawTrace() {
-  const W = traceCanvas.width, H = traceCanvas.height;
-  tctx.clearRect(0, 0, W, H);
-
-  // Axis guides
-  const vMin = -90, vMax = 40;
-  const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
-
-  tctx.strokeStyle = '#3a3a3a';
-  tctx.lineWidth = 1;
-  [-65, -40, 0, 30].forEach(yv => {
-    const y = mapY(yv);
-    tctx.beginPath();
-    tctx.moveTo(0, y); tctx.lineTo(W, y);
-    tctx.stroke();
-    tctx.fillStyle = '#555';
-    tctx.font = '10px monospace';
-    tctx.fillText(yv + ' mV', 4, y - 3);
-  });
-
-  // u trace (recovery, scaled to same range)
-  const uScale = (vMax - vMin) / 200; // rough visual scale
-  tctx.strokeStyle = GDV.q[0];
-  tctx.lineWidth = 1;
-  tctx.globalAlpha = 0.5;
-  tctx.beginPath();
-  for (let i = 0; i < TRACE_LEN; i++) {
-    const x = (i / (TRACE_LEN - 1)) * W;
-    const y = mapY(uHistory[i] * uScale - 65 + 5);
-    i === 0 ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
-  }
-  tctx.stroke();
-  tctx.globalAlpha = 1;
-
-  // v trace (membrane potential)
-  tctx.strokeStyle = GDV.q[2];
-  tctx.lineWidth = 1.8;
-  tctx.beginPath();
-  for (let i = 0; i < TRACE_LEN; i++) {
-    const x = (i / (TRACE_LEN - 1)) * W;
-    const y = mapY(vHistory[i]);
-    i === 0 ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
-  }
-  tctx.stroke();
-}
-
-// ── Draw phase plane ─────────────────────────────────────────────────────────
-function drawPhase() {
-  const W = phaseCanvas.width, H = phaseCanvas.height;
-  pctx.clearRect(0, 0, W, H);
-  pctx.fillStyle = '#1e1e1e';
-  pctx.fillRect(0, 0, W, H);
-
-  const vMin=-90, vMax=40, uMin=0, uMax=25;
-  const mx = v => (v - vMin)/(vMax - vMin) * W;
-  const mu = u => H - (u - uMin)/(uMax - uMin) * H;
-
-  // Nullclines
-  // v-nullcline: u = 0.04v²+5v+140+I
-  tctx.save();
-  pctx.strokeStyle = GDV.q[4] + '66';
-  pctx.lineWidth = 1;
-  pctx.beginPath();
-  for (let vi = vMin; vi <= vMax; vi += 1) {
-    const ui = 0.04*vi*vi + 5*vi + 140 + params.I;
-    const x = mx(vi), y = mu(ui);
-    vi === vMin ? pctx.moveTo(x, y) : pctx.lineTo(x, y);
-  }
-  pctx.stroke();
-
-  // u-nullcline: u = b*v
-  pctx.strokeStyle = GDV.q[0] + '66';
-  pctx.beginPath();
-  for (let vi = vMin; vi <= vMax; vi += 1) {
-    const ui = params.b * vi;
-    pctx.lineTo(mx(vi), mu(ui));
-  }
-  pctx.stroke();
-
-  // Phase trajectory (fading)
-  for (let i = 0; i < PHASE_LEN - 1; i++) {
-    const idx  = (phaseHead + i) % PHASE_LEN;
-    const idx1 = (phaseHead + i + 1) % PHASE_LEN;
-    const alpha = i / PHASE_LEN;
-    pctx.strokeStyle = `rgba(255,197,30,${alpha * 0.7})`;
-    pctx.lineWidth = 1;
-    pctx.beginPath();
-    pctx.moveTo(mx(phaseV[idx]),  mu(phaseU[idx]));
-    pctx.lineTo(mx(phaseV[idx1]), mu(phaseU[idx1]));
-    pctx.stroke();
-  }
-
-  // Current point
-  pctx.beginPath();
-  pctx.arc(mx(v), mu(u), 3, 0, Math.PI * 2);
-  pctx.fillStyle = GDV.q[2];
-  pctx.fill();
-  tctx.restore();
-}
-
-// ── Main loop ────────────────────────────────────────────────────────────────
-function loop() {
-  const speed = parseInt(document.getElementById('sl-spd').value, 10);
-
-  for (let s = 0; s < speed; s++) {
-    step(params.I);
-
-    // Shift trace
-    vHistory.copyWithin(0, 1);
-    uHistory.copyWithin(0, 1);
-    vHistory[TRACE_LEN - 1] = v;
-    uHistory[TRACE_LEN - 1] = u;
-
-    // Record phase
-    phaseV[phaseHead] = v;
-    phaseU[phaseHead] = u;
-    phaseHead = (phaseHead + 1) % PHASE_LEN;
-  }
-
-  drawTrace();
-  drawPhase();
-  requestAnimationFrame(loop);
-}
-
-// ── Sliders ──────────────────────────────────────────────────────────────────
-[['a','sl-a','val-a',2],['b','sl-b','val-b',2],
- ['c','sl-c','val-c',0],['d','sl-d','val-d',2],
- ['I','sl-I','val-I',1]].forEach(([key, slId, valId, dec]) => {
-  const sl  = document.getElementById(slId);
-  const val = document.getElementById(valId);
-  sl.addEventListener('input', () => {
-    params[key] = parseFloat(sl.value);
-    val.textContent = parseFloat(sl.value).toFixed(dec);
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-  });
-});
-
-document.getElementById('sl-spd').addEventListener('input', function() {
-  document.getElementById('val-spd').textContent = this.value + '×';
-});
-
-// ── Presets ──────────────────────────────────────────────────────────────────
-function applyPreset(name) {
-  const p = PRESETS[name];
-  params = { ...p };
-  v = -65; u = params.b * v;
-  vHistory.fill(-65); uHistory.fill(params.b * v);
-
-  document.getElementById('sl-a').value = p.a;
-  document.getElementById('sl-b').value = p.b;
-  document.getElementById('sl-c').value = p.c;
-  document.getElementById('sl-d').value = p.d;
-  document.getElementById('sl-I').value = p.I;
-
-  document.getElementById('val-a').textContent = p.a.toFixed(2);
-  document.getElementById('val-b').textContent = p.b.toFixed(2);
-  document.getElementById('val-c').textContent = p.c.toFixed(0);
-  document.getElementById('val-d').textContent = p.d.toFixed(2);
-  document.getElementById('val-I').textContent = p.I.toFixed(1);
-
-  document.querySelectorAll('.preset-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.preset === name);
-  });
-}
-
-document.getElementById('presets').addEventListener('click', e => {
-  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
-});
-
-// ── Start ────────────────────────────────────────────────────────────────────
-requestAnimationFrame(loop);
-</script>
+<footer>
+  <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+  <a href="LICENSE">MIT License</a>
+</footer>
 
 </body>
 </html>
