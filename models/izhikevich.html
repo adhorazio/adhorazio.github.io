@@ -231,29 +231,21 @@
       margin-bottom: 0.4rem;
     }
 
-    .eq-row {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.55rem 1rem;
+    .eq-box {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eq-row, .eq-reset {
+      padding: 0.55rem 1rem;
     }
 
     .eq-row .katex { color: var(--text); font-size: 1rem; }
 
-    .eq-reset {
-      margin-top: 0.2rem;
-      padding: 0.45rem 1rem;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
-
-    .eq-reset .katex { color: var(--text-dim); font-size: 0.85rem; }
+    .eq-reset { color: #b0b0b0; }
+    .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -349,9 +341,11 @@
 
 <div class="equations" id="equations">
   <div class="eq-label">Model equations</div>
-  <div class="eq-row" id="eq1"></div>
-  <div class="eq-row" id="eq2"></div>
-  <div class="eq-reset" id="eq3"></div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+    <div class="eq-reset" id="eq3"></div>
+  </div>
 </div>
 
 <footer>
