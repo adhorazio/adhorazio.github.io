@@ -187,6 +187,7 @@
     padding-right: 4px;
     scrollbar-width: thin;                         /* Firefox */
     scrollbar-color: transparent transparent;      /* hidden until hover */
+    scrollbar-gutter: stable;
   }
 
   .trajectory-sidebar:hover .case-selector,
@@ -820,6 +821,33 @@
   }
   .rot-btn:hover { color: var(--text); }
 
+  .sidebar-collapse-btn {
+    padding: 3px 7px;
+    font-size: 11px;
+    flex-shrink: 0;
+    background: transparent;
+    line-height: 1;
+  }
+
+  .sidebar-collapse-arrow {
+    display: inline-block;
+    transform: rotate(180deg);
+    transition: transform 0.3s ease;
+  }
+
+  .trajectory-sidebar.collapsed .sidebar-collapse-arrow {
+    transform: rotate(0deg);
+  }
+
+  .trajectory-sidebar .case-selector {
+    max-height: 460px;
+    transition: max-height 0.3s ease;
+  }
+
+  .trajectory-sidebar.collapsed .case-selector {
+    max-height: 0;
+    overflow: hidden;
+  }
 
 </style>
 </head>
@@ -848,6 +876,7 @@
           <div class="sidebar-title">Trajectories</div>
           <div class="sidebar-subtitle">Select cases independently</div>
         </div>
+        <button class="case-btn sidebar-collapse-btn" id="btnCollapseSidebar" title="Toggle panel"><span class="sidebar-collapse-arrow">▼</span></button>
         <button class="case-btn sidebar-clear-btn" id="btnClearTrajectories" title="Deselect all trajectories">Clear</button>
       </div>
       <div id="caseSelector" class="case-selector"></div>
@@ -901,9 +930,10 @@
       </div>
     </div>
   </footer>
+  <div style="padding:4px 24px 8px;text-align:center;font-size:10px;color:var(--muted);letter-spacing:-0.01em;">&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</div>
 </div>
 
-<script src="../embedded_cases_data.js"></script>
+<script src="./clione.js"></script>
 <script>
 // Attempt to load trajectory cases from CSV if available, falling back to embedded data.
 async function parseCasesCSV(text) {
@@ -1164,6 +1194,7 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 resize();
+requestAnimationFrame(resize);
 window.addEventListener('resize', resize);
 
 // ── STATE ─────────────────────────────────────────────────────────────────
@@ -1485,6 +1516,12 @@ document.addEventListener('keydown', (e) => {
 
 // legend and case buttons will be built after cases are loaded
 
+// ── SIDEBAR COLLAPSE ──────────────────────────────────────────────────────
+const trajSidebar = document.querySelector('.trajectory-sidebar');
+document.getElementById('btnCollapseSidebar').addEventListener('click', () => {
+  trajSidebar.classList.toggle('collapsed');
+});
+
 // ── CONTROLS ──────────────────────────────────────────────────────────────
 const clearTrajBtn = document.getElementById('btnClearTrajectories');
 if (clearTrajBtn) {
@@ -1525,7 +1562,8 @@ document.getElementById('btnReset').addEventListener('click', () => {
   focusTarget = null;
   focusedNeuron = -1;
   resetAllTrajectories();
-  activeSet = new Set(CASES.length ? [0] : []);
+  const ac1Idx = CASES.findIndex(c => Number(c.id) === 17);
+  activeSet = new Set(CASES.length ? [ac1Idx !== -1 ? ac1Idx : 0] : []);
   document.getElementById('btnOrbit').classList.toggle('on', orbit);
   document.getElementById('btnAnim').classList.toggle('on', animate);
   document.querySelectorAll('.n-dot').forEach(el => {
@@ -1906,9 +1944,15 @@ function draw() {
   }
 
   // ── XYZ gizmo ──
-  const GR = 28;           // radius of gizmo arms
-  const GX = W - GR - 44; // slightly left of the corner cluster
-  const GY = H - GR - 18;
+  const GR = 28;
+  const GX = W - GR - 44;
+  const cornerEl = document.querySelector('.corner-info');
+  let GY = H - GR - 28;
+  if (cornerEl) {
+    const cr = canvas.getBoundingClientRect();
+    const ir = cornerEl.getBoundingClientRect();
+    GY = Math.min((ir.top + ir.bottom) / 2 - cr.top, H - GR - 10);
+  }
 
   // The three world axes rotated by current qRot
   const axes = [
@@ -1991,7 +2035,8 @@ function draw() {
       // init frames and active set
       frames = {};
       CASES.forEach((c, i) => { frames[i] = 2; });
-      activeSet = new Set(CASES.length ? [0] : []);
+      const defaultIdx = CASES.findIndex(c => Number(c.id) === 17);
+      activeSet = new Set(CASES.length ? [defaultIdx !== -1 ? defaultIdx : 0] : []);
       // build UI elements that depend on cases
       try { buildSpeedButtons(); } catch(e) {}
       try { buildLegend(); } catch(e) {}
