@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Izhikevich Model — Spiking Neuromorphics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
     :root {
       --gdv-q1: #FF1F5B;
@@ -32,20 +34,20 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem;
+      padding: 0 2rem 2rem;
     }
 
     header {
       width: 100%;
       max-width: 760px;
-      padding: 1rem 0 2.5rem;
+      padding: 16px 0 2rem;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.05rem;
     }
 
     header h1 {
-      font-size: 1.6rem;
+      font-size: 2rem;
       font-weight: 700;
       letter-spacing: 0.04em;
       color: var(--text);
@@ -54,7 +56,7 @@
     header h1 span { color: var(--text); }
 
     header a {
-      font-size: 0.78rem;
+      font-size: 0.82rem;
       color: var(--text-dim);
       text-decoration: none;
       letter-spacing: 0.04em;
@@ -163,11 +165,17 @@
 
     .legend {
       display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      justify-content: center;
+      flex-direction: row;
+      gap: 1.5rem;
+      align-items: flex-start;
       font-size: 0.72rem;
       color: var(--text-dim);
+    }
+
+    .legend-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
     }
 
     .legend-item { display: flex; align-items: center; gap: 0.4rem; }
@@ -181,10 +189,21 @@
       font-size: 0.72rem;
       color: var(--text-dim);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      gap: 0.75rem;
       border-top: 1px solid var(--border);
       margin-top: 2.5rem;
+    }
+
+    .footer-ref {
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     footer a {
@@ -194,6 +213,47 @@
     }
 
     footer a:hover { color: var(--accent); }
+
+    .equations {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .eq-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .eq-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.55rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .eq-row .katex { color: var(--text); font-size: 1rem; }
+
+    .eq-reset {
+      margin-top: 0.2rem;
+      padding: 0.45rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    .eq-reset .katex { color: var(--text-dim); font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -223,17 +283,37 @@
   <div id="phase-wrap">
     <canvas id="phase" width="160" height="160"></canvas>
     <div class="legend">
-      <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-        <span>v (membrane potential)</span>
+      <div class="legend-col">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+          <span>phase trajectory</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5); opacity:.6;"></div>
+          <span>dv/dt = 0 (v-nullcline)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1); opacity:.6;"></div>
+          <span>du/dt = 0 (u-nullcline)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q4);"></div>
+          <span>c (v reset)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q6);"></div>
+          <span>u+d (recovery after spike)</span>
+        </div>
       </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q1);"></div>
-        <span>u (recovery variable)</span>
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q5); opacity:.6;"></div>
-        <span>phase trajectory</span>
+      <div class="legend-col">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>v (membrane potential)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+          <span>u (recovery variable)</span>
+        </div>
       </div>
     </div>
   </div>
@@ -267,9 +347,22 @@
 </div>
 </main>
 
+<div class="equations" id="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-row" id="eq1"></div>
+  <div class="eq-row" id="eq2"></div>
+  <div class="eq-reset" id="eq3"></div>
+</div>
+
 <footer>
-  <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
-  <a href="../LICENSE">MIT License</a>
+  <div class="footer-ref">
+    Izhikevich, E. M. Simple model of spiking neurons. <em>IEEE Trans. Neural Netw.</em> <strong>14</strong>, 1569–1572 (2003).
+    <a href="https://doi.org/10.1109/TNN.2003.820440" target="_blank" rel="noopener">https://doi.org/10.1109/TNN.2003.820440</a>
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
 </footer>
 
 <script>
@@ -291,9 +384,12 @@ const PRESETS = {
 
 let params = { ...PRESETS.RS };
 let v = -65, u = params.b * v;
+let lastSpikeU = null;
 const TRACE_LEN = 600;
 const vHistory  = new Float32Array(TRACE_LEN);
 const uHistory  = new Float32Array(TRACE_LEN);
+let traceHead   = 0;
+let traceFull   = false;
 const PHASE_LEN = 800;
 const phaseV    = new Float32Array(PHASE_LEN);
 const phaseU    = new Float32Array(PHASE_LEN);
@@ -318,7 +414,7 @@ function step(I) {
     v += dv * 0.5;
     u += du * 0.5;
   }
-  if (v >= 30) { v = params.c; u += params.d; }
+  if (v >= 30) { lastSpikeU = u; v = params.c; u += params.d; }
 }
 
 function drawTrace() {
@@ -326,40 +422,54 @@ function drawTrace() {
   tctx.clearRect(0, 0, W, H);
   const vMin = -90, vMax = 40;
   const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
-  tctx.strokeStyle = '#3a3a3a';
-  tctx.lineWidth = 1;
+
+  tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1;
   [-65, -40, 0, 30].forEach(yv => {
     const y = mapY(yv);
     tctx.beginPath(); tctx.moveTo(0, y); tctx.lineTo(W, y); tctx.stroke();
     tctx.fillStyle = '#555'; tctx.font = '10px monospace';
     tctx.fillText(yv + ' mV', 4, y - 3);
   });
+
   const uScale = (vMax - vMin) / 200;
-  tctx.strokeStyle = GDV.q[0]; tctx.lineWidth = 1; tctx.globalAlpha = 0.5;
-  tctx.beginPath();
-  for (let i = 0; i < TRACE_LEN; i++) {
-    const x = (i / (TRACE_LEN - 1)) * W;
-    const y = mapY(uHistory[i] * uScale - 65 + 5);
-    i === 0 ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
+  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
+
+  const drawSeg = (arr, from, to, color, lw, alpha, yFn) => {
+    if (to <= from) return;
+    tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (TRACE_LEN - 1)) * W;
+      i === from ? tctx.moveTo(x, yFn(arr[i])) : tctx.lineTo(x, yFn(arr[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  const yU = val => mapY(val * uScale - 65 + 5);
+  const yV = val => mapY(val);
+
+  if (traceFull) {
+    drawSeg(uHistory, traceHead, TRACE_LEN, GDV.q[0], 1,   0.12, yU);
+    drawSeg(vHistory, traceHead, TRACE_LEN, GDV.q[2], 1.8, 0.12, yV);
   }
-  tctx.stroke(); tctx.globalAlpha = 1;
-  tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 1.8;
-  tctx.beginPath();
-  for (let i = 0; i < TRACE_LEN; i++) {
-    const x = (i / (TRACE_LEN - 1)) * W;
-    const y = mapY(vHistory[i]);
-    i === 0 ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
-  }
-  tctx.stroke();
+  drawSeg(uHistory, 0, traceHead, GDV.q[0], 1,   0.5, yU);
+  drawSeg(vHistory, 0, traceHead, GDV.q[2], 1.8, 1.0, yV);
+
+  tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
 }
 
 function drawPhase() {
   const W = phaseCanvas.width, H = phaseCanvas.height;
   pctx.clearRect(0, 0, W, H);
   pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
-  const vMin=-90, vMax=40, uMin=0, uMax=25;
+  const vMin=-90, vMax=40, uMin=-25, uMax=20;
   const mx = v => (v - vMin)/(vMax - vMin) * W;
   const mu = u => H - (u - uMin)/(uMax - uMin) * H;
+  pctx.fillStyle = '#666'; pctx.font = '11px monospace';
+  pctx.fillText('v', W - 12, H - 6);
+  pctx.fillText('u', 4, 13);
+
   pctx.strokeStyle = GDV.q[4] + '66'; pctx.lineWidth = 1;
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) {
@@ -371,6 +481,36 @@ function drawPhase() {
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) pctx.lineTo(mx(vi), mu(params.b * vi));
   pctx.stroke();
+  // Reference lines c and d
+  pctx.setLineDash([3, 3]);
+  pctx.lineWidth = 1;
+
+  pctx.strokeStyle = GDV.q[3] + 'aa';
+  pctx.beginPath(); pctx.moveTo(mx(params.c), 0); pctx.lineTo(mx(params.c), H); pctx.stroke();
+
+  pctx.setLineDash([]);
+
+  // Horizontal line at u = lastSpikeU + d
+  if (lastSpikeU !== null) {
+    pctx.setLineDash([3, 3]);
+    pctx.strokeStyle = GDV.q[5] + 'aa';
+    pctx.lineWidth = 1;
+    pctx.beginPath(); pctx.moveTo(0, mu(lastSpikeU + params.d)); pctx.lineTo(W, mu(lastSpikeU + params.d)); pctx.stroke();
+    pctx.setLineDash([]);
+  }
+
+  // Reset arrow: (30, lastSpikeU) → (c, lastSpikeU + d)
+  if (lastSpikeU !== null) {
+    const ax1 = mx(30), ay = mu(lastSpikeU);
+    const ax2 = mx(params.c), ay2 = mu(lastSpikeU + params.d);
+    pctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    pctx.lineWidth = 1; pctx.setLineDash([2, 2]);
+    pctx.beginPath(); pctx.moveTo(ax1, ay); pctx.lineTo(ax2, ay); pctx.lineTo(ax2, ay2); pctx.stroke();
+    pctx.setLineDash([]);
+    pctx.fillStyle = 'rgba(255,255,255,0.5)';
+    pctx.beginPath(); pctx.arc(ax2, ay2, 2, 0, Math.PI * 2); pctx.fill();
+  }
+
   for (let i = 0; i < PHASE_LEN - 1; i++) {
     const idx  = (phaseHead + i) % PHASE_LEN;
     const idx1 = (phaseHead + i + 1) % PHASE_LEN;
@@ -390,8 +530,9 @@ function loop() {
   const speed = parseInt(document.getElementById('sl-spd').value, 10);
   for (let s = 0; s < speed; s++) {
     step(params.I);
-    vHistory.copyWithin(0, 1); uHistory.copyWithin(0, 1);
-    vHistory[TRACE_LEN - 1] = v; uHistory[TRACE_LEN - 1] = u;
+    vHistory[traceHead] = v; uHistory[traceHead] = u;
+    traceHead++;
+    if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
     phaseV[phaseHead] = v; phaseU[phaseHead] = u;
     phaseHead = (phaseHead + 1) % PHASE_LEN;
   }
@@ -420,6 +561,7 @@ function applyPreset(name) {
   params = { ...p };
   v = -65; u = params.b * v;
   vHistory.fill(-65); uHistory.fill(params.b * v);
+  traceHead = 0; traceFull = false; lastSpikeU = null;
   document.getElementById('sl-a').value = p.a;
   document.getElementById('sl-b').value = p.b;
   document.getElementById('sl-c').value = p.c;
@@ -440,6 +582,12 @@ document.getElementById('presets').addEventListener('click', e => {
 });
 
 requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  katex.render(String.raw`\frac{dv}{dt} = 0.04v^2 + 5v + 140 - u + I`, document.getElementById('eq1'), { displayMode: false });
+  katex.render(String.raw`\frac{du}{dt} = a\,(bv - u)`, document.getElementById('eq2'), { displayMode: false });
+  katex.render(String.raw`\text{if } v \geq 30\,\text{mV} \;:\quad v \leftarrow c,\quad u \leftarrow u + d`, document.getElementById('eq3'), { displayMode: false });
+});
 </script>
 
 </body>

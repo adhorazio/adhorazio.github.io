@@ -24,13 +24,16 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem;
+      padding: 0 2rem 2rem;
     }
 
+    /* ── Header ── */
     header {
       width: 100%;
       max-width: 760px;
-      padding: 1rem 0 1.5rem;
+      padding: 16px 0 1.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
     }
 
     .header-title {
@@ -43,7 +46,6 @@
       height: 4rem;
       width: auto;
       filter: brightness(0) saturate(100%) invert(19%) sepia(97%) saturate(2084%) hue-rotate(322deg) brightness(105%) contrast(103%);
-      opacity: 1;
     }
 
     header h1 {
@@ -53,13 +55,11 @@
       color: var(--text);
     }
 
-    header h1 span { color: var(--text); }
-
     header p {
-      margin-top: 0.6rem;
-      font-size: 0.85rem;
+      margin-top: 0.05rem;
+      font-size: 0.82rem;
       color: var(--text-dim);
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
     }
 
     main {
@@ -68,93 +68,63 @@
       max-width: 760px;
     }
 
-    /* ── Nav items ── */
-    .nav-grid {
-      display: flex;
-      gap: 1rem;
+    /* ── Sections ── */
+    .section {
+      margin-bottom: 2.5rem;
     }
 
-    .nav-item {
-      position: relative;
-    }
-
-    .nav-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text-dim);
-      font-family: inherit;
-      font-size: 0.85rem;
-      letter-spacing: 0.06em;
+    .section-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      padding: 0.6rem 1.1rem;
-      cursor: pointer;
+      color: var(--text);
+      margin-bottom: 0.9rem;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+
+    /* ── Cards ── */
+    .card {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      transition: border-color 0.15s, color 0.15s;
-      user-select: none;
-    }
-
-    .nav-btn .arrow {
-      font-size: 0.6rem;
-      transition: transform 0.15s;
-    }
-
-    .nav-item:hover .nav-btn,
-    .nav-item:focus-within .nav-btn {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    .nav-item:hover .arrow,
-    .nav-item:focus-within .arrow {
-      transform: rotate(180deg);
-    }
-
-    /* ── Dropdown ── */
-    .dropdown {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
+      justify-content: space-between;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.4rem 0;
-      min-width: 180px;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(-4px);
-      transition: opacity 0.15s, transform 0.15s;
-      z-index: 10;
-    }
-
-    .nav-item:hover .dropdown,
-    .nav-item:focus-within .dropdown {
-      opacity: 1;
-      pointer-events: all;
-      transform: translateY(0);
-    }
-
-    .dropdown a {
-      display: block;
-      padding: 0.45rem 1rem;
-      font-size: 0.82rem;
-      color: var(--text-dim);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
       text-decoration: none;
-      transition: color 0.12s, background 0.12s;
+      color: var(--text);
+      transition: border-color 0.2s, background 0.2s,
+                  transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                  box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    .dropdown a:hover {
-      color: var(--accent);
-      background: rgba(0,154,222,0.06);
+    .card:hover {
+      border-color: var(--accent);
+      background: rgba(0,154,222,0.05);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     }
 
-    /* ── Disabled nav item ── */
-    .nav-btn.disabled {
-      opacity: 0.4;
-      cursor: default;
-      pointer-events: none;
+    .card-body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .card-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
     }
 
     /* ── Footer ── */
@@ -184,30 +154,38 @@
 
 <header>
   <div class="header-title">
-    <h1>Spiking <span>Neuromorphics</span></h1>
+    <h1>Spiking Neuromorphics</h1>
     <img src="assets/img/AP_HH.svg" alt="HH action potential" />
   </div>
   <p>How Far Can Minimal Models Reproduce Neural Dynamics?</p>
 </header>
 
 <main>
-  <nav class="nav-grid">
 
-    <div class="nav-item">
-      <div class="nav-btn">Neuron Models <span class="arrow">▼</span></div>
-      <div class="dropdown">
-        <a href="models/izhikevich.html">Izhikevich Model</a>
-      </div>
+  <section class="section animate">
+    <div class="section-label">Neuron Models</div>
+    <div class="card-grid">
+      <a class="card" href="models/izhikevich.html">
+        <div class="card-body">
+          <div class="card-name">Izhikevich</div>
+          <div class="card-sub">Simple spiking neuron model</div>
+        </div>
+      </a>
     </div>
+  </section>
 
-    <div class="nav-item">
-      <div class="nav-btn">Networks <span class="arrow">▼</span></div>
-      <div class="dropdown">
-        <a href="networks/clione.html">Clione</a>
-      </div>
+  <section class="section animate">
+    <div class="section-label">Networks</div>
+    <div class="card-grid">
+      <a class="card" href="networks/clione.html">
+        <div class="card-body">
+          <div class="card-name">Clione</div>
+          <div class="card-sub">Barycentric firing-rate dynamics</div>
+        </div>
+      </a>
     </div>
+  </section>
 
-  </nav>
 </main>
 
 <footer>
