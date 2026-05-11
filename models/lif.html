@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LIF Neuron — Spiking Neuromorphics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --gdv-q1: #FF1F5B;
+      --gdv-q2: #00CD6C;
+      --gdv-q3: #009ADE;
+      --gdv-q4: #AF58BA;
+      --gdv-q5: #FFC61E;
+      --gdv-q6: #F28522;
+      --gdv-q7: #A0B1BA;
+      --gdv-q8: #A6761D;
+      --bg: #2b2b2b;
+      --surface: #333333;
+      --border: #444444;
+      --text: #e0e0e0;
+      --text-dim: #888888;
+      --accent: var(--gdv-q3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 2rem 2rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 760px;
+      padding: 16px 0 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    header a {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    header a:hover { color: var(--accent); }
+
+    main {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem 2rem;
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .widget-title {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gdv-q3);
+      font-weight: 600;
+    }
+
+    #canvas-wrap { position: relative; width: 100%; }
+
+    #trace {
+      display: block;
+      width: 100%;
+      height: 200px;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem 1.2rem;
+    }
+
+    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span {
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--gdv-q3);
+      border: 2px solid var(--bg);
+    }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    .preset-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--gdv-q3);
+      color: var(--gdv-q3);
+    }
+
+    #fi-wrap { display: flex; gap: 1rem; align-items: flex-start; }
+
+    #fi {
+      display: block;
+      width: 220px;
+      height: 150px;
+      flex-shrink: 0;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .legend-section-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.6;
+      margin-bottom: 0.1rem;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+    .legend-dot.dot { height: 8px; width: 8px; border-radius: 50%; }
+
+    .freq-display {
+      font-size: 0.68rem;
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+      margin-top: 0.1rem;
+    }
+
+
+    footer {
+      width: 100%;
+      max-width: 760px;
+      padding: 2rem 0 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2.5rem;
+    }
+
+    .footer-ref { font-style: italic; line-height: 1.5; }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--accent); }
+
+    .equations {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .eq-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .eq-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eq-row, .eq-reset {
+      padding: 0.55rem 1rem;
+    }
+
+    .eq-row .katex { color: var(--text); font-size: 1rem; }
+
+    .eq-reset { color: #b0b0b0; }
+    .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>LIF Neuron</h1>
+  <a href="../index.html">← Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn active" data-preset="SUB">Sub-threshold</button>
+    <button class="preset-btn" data-preset="TONIC">Tonic spiking</button>
+    <button class="preset-btn" data-preset="FAST">Fast spiking</button>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="trace" height="200"></canvas>
+  </div>
+
+  <div id="fi-wrap">
+    <canvas id="fi" width="220" height="150"></canvas>
+    <div class="legend">
+      <div class="legend-section">
+        <div class="legend-section-title">Trace</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>V (membrane potential)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1); opacity:.6;"></div>
+          <span>V<sub>θ</sub> (spike threshold)</span>
+        </div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">f–I curve</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>f(I) analytical</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3); opacity:.35;"></div>
+          <span>rheobase I<sub>th</sub></span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot dot" style="background: var(--gdv-q5);"></div>
+          <span>operating point</span>
+        </div>
+        <div class="freq-display" id="freq-display">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>τ<sub>m</sub> — membrane time constant <span id="val-tau">100 ms</span></label>
+      <input type="range" id="sl-tau" min="5" max="500" step="5" value="100" />
+    </div>
+    <div class="control-group">
+      <label>V<sub>rest</sub> — resting potential <span id="val-vrest">-70 mV</span></label>
+      <input type="range" id="sl-vrest" min="-85" max="-55" step="1" value="-70" />
+    </div>
+    <div class="control-group">
+      <label>V<sub>θ</sub> — spike threshold <span id="val-vthresh">-50 mV</span></label>
+      <input type="range" id="sl-vthresh" min="-65" max="-30" step="1" value="-50" />
+    </div>
+    <div class="control-group">
+      <label>I<sub>eff</sub> — effective input <span id="val-I">30 mV</span></label>
+      <input type="range" id="sl-I" min="0" max="55" step="1" value="30" />
+    </div>
+    <div class="control-group">
+      <label>speed <span id="val-spd">¼×</span></label>
+      <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.25" />
+    </div>
+  </div>
+</div>
+</main>
+
+<div class="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-reset" id="eq2"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-ref">
+    Lapicque, L. Recherches quantitatives sur l'excitation électrique des nerfs traitée comme une polarisation.
+    <em>J. Physiol. Pathol. Gén.</em> <strong>9</strong>, 620–635 (1907).
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
+
+const PRESETS = {
+  SUB:   { tau_m: 100, V_rest: -70, V_thresh: -50, I_eff: 30 },
+  TONIC: { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 25 },
+  FAST:  { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 45 },
+};
+
+let params = { ...PRESETS.SUB };
+
+const TRACE_LEN = 600;
+const vHistory  = new Float32Array(TRACE_LEN);
+vHistory.fill(params.V_rest);
+let traceHead = 0;
+let traceFull = false;
+
+let V             = params.V_rest;
+let simStep       = 0;
+let lastSpikeStep = null;
+let simISI        = null;
+let lastFrameTime = null;
+
+const traceCanvas = document.getElementById('trace');
+const tctx        = traceCanvas.getContext('2d');
+const fiCanvas    = document.getElementById('fi');
+const fctx        = fiCanvas.getContext('2d');
+
+function resizeTrace() {
+  traceCanvas.width  = traceCanvas.offsetWidth;
+  traceCanvas.height = traceCanvas.offsetHeight;
+}
+window.addEventListener('resize', resizeTrace);
+resizeTrace();
+
+// ── Simulation ────────────────────────────────────────────────────────────────
+
+function step() {
+  simStep++;
+  V += (-(V - params.V_rest) + params.I_eff) / params.tau_m; // dt = 1 ms
+  if (V >= params.V_thresh) {
+    if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
+    lastSpikeStep = simStep;
+    V = params.V_rest;
+  }
+}
+
+// Analytical f-I curve: f = 1 / (τ_m · ln(I / (I − ΔVθ)))
+function fiFreq(I_eff) {
+  const dVth = params.V_thresh - params.V_rest;
+  if (dVth <= 0 || I_eff <= dVth) return 0;
+  const t_spike = params.tau_m * Math.log(I_eff / (I_eff - dVth));
+  return t_spike > 0 ? 1000 / t_spike : 0;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+
+function drawTrace() {
+  const W = traceCanvas.width, H = traceCanvas.height;
+  tctx.clearRect(0, 0, W, H);
+  const Vr  = params.V_rest;
+  const Vth = params.V_thresh;
+  const vMin = -95, vMax = -20;
+  const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
+
+  // Horizontal grid — fixed reference lines
+  tctx.font = '10px monospace';
+  [-80, -60, -40].forEach(yv => {
+    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
+    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
+    tctx.fillStyle = '#555';
+    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
+  });
+
+  // V_rest and V_thresh marker lines
+  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: GDV.q[0] + '99' }].forEach(({ v, label, color }) => {
+    const isThresh = v === Vth;
+    tctx.strokeStyle = isThresh ? GDV.q[0] + '55' : '#4a4a4a';
+    tctx.lineWidth = 1; tctx.setLineDash(isThresh ? [4, 4] : [2, 4]);
+    tctx.beginPath(); tctx.moveTo(0, mapY(v)); tctx.lineTo(W, mapY(v)); tctx.stroke();
+    tctx.setLineDash([]);
+    tctx.fillStyle = color;
+    tctx.fillText(label + ' ' + v + ' mV', 4, mapY(v) - 3);
+  });
+
+  // Cursor
+  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
+
+  // V trace helper
+  const drawSeg = (from, to, alpha) => {
+    if (to <= from) return;
+    tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (TRACE_LEN - 1)) * W;
+      i === from ? tctx.moveTo(x, mapY(vHistory[i])) : tctx.lineTo(x, mapY(vHistory[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
+  drawSeg(0, traceHead, 1.0);
+}
+
+function drawFICurve() {
+  const W = fiCanvas.width, H = fiCanvas.height;
+  const ml = 30, mt = 10, mr = 6, mb = 26;
+  const cW = W - ml - mr, cH = H - mt - mb;
+
+  fctx.clearRect(0, 0, W, H);
+  fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
+
+  const dVth  = params.V_thresh - params.V_rest;
+  const I_MAX = 60;
+  const F_MAX = 30;
+  const xi = I => ml + (I / I_MAX) * cW;
+  const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
+
+  // Grid
+  fctx.lineWidth = 0.5;
+  [10, 20, 30].forEach(f => {
+    fctx.strokeStyle = '#333';
+    fctx.beginPath(); fctx.moveTo(ml, yf(f)); fctx.lineTo(ml + cW, yf(f)); fctx.stroke();
+    fctx.fillStyle = '#555'; fctx.font = '9px monospace';
+    fctx.fillText(f, 2, yf(f) + 3);
+  });
+  [20, 40, 60].forEach(I => {
+    fctx.strokeStyle = '#333'; fctx.lineWidth = 0.5;
+    fctx.beginPath(); fctx.moveTo(xi(I), mt); fctx.lineTo(xi(I), mt + cH); fctx.stroke();
+    fctx.fillStyle = '#555'; fctx.font = '9px monospace';
+    fctx.fillText(I, xi(I) - 5, mt + cH + 14);
+  });
+
+  // Axes
+  fctx.strokeStyle = '#555'; fctx.lineWidth = 1;
+  fctx.beginPath();
+  fctx.moveTo(ml, mt); fctx.lineTo(ml, mt + cH); fctx.lineTo(ml + cW, mt + cH);
+  fctx.stroke();
+
+  // Axis labels
+  fctx.fillStyle = '#666'; fctx.font = '9px monospace';
+  fctx.fillText('f (Hz)', ml + 2, mt + 9);
+  fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 44, mt + cH + 22);
+
+  // Rheobase dashed line
+  if (dVth > 0 && dVth <= I_MAX) {
+    fctx.strokeStyle = GDV.q[2] + '55'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+    fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
+    fctx.setLineDash([]);
+  }
+
+  // f-I curve
+  fctx.strokeStyle = GDV.q[2]; fctx.lineWidth = 1.5;
+  fctx.beginPath();
+  fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(Math.min(dVth, I_MAX)), yf(0));
+  let started = false;
+  for (let I = Math.max(dVth, 0); I <= I_MAX; I += I_MAX / 200) {
+    const f = fiFreq(I);
+    const x = xi(I), y = yf(f);
+    started ? fctx.lineTo(x, y) : (fctx.moveTo(x, y), started = true);
+  }
+  fctx.stroke();
+
+  // Operating point
+  const op_I = Math.min(params.I_eff, I_MAX);
+  const op_f = fiFreq(params.I_eff);
+  fctx.beginPath();
+  fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
+  fctx.fillStyle = GDV.q[4]; fctx.fill();
+
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+
+function loop() {
+  const now = performance.now();
+  const speed = parseFloat(document.getElementById('sl-spd').value);
+  const dtReal = lastFrameTime !== null ? now - lastFrameTime : 16.7;
+  lastFrameTime = now;
+  const steps = Math.round(dtReal * speed); // 1 sim-ms per real-ms at speed=1
+  for (let s = 0; s < steps; s++) {
+    step();
+    vHistory[traceHead] = V;
+    traceHead++;
+    if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
+  }
+  drawTrace();
+  drawFICurve();
+
+  const freqEl = document.getElementById('freq-display');
+  const theorF = fiFreq(params.I_eff);
+  const theorStr = theorF > 0 ? theorF.toFixed(1) + ' Hz' : '—';
+  const obsF = (simISI !== null && (simStep - lastSpikeStep) < 3000)
+    ? (1000 / simISI).toFixed(1) + ' Hz' : '—';
+  freqEl.innerHTML = `<span style="opacity:.6">theory</span> ${theorStr}<br><span style="opacity:.6">observed</span> ${obsF}`;
+
+  requestAnimationFrame(loop);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+
+[
+  ['tau_m',    'sl-tau',     'val-tau',     0, v => v + ' ms'],
+  ['V_rest',   'sl-vrest',   'val-vrest',   0, v => v + ' mV'],
+  ['V_thresh', 'sl-vthresh', 'val-vthresh', 0, v => v + ' mV'],
+  ['I_eff',    'sl-I',       'val-I',       0, v => v + ' mV'],
+].forEach(([key, slId, valId, dec, fmt]) => {
+  const sl = document.getElementById(slId);
+  document.getElementById(valId).textContent = fmt(parseFloat(sl.value).toFixed(dec));
+  sl.addEventListener('input', () => {
+    let val = parseFloat(sl.value);
+    if (key === 'V_rest'   && val >= params.V_thresh - 5) { val = params.V_thresh - 5; sl.value = val; }
+    if (key === 'V_thresh' && val <= params.V_rest  + 5) { val = params.V_rest  + 5; sl.value = val; }
+    params[key] = val;
+    document.getElementById(valId).textContent = fmt(val.toFixed(dec));
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    lastSpikeStep = null; simISI = null;
+  });
+});
+
+document.getElementById('sl-spd').addEventListener('input', function () {
+  const v = parseFloat(this.value);
+  const label = v === 0.25 ? '¼×' : v === 0.5 ? '½×' : v === 0.75 ? '¾×' : v + '×';
+  document.getElementById('val-spd').textContent = label;
+});
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  params = { ...p };
+  V = p.V_rest;
+  vHistory.fill(p.V_rest); traceHead = 0; traceFull = false;
+  lastSpikeTime = null; realISI = null;
+
+  document.getElementById('sl-tau').value     = p.tau_m;
+  document.getElementById('sl-vrest').value   = p.V_rest;
+  document.getElementById('sl-vthresh').value = p.V_thresh;
+  document.getElementById('sl-I').value       = p.I_eff;
+
+  document.getElementById('val-tau').textContent     = p.tau_m   + ' ms';
+  document.getElementById('val-vrest').textContent   = p.V_rest  + ' mV';
+  document.getElementById('val-vthresh').textContent = p.V_thresh + ' mV';
+  document.getElementById('val-I').textContent       = p.I_eff   + ' mV';
+
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+}
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  katex.render(
+    String.raw`\tau_m \frac{dV}{dt} = -(V - V_{\text{rest}}) + I_{\text{eff}}`,
+    document.getElementById('eq1'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`\text{if } V \geq V_\theta \;:\quad V \leftarrow V_{\text{rest}}`,
+    document.getElementById('eq2'), { displayMode: false }
+  );
+});
+</script>
+
+</body>
+</html>
