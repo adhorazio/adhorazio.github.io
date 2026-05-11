@@ -319,8 +319,8 @@
 
   <div class="controls">
     <div class="control-group">
-      <label>τ<sub>m</sub> — membrane time constant <span id="val-tau">20 ms</span></label>
-      <input type="range" id="sl-tau" min="5" max="500" step="5" value="20" />
+      <label>τ<sub>m</sub> — membrane time constant <span id="val-tau">100 ms</span></label>
+      <input type="range" id="sl-tau" min="5" max="500" step="5" value="100" />
     </div>
     <div class="control-group">
       <label>V<sub>rest</sub> — resting potential <span id="val-vrest">-70 mV</span></label>
@@ -331,12 +331,12 @@
       <input type="range" id="sl-vthresh" min="-65" max="-30" step="1" value="-50" />
     </div>
     <div class="control-group">
-      <label>I<sub>eff</sub> — effective input <span id="val-I">15 mV</span></label>
-      <input type="range" id="sl-I" min="0" max="55" step="1" value="15" />
+      <label>I<sub>eff</sub> — effective input <span id="val-I">30 mV</span></label>
+      <input type="range" id="sl-I" min="0" max="55" step="1" value="30" />
     </div>
     <div class="control-group">
-      <label>speed <span id="val-spd">1×</span></label>
-      <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="1" />
+      <label>speed <span id="val-spd">¼×</span></label>
+      <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.25" />
     </div>
   </div>
 </div>
@@ -365,7 +365,7 @@
 const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
 
 const PRESETS = {
-  SUB:   { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 15 },
+  SUB:   { tau_m: 100, V_rest: -70, V_thresh: -50, I_eff: 30 },
   TONIC: { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 25 },
   FAST:  { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 45 },
 };
