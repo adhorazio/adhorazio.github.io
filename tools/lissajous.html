@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lissajous Figures — Spiking Neuromorphics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --gdv-q1: #FF1F5B;
+      --gdv-q2: #00CD6C;
+      --gdv-q3: #009ADE;
+      --gdv-q4: #AF58BA;
+      --gdv-q5: #FFC61E;
+      --gdv-q6: #F28522;
+      --gdv-q7: #A0B1BA;
+      --gdv-q8: #A6761D;
+      --bg: #2b2b2b;
+      --surface: #333333;
+      --border: #444444;
+      --text: #e0e0e0;
+      --text-dim: #888888;
+      --accent: var(--gdv-q3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 2rem 2rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 760px;
+      padding: 16px 0 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    header a {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    header a:hover { color: var(--accent); }
+
+    main {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem 2rem;
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .widget-title {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gdv-q3);
+      font-weight: 600;
+    }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    .preset-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--gdv-q3);
+      color: var(--gdv-q3);
+    }
+
+    #liss-wrap { display: flex; gap: 1rem; align-items: flex-start; }
+
+    #lissajous {
+      display: block;
+      width: 220px;
+      height: 220px;
+      flex-shrink: 0;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    #canvas-wrap { position: relative; width: 100%; }
+
+    #trace {
+      display: block;
+      width: 100%;
+      height: 120px;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem 1.2rem;
+    }
+
+    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span {
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--gdv-q3);
+      border: 2px solid var(--bg);
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .legend-section-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.6;
+      margin-bottom: 0.1rem;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+    .legend-note {
+      font-size: 0.64rem;
+      opacity: 0.45;
+      margin-top: 0.1rem;
+    }
+
+    .freq-display {
+      font-size: 0.68rem;
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+      margin-top: 0.15rem;
+    }
+
+    .equations {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .eq-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .eq-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eq-row { padding: 0.55rem 1rem; }
+    .eq-row .katex { color: var(--text); font-size: 1rem; }
+
+    footer {
+      width: 100%;
+      max-width: 760px;
+      padding: 2rem 0 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2.5rem;
+    }
+
+    .footer-ref { font-style: italic; line-height: 1.5; }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Lissajous Figures</h1>
+  <a href="../index.html">← Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn" data-preset="CIRCLE">1:1 Circle</button>
+    <button class="preset-btn active" data-preset="FIG8">2:1</button>
+    <button class="preset-btn" data-preset="P3Q2">3:2</button>
+    <button class="preset-btn" data-preset="P3Q1">3:1</button>
+    <button class="preset-btn" data-preset="P4Q3">4:3</button>
+    <button class="preset-btn" data-preset="P5Q4">5:4</button>
+    <button class="preset-btn" data-preset="P5Q3">5:3</button>
+    <button class="preset-btn" data-preset="P6Q5">6:5</button>
+  </div>
+
+  <div id="liss-wrap">
+    <canvas id="lissajous" width="220" height="220"></canvas>
+    <div class="legend">
+      <div class="legend-section">
+        <div class="legend-section-title">X axis (horizontal)</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>X₁ = sin(2πt)</span>
+        </div>
+        <div class="legend-note">A₁ = 1 &nbsp;·&nbsp; f₁ = 1 Hz &nbsp;·&nbsp; φ₁ = 0 &nbsp;— fixed</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Y axis (vertical)</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+          <span>X₂ = A₂ sin(2πf₂t + φ₂)</span>
+        </div>
+        <div class="freq-display" id="ratio-display">f₂ / f₁ = 2:1</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Trace</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: rgba(255,255,255,0.15);"></div>
+          <span>ghost (full curve)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>live trail</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="trace" height="120"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>A₂ — amplitude <span id="val-A2">1.00</span></label>
+      <input type="range" id="sl-A2" min="0.1" max="3" step="0.5" value="1" />
+    </div>
+    <div class="control-group">
+      <label>f₂ — frequency <span id="val-f2">2.0 Hz</span></label>
+      <input type="range" id="sl-f2" min="0.5" max="5" step="0.1" value="2" />
+    </div>
+    <div class="control-group">
+      <label>φ₂ — phase <span id="val-phi2">0°</span></label>
+      <input type="range" id="sl-phi2" min="0" max="360" step="5" value="0" />
+    </div>
+    <div class="control-group">
+      <label>speed <span id="val-spd">½×</span></label>
+      <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.5" />
+    </div>
+  </div>
+</div>
+
+<div class="equations">
+  <div class="eq-label">Signal definitions</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+  </div>
+</div>
+
+</main>
+
+<footer>
+  <div class="footer-ref">
+    Lissajous, J. A. Mémoire sur l'étude optique des mouvements vibratoires.
+    <em>Ann. Chim. Phys.</em> <strong>51</strong>, 147–231 (1857).
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
+
+const PRESETS = {
+  CIRCLE: { A2: 1, f2: 1,       phi2_deg: 90 },
+  FIG8:   { A2: 1, f2: 2,       phi2_deg: 0  },
+  P3Q2:   { A2: 1, f2: 1.5,     phi2_deg: 90 },
+  P3Q1:   { A2: 1, f2: 3,       phi2_deg: 0  },
+  P4Q3:   { A2: 1, f2: 4/3,     phi2_deg: 90 },
+  P5Q4:   { A2: 1, f2: 5/4,     phi2_deg: 90 },
+  P5Q3:   { A2: 1, f2: 5/3,     phi2_deg: 90 },
+  P6Q5:   { A2: 1, f2: 6/5,     phi2_deg: 90 },
+};
+
+let params = { A2: 1, f2: 2, phi2: 0 }; // phi2 in radians
+
+const lissajousCanvas = document.getElementById('lissajous');
+const lctx            = lissajousCanvas.getContext('2d');
+const traceCanvas     = document.getElementById('trace');
+const tctx            = traceCanvas.getContext('2d');
+
+function resizeTrace() {
+  traceCanvas.width  = traceCanvas.offsetWidth;
+  traceCanvas.height = traceCanvas.offsetHeight;
+}
+window.addEventListener('resize', resizeTrace);
+resizeTrace();
+
+// ── Signals ───────────────────────────────────────────────────────────────────
+function x1(t) { return Math.sin(2 * Math.PI * t); }
+function x2(t) { return params.A2 * Math.sin(2 * Math.PI * params.f2 * t + params.phi2); }
+
+// ── Ghost cache ───────────────────────────────────────────────────────────────
+const T_GHOST = 8;
+const N_GHOST = 2000;
+let ghostPts  = [];
+let ghostDirty = true;
+
+function recomputeGhost() {
+  ghostPts = new Array(N_GHOST + 1);
+  for (let i = 0; i <= N_GHOST; i++) {
+    const t = (i / N_GHOST) * T_GHOST;
+    ghostPts[i] = [x1(t), x2(t)];
+  }
+  ghostDirty = false;
+}
+
+// ── Animation state ───────────────────────────────────────────────────────────
+let animTime      = 0;
+let lastFrameTime = null;
+
+// ── Lissajous canvas ──────────────────────────────────────────────────────────
+const N_TRAIL   = 80;
+const TRAIL_DUR = 0.3; // signal-seconds
+
+function drawLissajous() {
+  if (ghostDirty) recomputeGhost();
+
+  const W = lissajousCanvas.width, H = lissajousCanvas.height;
+  lctx.clearRect(0, 0, W, H);
+
+  const margin = 12;
+  const maxA   = Math.max(1, params.A2);
+  const scale  = (Math.min(W, H) / 2 - margin) / (maxA * 1.1);
+  const cx = W / 2, cy = H / 2;
+  const px = v => cx + v * scale;
+  const py = v => cy - v * scale;
+
+  // Axis lines
+  lctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  lctx.lineWidth = 0.5;
+  lctx.setLineDash([4, 5]);
+  lctx.beginPath(); lctx.moveTo(cx, margin); lctx.lineTo(cx, H - margin); lctx.stroke();
+  lctx.beginPath(); lctx.moveTo(margin, cy); lctx.lineTo(W - margin, cy); lctx.stroke();
+  lctx.setLineDash([]);
+
+  // Axis labels
+  lctx.fillStyle = 'rgba(255,255,255,0.2)';
+  lctx.font = '9px monospace';
+  lctx.fillText('X₁', W - margin - 12, cy - 4);
+  lctx.fillText('X₂', cx + 4, margin + 10);
+
+  // Ghost trace
+  lctx.beginPath();
+  ghostPts.forEach(([gx, gy], i) => {
+    i === 0 ? lctx.moveTo(px(gx), py(gy)) : lctx.lineTo(px(gx), py(gy));
+  });
+  lctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  lctx.lineWidth = 0.8;
+  lctx.stroke();
+
+  // Animated trail
+  const tCur = animTime % T_GHOST;
+  for (let i = 0; i < N_TRAIL; i++) {
+    const alpha = i / N_TRAIL;
+    const ta = tCur - TRAIL_DUR * (1 - i / N_TRAIL);
+    const tb = tCur - TRAIL_DUR * (1 - (i + 1) / N_TRAIL);
+    lctx.beginPath();
+    lctx.moveTo(px(x1(ta)), py(x2(ta)));
+    lctx.lineTo(px(x1(tb)), py(x2(tb)));
+    lctx.strokeStyle = `rgba(0,154,222,${alpha * 0.92})`;
+    lctx.lineWidth = 0.5 + alpha * 2;
+    lctx.stroke();
+  }
+
+  // Current dot (white halo + blue core)
+  const dx = px(x1(tCur)), dy = py(x2(tCur));
+  lctx.beginPath(); lctx.arc(dx, dy, 4, 0, Math.PI * 2);
+  lctx.fillStyle = 'rgba(255,255,255,0.5)'; lctx.fill();
+  lctx.beginPath(); lctx.arc(dx, dy, 2.5, 0, Math.PI * 2);
+  lctx.fillStyle = GDV.q[2]; lctx.fill();
+}
+
+// ── Time-trace canvas ─────────────────────────────────────────────────────────
+const TRACE_DUR  = 4;
+const TRACE_SAMP = 500;
+
+function drawTrace() {
+  const W = traceCanvas.width, H = traceCanvas.height;
+  tctx.clearRect(0, 0, W, H);
+
+  const maxA = Math.max(1, params.A2) * 1.15;
+  const mapY = v => H / 2 - (v / maxA) * (H / 2 - 4);
+
+  // Zero line
+  tctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  tctx.lineWidth = 0.5;
+  tctx.setLineDash([4, 4]);
+  tctx.beginPath(); tctx.moveTo(0, H / 2); tctx.lineTo(W, H / 2); tctx.stroke();
+  tctx.setLineDash([]);
+
+  // Playhead
+  tctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(W, 0); tctx.lineTo(W, H); tctx.stroke();
+
+  const drawSig = (fn, color) => {
+    tctx.beginPath();
+    for (let i = 0; i <= TRACE_SAMP; i++) {
+      const t = animTime - TRACE_DUR + (i / TRACE_SAMP) * TRACE_DUR;
+      const sx = (i / TRACE_SAMP) * W;
+      const sy = mapY(fn(t));
+      i === 0 ? tctx.moveTo(sx, sy) : tctx.lineTo(sx, sy);
+    }
+    tctx.strokeStyle = color;
+    tctx.lineWidth = 1.5;
+    tctx.stroke();
+  };
+
+  drawSig(x1, GDV.q[2]); // X1 blue
+  drawSig(x2, GDV.q[0]); // X2 red
+
+  // Labels
+  tctx.font = '9px monospace';
+  tctx.fillStyle = GDV.q[2]; tctx.fillText('X₁', 4, 12);
+  tctx.fillStyle = GDV.q[0]; tctx.fillText('X₂', 4, 24);
+}
+
+// ── Ratio display ─────────────────────────────────────────────────────────────
+function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+function updateRatio() {
+  const f2 = params.f2;
+  let bestP = Math.round(f2), bestQ = 1, bestErr = Math.abs(f2 - bestP);
+  for (let q = 2; q <= 12; q++) {
+    const p = Math.round(f2 * q);
+    if (p <= 0) continue;
+    const err = Math.abs(f2 - p / q);
+    if (err < bestErr) { bestErr = err; bestP = p; bestQ = q; }
+  }
+  const g = gcd(bestP, bestQ);
+  const tag = bestErr < 0.01 ? `${bestP / g}:${bestQ / g}` : `≈ ${f2.toFixed(2)}:1`;
+  document.getElementById('ratio-display').textContent = `f₂ / f₁ = ${tag}`;
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+function loop() {
+  const now = performance.now();
+  if (lastFrameTime !== null) {
+    const speed = parseFloat(document.getElementById('sl-spd').value);
+    animTime += (now - lastFrameTime) / 1000 * speed;
+  }
+  lastFrameTime = now;
+  drawLissajous();
+  drawTrace();
+  requestAnimationFrame(loop);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function clearPresets() {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+document.getElementById('sl-A2').addEventListener('input', function () {
+  params.A2 = parseFloat(this.value);
+  document.getElementById('val-A2').textContent = params.A2.toFixed(2);
+  ghostDirty = true;
+  clearPresets();
+});
+
+document.getElementById('sl-f2').addEventListener('input', function () {
+  params.f2 = parseFloat(this.value);
+  document.getElementById('val-f2').textContent = params.f2.toFixed(1) + ' Hz';
+  ghostDirty = true;
+  updateRatio();
+  clearPresets();
+});
+
+document.getElementById('sl-phi2').addEventListener('input', function () {
+  params.phi2 = parseFloat(this.value) * Math.PI / 180;
+  document.getElementById('val-phi2').textContent = this.value + '°';
+  ghostDirty = true;
+  clearPresets();
+});
+
+document.getElementById('sl-spd').addEventListener('input', function () {
+  const v = parseFloat(this.value);
+  const label = v === 0.25 ? '¼×' : v === 0.5 ? '½×' : v === 0.75 ? '¾×' : v + '×';
+  document.getElementById('val-spd').textContent = label;
+});
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  params.A2   = p.A2;
+  params.f2   = p.f2;
+  params.phi2 = p.phi2_deg * Math.PI / 180;
+  ghostDirty  = true;
+
+  document.getElementById('sl-A2').value   = p.A2;
+  document.getElementById('sl-f2').value   = p.f2;
+  document.getElementById('sl-phi2').value = p.phi2_deg;
+
+  document.getElementById('val-A2').textContent   = p.A2.toFixed(2);
+  document.getElementById('val-f2').textContent   = p.f2.toFixed(1) + ' Hz';
+  document.getElementById('val-phi2').textContent = p.phi2_deg + '°';
+
+  updateRatio();
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+}
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+updateRatio();
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  katex.render(
+    String.raw`X_1(t) = A_1\,\sin(2\pi f_1\,t + \varphi_1) \qquad [A_1{=}1,\; f_1{=}1\,\text{Hz},\; \varphi_1{=}0\text{ — fixed}]`,
+    document.getElementById('eq1'), { displayMode: false, throwOnError: false }
+  );
+  katex.render(
+    String.raw`X_2(t) = A_2\,\sin(2\pi f_2\,t + \varphi_2)`,
+    document.getElementById('eq2'), { displayMode: false, throwOnError: false }
+  );
+});
+</script>
+
+</body>
+</html>
