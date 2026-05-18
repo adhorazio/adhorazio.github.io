@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hodgkin–Huxley Neuron — Spiking Neuromorphics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --gdv-q1: #FF1F5B;
+      --gdv-q2: #00CD6C;
+      --gdv-q3: #009ADE;
+      --gdv-q4: #AF58BA;
+      --gdv-q5: #FFC61E;
+      --gdv-q6: #F28522;
+      --gdv-q7: #A0B1BA;
+      --gdv-q8: #A6761D;
+      --bg: #2b2b2b;
+      --surface: #333333;
+      --border: #444444;
+      --text: #e0e0e0;
+      --text-dim: #888888;
+      --accent: var(--gdv-q3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 2rem 2rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 760px;
+      padding: 16px 0 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    header a {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    header a:hover { color: var(--accent); }
+
+    main {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem 2rem;
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .widget-title {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gdv-q3);
+      font-weight: 600;
+    }
+
+    #canvas-wrap { position: relative; width: 100%; }
+
+    #trace {
+      display: block;
+      width: 100%;
+      height: 200px;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    #phase-wrap { display: flex; gap: 1rem; align-items: flex-start; }
+
+    #phase-col { display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
+
+    #phase-sel { display: flex; gap: 0.4rem; }
+
+    .phase-var-btn {
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .phase-var-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .phase-var-btn.active { border-color: var(--accent); color: var(--accent); }
+
+    #phase { display: block; width: 200px; height: 200px; border-radius: 6px; background: #1e1e1e; }
+
+    #gates-wrap { display: flex; gap: 1rem; align-items: flex-start; }
+
+    #gates {
+      display: block;
+      flex: 1;
+      height: 180px;
+      border-radius: 6px;
+      background: #1e1e1e;
+      min-width: 0;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem 1.2rem;
+    }
+
+    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span {
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--gdv-q3);
+      border: 2px solid var(--bg);
+    }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    .preset-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--gdv-q3);
+      color: var(--gdv-q3);
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .legend-section-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.6;
+      margin-bottom: 0.1rem;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+    footer {
+      width: 100%;
+      max-width: 760px;
+      padding: 2rem 0 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2.5rem;
+    }
+
+    .footer-ref { font-style: italic; line-height: 1.5; }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--accent); }
+
+    .equations {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .eq-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .eq-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eq-row { padding: 0.55rem 1rem; }
+    .eq-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .eq-row .katex { color: var(--text); font-size: 1rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Hodgkin–Huxley Neuron</h1>
+  <a href="../index.html">← Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn" data-preset="SUB">Sub-threshold</button>
+    <button class="preset-btn active" data-preset="TONIC">Tonic spiking</button>
+    <button class="preset-btn" data-preset="FAST">High-frequency</button>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="trace" height="200"></canvas>
+  </div>
+
+  <div id="phase-wrap">
+    <div id="phase-col">
+      <div id="phase-sel">
+        <button class="phase-var-btn active" data-var="n">V, n</button>
+        <button class="phase-var-btn" data-var="m">V, m</button>
+        <button class="phase-var-btn" data-var="h">V, h</button>
+      </div>
+      <canvas id="phase" width="200" height="200"></canvas>
+    </div>
+    <div class="legend">
+      <div class="legend-section">
+        <div class="legend-section-title">Phase plane (V, n)</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+          <span>dV/dt = 0 (V-nullcline)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q2);"></div>
+          <span>dx/dt = 0 (x-nullcline)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: rgba(255,255,255,0.35);"></div>
+          <span>phase trajectory</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>current state</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gates-wrap">
+    <canvas id="gates" height="180"></canvas></canvas>
+    <div class="legend">
+      <div class="legend-section">
+        <div class="legend-section-title">Trace</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>V (membrane potential)</span>
+        </div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Gating variables</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q6);"></div>
+          <span>m (Na⁺ activation)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q4);"></div>
+          <span>h (Na⁺ inactivation)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+          <span>n (K⁺ activation)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>I<sub>ext</sub> — injected current <span id="val-I">10.0 µA/cm²</span></label>
+      <input type="range" id="sl-I" min="0" max="25" step="0.5" value="10" />
+    </div>
+    <div class="control-group">
+      <label>ḡ<sub>Na</sub> — max Na⁺ conductance <span id="val-gNa">120 mS/cm²</span></label>
+      <input type="range" id="sl-gNa" min="50" max="150" step="5" value="120" />
+    </div>
+    <div class="control-group">
+      <label>ḡ<sub>K</sub> — max K⁺ conductance <span id="val-gK">36 mS/cm²</span></label>
+      <input type="range" id="sl-gK" min="10" max="60" step="2" value="36" />
+    </div>
+    <div class="control-group">
+      <label>speed <span id="val-spd">0.01×</span></label>
+      <input type="range" id="sl-spd" min="0.01" max="0.1" step="0.01" value="0.01" />
+    </div>
+  </div>
+</div>
+</main>
+
+<div class="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-ref">
+    Hodgkin, A. L. &amp; Huxley, A. F. A quantitative description of membrane current and its application to conduction and excitation in nerve.
+    <em>J. Physiol.</em> <strong>117</strong>, 500–544 (1952).
+    <a href="https://doi.org/10.1113/jphysiol.1952.sp004764" target="_blank" rel="noopener">https://doi.org/10.1113/jphysiol.1952.sp004764</a>
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
+
+// ── Parameters ────────────────────────────────────────────────────────────────
+const params = {
+  C_m:  1,      // µF/cm²
+  g_Na: 120,    // mS/cm²
+  g_K:  36,     // mS/cm²
+  g_L:  0.3,    // mS/cm²
+  E_Na: 50,     // mV
+  E_K:  -77,    // mV
+  E_L:  -54.4,  // mV
+  I_ext: 10,    // µA/cm²
+};
+
+const PRESETS = {
+  SUB:   { I_ext: 5,  g_Na: 120, g_K: 36 },
+  TONIC: { I_ext: 10, g_Na: 120, g_K: 36 },
+  FAST:  { I_ext: 20, g_Na: 120, g_K: 36 },
+};
+
+// ── Rate functions (modern absolute mV convention, rest ≈ −65 mV) ─────────────
+function alphaM(V) { const x = V + 40; return Math.abs(x) < 1e-7 ? 1.0 : 0.1 * x / (1 - Math.exp(-x / 10)); }
+function betaM(V)  { return 4 * Math.exp(-(V + 65) / 18); }
+function alphaN(V) { const x = V + 55; return Math.abs(x) < 1e-7 ? 0.1 : 0.01 * x / (1 - Math.exp(-x / 10)); }
+function betaN(V)  { return 0.125 * Math.exp(-(V + 65) / 80); }
+function alphaH(V) { return 0.07 * Math.exp(-(V + 65) / 20); }
+function betaH(V)  { return 1 / (1 + Math.exp(-(V + 35) / 10)); }
+
+function xinf(aFn, bFn, Vv) { const a = aFn(Vv), b = bFn(Vv); return a / (a + b); }
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let V = -65;
+let m = xinf(alphaM, betaM, V);
+let h = xinf(alphaH, betaH, V);
+let n = xinf(alphaN, betaN, V);
+
+const TRACE_LEN = 2000;
+const vHistory = new Float32Array(TRACE_LEN);
+const mHistory = new Float32Array(TRACE_LEN);
+const hHistory = new Float32Array(TRACE_LEN);
+const nHistory = new Float32Array(TRACE_LEN);
+let traceHead = 0, traceFull = false;
+vHistory.fill(V); mHistory.fill(m); hHistory.fill(h); nHistory.fill(n);
+
+const PHASE_DRAW = 400; // samples of trace history shown in phase plane (~20 ms)
+let phaseVar = 'n';    // 'm', 'h', or 'n'
+
+let lastFrameTime = null;
+
+// ── Canvases ──────────────────────────────────────────────────────────────────
+const traceCanvas = document.getElementById('trace');
+const tctx = traceCanvas.getContext('2d');
+const gatesCanvas = document.getElementById('gates');
+const gctx = gatesCanvas.getContext('2d');
+const phaseCanvas = document.getElementById('phase');
+const pctx = phaseCanvas.getContext('2d');
+
+function resizeCanvases() {
+  traceCanvas.width  = traceCanvas.offsetWidth;
+  traceCanvas.height = traceCanvas.offsetHeight;
+  gatesCanvas.width  = gatesCanvas.offsetWidth;
+  gatesCanvas.height = gatesCanvas.offsetHeight;
+}
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+// ── RK4 integration ───────────────────────────────────────────────────────────
+function hhDerivs(Vv, mv, hv, nv) {
+  const I_Na = params.g_Na * mv*mv*mv * hv * (Vv - params.E_Na);
+  const I_K  = params.g_K  * nv*nv*nv*nv  * (Vv - params.E_K);
+  const I_L  = params.g_L  * (Vv - params.E_L);
+  return [
+    (params.I_ext - I_Na - I_K - I_L) / params.C_m,
+    alphaM(Vv) * (1 - mv) - betaM(Vv) * mv,
+    alphaH(Vv) * (1 - hv) - betaH(Vv) * hv,
+    alphaN(Vv) * (1 - nv) - betaN(Vv) * nv,
+  ];
+}
+
+const DT = 0.05;              // ms per RK4 step
+const SUBSTEPS = 1;           // RK4 steps per sample → 0.05 ms per sample
+const MS_PER_SAMPLE = SUBSTEPS * DT;  // 0.05 ms
+
+function hhStep() {
+  const [k1V, k1m, k1h, k1n] = hhDerivs(V, m, h, n);
+  const [k2V, k2m, k2h, k2n] = hhDerivs(V + 0.5*DT*k1V, m + 0.5*DT*k1m, h + 0.5*DT*k1h, n + 0.5*DT*k1n);
+  const [k3V, k3m, k3h, k3n] = hhDerivs(V + 0.5*DT*k2V, m + 0.5*DT*k2m, h + 0.5*DT*k2h, n + 0.5*DT*k2n);
+  const [k4V, k4m, k4h, k4n] = hhDerivs(V + DT*k3V,     m + DT*k3m,     h + DT*k3h,     n + DT*k3n);
+  V += DT / 6 * (k1V + 2*k2V + 2*k3V + k4V);
+  m += DT / 6 * (k1m + 2*k2m + 2*k3m + k4m);
+  h += DT / 6 * (k1h + 2*k2h + 2*k3h + k4h);
+  n += DT / 6 * (k1n + 2*k2n + 2*k3n + k4n);
+  m = Math.max(0, Math.min(1, m));
+  h = Math.max(0, Math.min(1, h));
+  n = Math.max(0, Math.min(1, n));
+}
+
+// V-nullcline: dV/dt = 0, fix the other two gates at steady state, solve for chosen gate
+function vNullclineY(vi, gv) {
+  const mi = xinf(alphaM, betaM, vi);
+  const hi = xinf(alphaH, betaH, vi);
+  const ni = xinf(alphaN, betaN, vi);
+  let val;
+  if (gv === 'n') {
+    const num = params.I_ext - params.g_Na*mi*mi*mi*hi*(vi-params.E_Na) - params.g_L*(vi-params.E_L);
+    const den = params.g_K * (vi - params.E_K);
+    if (Math.abs(den) < 1e-9) return null;
+    const n4 = num / den;
+    if (n4 < 0) return null;
+    val = Math.pow(n4, 0.25);
+  } else if (gv === 'm') {
+    const num = params.I_ext - params.g_K*Math.pow(ni,4)*(vi-params.E_K) - params.g_L*(vi-params.E_L);
+    const den = params.g_Na * hi * (vi - params.E_Na);
+    if (Math.abs(den) < 1e-9) return null;
+    const m3 = num / den;
+    if (m3 < 0) return null;
+    val = Math.cbrt(m3);
+  } else { // h
+    const num = params.I_ext - params.g_K*Math.pow(ni,4)*(vi-params.E_K) - params.g_L*(vi-params.E_L);
+    const den = params.g_Na * mi*mi*mi * (vi - params.E_Na);
+    if (Math.abs(den) < 1e-9) return null;
+    val = num / den;
+  }
+  return (val >= 0 && val <= 1) ? val : null;
+}
+
+const gateHistories = { m: mHistory, h: hHistory, n: nHistory };
+const gateColors    = { m: GDV.q[5], h: GDV.q[3], n: GDV.q[1] };
+const gateXNullcline = {
+  m: vi => xinf(alphaM, betaM, vi),
+  h: vi => xinf(alphaH, betaH, vi),
+  n: vi => xinf(alphaN, betaN, vi),
+};
+
+function drawPhase() {
+  const W = phaseCanvas.width, H = phaseCanvas.height;
+  const ml = 26, mt = 8, mr = 6, mb = 18;
+  const cW = W - ml - mr, cH = H - mt - mb;
+  const vMin = -90, vMax = 50;
+  const mx = v  => ml + (v  - vMin) / (vMax - vMin) * cW;
+  const my = xv => mt + cH * (1 - xv);
+
+  pctx.clearRect(0, 0, W, H);
+  pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
+
+  // Grid
+  pctx.strokeStyle = '#2a2a2a'; pctx.lineWidth = 0.5;
+  [-60, -30, 0, 30].forEach(v => {
+    pctx.beginPath(); pctx.moveTo(mx(v), mt); pctx.lineTo(mx(v), mt + cH); pctx.stroke();
+  });
+  [0.25, 0.5, 0.75].forEach(xv => {
+    pctx.beginPath(); pctx.moveTo(ml, my(xv)); pctx.lineTo(ml + cW, my(xv)); pctx.stroke();
+  });
+
+  // Axis labels
+  pctx.font = '9px monospace'; pctx.fillStyle = '#555';
+  [-60, 0].forEach(v => pctx.fillText(v, mx(v) - (v < 0 ? 10 : 3), mt + cH + 12));
+  [0, 0.5, 1].forEach(xv => pctx.fillText(xv.toFixed(1), 2, my(xv) + 3));
+  pctx.fillStyle = '#666';
+  pctx.fillText('V', ml + cW - 4, mt + cH + 14);
+  pctx.fillText(phaseVar, 2, mt + 8);
+
+  // V-nullcline
+  pctx.strokeStyle = GDV.q[4] + 'cc'; pctx.lineWidth = 1.5;
+  pctx.beginPath(); let startedV = false;
+  for (let vi = vMin; vi <= vMax; vi += 0.5) {
+    const yv = vNullclineY(vi, phaseVar);
+    if (yv === null) { startedV = false; continue; }
+    const x = mx(vi), y = my(yv);
+    startedV ? pctx.lineTo(x, y) : (pctx.moveTo(x, y), startedV = true);
+  }
+  pctx.stroke();
+
+  // x-nullcline
+  pctx.strokeStyle = gateColors[phaseVar] + 'cc'; pctx.lineWidth = 1.5;
+  pctx.beginPath();
+  const xNullFn = gateXNullcline[phaseVar];
+  for (let vi = vMin; vi <= vMax; vi += 0.5) {
+    vi === vMin ? pctx.moveTo(mx(vi), my(xNullFn(vi))) : pctx.lineTo(mx(vi), my(xNullFn(vi)));
+  }
+  pctx.stroke();
+
+  // Phase trajectory from trace history (fading)
+  const gArr = gateHistories[phaseVar];
+  const drawCount = Math.min(PHASE_DRAW, traceFull ? TRACE_LEN : traceHead);
+  for (let i = 0; i < drawCount - 1; i++) {
+    const idx  = (traceHead - drawCount + i     + TRACE_LEN) % TRACE_LEN;
+    const idx1 = (traceHead - drawCount + i + 1 + TRACE_LEN) % TRACE_LEN;
+    pctx.strokeStyle = `rgba(255,255,255,${(i / drawCount) * 0.45})`;
+    pctx.lineWidth = 1;
+    pctx.beginPath();
+    pctx.moveTo(mx(vHistory[idx]),  my(gArr[idx]));
+    pctx.lineTo(mx(vHistory[idx1]), my(gArr[idx1]));
+    pctx.stroke();
+  }
+
+  // Current state dot
+  const curGate = { m, h, n }[phaseVar];
+  pctx.beginPath();
+  pctx.arc(mx(V), my(curGate), 3, 0, Math.PI * 2);
+  pctx.fillStyle = GDV.q[2]; pctx.fill();
+}
+
+function advanceOneSample() {
+  for (let k = 0; k < SUBSTEPS; k++) hhStep();
+  vHistory[traceHead] = V;
+  mHistory[traceHead] = m;
+  hHistory[traceHead] = h;
+  nHistory[traceHead] = n;
+  traceHead++;
+  if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+function drawTrace() {
+  const W = traceCanvas.width, H = traceCanvas.height;
+  tctx.clearRect(0, 0, W, H);
+  const vMin = -90, vMax = 50;
+  const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
+
+  tctx.font = '10px monospace';
+  [-65, -40, 0, 40].forEach(yv => {
+    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
+    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
+    tctx.fillStyle = '#555';
+    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
+  });
+
+  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
+
+  const drawSeg = (arr, from, to, color, lw, alpha) => {
+    if (to <= from) return;
+    tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (TRACE_LEN - 1)) * W;
+      i === from ? tctx.moveTo(x, mapY(arr[i])) : tctx.lineTo(x, mapY(arr[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  if (traceFull) drawSeg(vHistory, traceHead, TRACE_LEN, GDV.q[2], 1.8, 0.12);
+  drawSeg(vHistory, 0, traceHead, GDV.q[2], 1.8, 1.0);
+}
+
+function drawGates() {
+  const W = gatesCanvas.width, H = gatesCanvas.height;
+  gctx.clearRect(0, 0, W, H);
+  gctx.fillStyle = '#1e1e1e'; gctx.fillRect(0, 0, W, H);
+
+  const bands = [
+    { arr: mHistory, color: GDV.q[5], label: 'm' },
+    { arr: hHistory, color: GDV.q[3], label: 'h' },
+    { arr: nHistory, color: GDV.q[0], label: 'n' },
+  ];
+  const bandH = H / bands.length;
+  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
+
+  bands.forEach(({ arr, color, label }, idx) => {
+    const top = idx * bandH;
+    const mapY = v => top + bandH * (1 - v);
+
+    // Separator line above each band (except the first)
+    if (idx > 0) {
+      gctx.strokeStyle = '#3a3a3a'; gctx.lineWidth = 1; gctx.setLineDash([]);
+      gctx.beginPath(); gctx.moveTo(0, top); gctx.lineTo(W, top); gctx.stroke();
+    }
+
+    // Midline at 0.5
+    gctx.strokeStyle = '#2a2a2a'; gctx.lineWidth = 0.5;
+    gctx.beginPath(); gctx.moveTo(0, mapY(0.5)); gctx.lineTo(W, mapY(0.5)); gctx.stroke();
+
+    // Axis labels
+    gctx.font = '9px monospace'; gctx.fillStyle = '#555';
+    gctx.fillText('1', 3, top + 9);
+    gctx.fillText('0', 3, top + bandH - 2);
+
+    // Variable label in band color
+    gctx.fillStyle = color; gctx.font = 'bold 10px monospace';
+    gctx.fillText(label, 16, top + 10);
+
+    // Cursor
+    gctx.strokeStyle = 'rgba(255,255,255,0.10)'; gctx.lineWidth = 1;
+    gctx.beginPath(); gctx.moveTo(cursorX, top); gctx.lineTo(cursorX, top + bandH); gctx.stroke();
+
+    // Trace
+    const drawSeg = (from, to, alpha) => {
+      if (to <= from) return;
+      gctx.strokeStyle = color; gctx.lineWidth = 1.5; gctx.globalAlpha = alpha;
+      gctx.beginPath();
+      for (let i = from; i < to; i++) {
+        const x = (i / (TRACE_LEN - 1)) * W;
+        i === from ? gctx.moveTo(x, mapY(arr[i])) : gctx.lineTo(x, mapY(arr[i]));
+      }
+      gctx.stroke(); gctx.globalAlpha = 1;
+    };
+
+    if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
+    drawSeg(0, traceHead, 1.0);
+  });
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+function loop() {
+  const now = performance.now();
+  const speed = parseFloat(document.getElementById('sl-spd').value);
+  const dtReal = lastFrameTime !== null ? Math.min(now - lastFrameTime, 50) : 16.7;
+  lastFrameTime = now;
+  const numSamples = Math.round(dtReal * speed / MS_PER_SAMPLE);
+  for (let s = 0; s < numSamples; s++) advanceOneSample();
+  drawTrace();
+  drawPhase();
+  drawGates();
+  requestAnimationFrame(loop);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+[
+  ['I_ext', 'sl-I',   'val-I',   v => v.toFixed(1) + ' µA/cm²'],
+  ['g_Na',  'sl-gNa', 'val-gNa', v => v + ' mS/cm²'],
+  ['g_K',   'sl-gK',  'val-gK',  v => v + ' mS/cm²'],
+].forEach(([key, slId, valId, fmt]) => {
+  const sl = document.getElementById(slId);
+  document.getElementById(valId).textContent = fmt(parseFloat(sl.value));
+  sl.addEventListener('input', () => {
+    const val = parseFloat(sl.value);
+    params[key] = val;
+    document.getElementById(valId).textContent = fmt(val);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  });
+});
+
+document.getElementById('sl-spd').addEventListener('input', function () {
+  const v = parseFloat(this.value);
+  const label = v === 0.25 ? '¼×' : v === 0.5 ? '½×' : v === 1 ? '1×' : v.toFixed(2).replace(/0$/, '') + '×';
+  document.getElementById('val-spd').textContent = label;
+});
+
+function resetState() {
+  V = -65;
+  m = xinf(alphaM, betaM, V);
+  h = xinf(alphaH, betaH, V);
+  n = xinf(alphaN, betaN, V);
+  vHistory.fill(V); mHistory.fill(m); hHistory.fill(h); nHistory.fill(n);
+  traceHead = 0; traceFull = false;
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  params.I_ext = p.I_ext;
+  params.g_Na  = p.g_Na;
+  params.g_K   = p.g_K;
+  resetState();
+  document.getElementById('sl-I').value   = p.I_ext;
+  document.getElementById('sl-gNa').value = p.g_Na;
+  document.getElementById('sl-gK').value  = p.g_K;
+  document.getElementById('val-I').textContent   = p.I_ext.toFixed(1) + ' µA/cm²';
+  document.getElementById('val-gNa').textContent = p.g_Na + ' mS/cm²';
+  document.getElementById('val-gK').textContent  = p.g_K  + ' mS/cm²';
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+}
+
+document.getElementById('phase-sel').addEventListener('click', e => {
+  if (!e.target.dataset.var) return;
+  phaseVar = e.target.dataset.var;
+  document.querySelectorAll('.phase-var-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.var === phaseVar);
+  });
+});
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  katex.render(
+    String.raw`C_m \frac{dV}{dt} = I_{\mathrm{ext}} - \bar{g}_{\mathrm{Na}}\,m^3 h\,(V - E_{\mathrm{Na}}) - \bar{g}_{\mathrm{K}}\,n^4\,(V - E_{\mathrm{K}}) - g_L\,(V - E_L)`,
+    document.getElementById('eq1'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`\frac{dx}{dt} = \alpha_x(V)\,(1-x) - \beta_x(V)\,x, \qquad x \in \{m,\,h,\,n\}`,
+    document.getElementById('eq2'), { displayMode: false }
+  );
+});
+</script>
+
+</body>
+</html>
