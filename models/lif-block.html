@@ -210,12 +210,6 @@
       text-transform: uppercase;
     }
 
-    .derived-val {
-      font-size: 0.68rem;
-      color: var(--gdv-q1);
-      margin-top: 0.15rem;
-      opacity: 0.85;
-    }
 
     footer {
       width: 100%;
@@ -325,7 +319,7 @@
           <span>f(I) analytical</span>
         </div>
         <div class="legend-item">
-          <div class="legend-dot dot" style="background: var(--gdv-q4);"></div>
+          <div class="legend-dot dot" id="legend-op-dot" style="background: var(--gdv-q4);"></div>
           <span>operating point</span>
         </div>
         <div class="freq-display" id="freq-display">—</div>
@@ -341,8 +335,11 @@
     </div>
     <div class="control-group">
       <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
-      <input type="range" id="sl-vsub" min="10" max="80" step="1" value="42" />
-      <div class="derived-val">→ V<sub>above</sub> = <span id="val-vabove">98.0</span> mV</div>
+      <input type="range" id="sl-vsub" min="10" max="180" step="1" value="42" />
+    </div>
+    <div class="control-group">
+      <label><span>V<sub>above</sub> — block threshold</span><span id="val-vabove">98 mV</span></label>
+      <input type="range" id="sl-vabove" min="15" max="200" step="1" value="98" />
     </div>
     <div class="control-group">
       <label><span>I<sub>eff</sub> — effective input</span><span id="val-I">60 mV</span></label>
@@ -361,7 +358,6 @@
   <div class="eq-box">
     <div class="eq-row" id="eq1"></div>
     <div class="eq-reset" id="eq2"></div>
-    <div class="eq-reset" id="eq3"></div>
   </div>
 </div>
 
@@ -374,20 +370,21 @@
 
 <script>
 const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
-const V_ABOVE_FACTOR = 7 / 3;
 
 const PRESETS = {
-  SUB:   { tau_m: 100, V_sub: 42, I_eff: 20  },
-  TONIC: { tau_m: 100, V_sub: 42, I_eff: 60  },
-  FAST:  { tau_m: 20,  V_sub: 42, I_eff: 60  },
-  BLOCK: { tau_m: 100, V_sub: 42, I_eff: 100 },
+  SUB:   { tau_m: 100, V_sub: 42, V_above: 98, I_eff: 20  },
+  TONIC: { tau_m: 100, V_sub: 42, V_above: 98, I_eff: 60  },
+  FAST:  { tau_m: 20,  V_sub: 42, V_above: 98, I_eff: 60  },
+  BLOCK: { tau_m: 100, V_sub: 42, V_above: 98, I_eff: 100 },
 };
 
-function makeParams(raw) {
-  return { ...raw, V_above: V_ABOVE_FACTOR * raw.V_sub };
-}
+let params = { ...PRESETS.TONIC };
 
-let params = makeParams(PRESETS.TONIC);
+function regimeColor() {
+  if (params.I_eff <= params.V_sub)  return GDV.q[2]; // blue  — sub-threshold
+  if (params.I_eff >= params.V_above) return GDV.q[0]; // red   — depol. block
+  return GDV.q[4];                                      // yellow — spiking
+}
 
 const TRACE_LEN = 600;
 const vHistory  = new Float32Array(TRACE_LEN);
@@ -583,7 +580,7 @@ function drawFICurve() {
   const op_f = fiFreq(params.I_eff);
   fctx.beginPath();
   fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
-  fctx.fillStyle = GDV.q[4]; fctx.fill();
+  fctx.fillStyle = regimeColor(); fctx.fill();
 }
 
 // ── Animation loop ────────────────────────────────────────────────────────────
@@ -606,6 +603,7 @@ function loop() {
 
   const freqEl   = document.getElementById('freq-display');
   const regimeEl = document.getElementById('regime-display');
+  document.getElementById('legend-op-dot').style.background = regimeColor();
   const theorF   = fiFreq(params.I_eff);
   const obsF     = (simISI !== null && (simStep - lastSpikeStep) < 3000)
     ? (1000 / simISI).toFixed(1) + ' Hz' : '—';
@@ -628,19 +626,18 @@ function loop() {
 // ── Controls ──────────────────────────────────────────────────────────────────
 
 [
-  ['tau_m', 'sl-tau',  'val-tau',  0, v => v + ' ms'],
-  ['V_sub', 'sl-vsub', 'val-vsub', 0, v => v + ' mV'],
-  ['I_eff', 'sl-I',    'val-I',    0, v => v + ' mV'],
+  ['tau_m',   'sl-tau',    'val-tau',    0, v => v + ' ms'],
+  ['V_sub',   'sl-vsub',   'val-vsub',   0, v => v + ' mV'],
+  ['V_above', 'sl-vabove', 'val-vabove', 0, v => v + ' mV'],
+  ['I_eff',   'sl-I',      'val-I',      0, v => v + ' mV'],
 ].forEach(([key, slId, valId, dec, fmt]) => {
   const sl = document.getElementById(slId);
   document.getElementById(valId).textContent = fmt(parseFloat(sl.value).toFixed(dec));
   sl.addEventListener('input', () => {
-    const val = parseFloat(sl.value);
+    let val = parseFloat(sl.value);
+    if (key === 'V_sub'   && val >= params.V_above - 2) { val = params.V_above - 2; sl.value = val; }
+    if (key === 'V_above' && val <= params.V_sub  + 2) { val = params.V_sub  + 2; sl.value = val; }
     params[key] = val;
-    if (key === 'V_sub') {
-      params.V_above = V_ABOVE_FACTOR * val;
-      document.getElementById('val-vabove').textContent = params.V_above.toFixed(1);
-    }
     document.getElementById(valId).textContent = fmt(val.toFixed(dec));
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     lastSpikeStep = null; simISI = null;
@@ -654,20 +651,20 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 });
 
 function applyPreset(name) {
-  const raw = PRESETS[name];
-  params = makeParams(raw);
+  params = { ...PRESETS[name] };
   V = 0;
   vHistory.fill(0); traceHead = 0; traceFull = false;
   lastSpikeStep = null; simISI = null;
 
-  document.getElementById('sl-tau').value  = raw.tau_m;
-  document.getElementById('sl-vsub').value = raw.V_sub;
-  document.getElementById('sl-I').value    = raw.I_eff;
+  document.getElementById('sl-tau').value    = params.tau_m;
+  document.getElementById('sl-vsub').value   = params.V_sub;
+  document.getElementById('sl-vabove').value = params.V_above;
+  document.getElementById('sl-I').value      = params.I_eff;
 
-  document.getElementById('val-tau').textContent    = raw.tau_m + ' ms';
-  document.getElementById('val-vsub').textContent   = raw.V_sub + ' mV';
-  document.getElementById('val-vabove').textContent = params.V_above.toFixed(1);
-  document.getElementById('val-I').textContent      = raw.I_eff + ' mV';
+  document.getElementById('val-tau').textContent    = params.tau_m   + ' ms';
+  document.getElementById('val-vsub').textContent   = params.V_sub   + ' mV';
+  document.getElementById('val-vabove').textContent = params.V_above + ' mV';
+  document.getElementById('val-I').textContent      = params.I_eff   + ' mV';
 
   document.querySelectorAll('.preset-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === name);
@@ -688,10 +685,6 @@ window.addEventListener('load', () => {
   katex.render(
     String.raw`\text{if } V \geq V_{\text{sub}} \text{ and } I_{\text{eff}} < V_{\text{above}} \;:\quad V \leftarrow 0`,
     document.getElementById('eq2'), { displayMode: false }
-  );
-  katex.render(
-    String.raw`V_{\text{above}} = \tfrac{7}{3}\, V_{\text{sub}}`,
-    document.getElementById('eq3'), { displayMode: false }
   );
 });
 </script>
