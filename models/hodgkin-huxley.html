@@ -103,25 +103,7 @@
 
     #phase-wrap { display: flex; gap: 1rem; align-items: flex-start; }
 
-    #phase-col { display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
-
-    #phase-sel { display: flex; gap: 0.4rem; }
-
-    .phase-var-btn {
-      padding: 0.2rem 0.55rem;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-dim);
-      font-size: 0.7rem;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-    }
-
-    .phase-var-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .phase-var-btn.active { border-color: var(--accent); color: var(--accent); }
-
-    #phase { display: block; width: 200px; height: 200px; border-radius: 6px; background: #1e1e1e; }
+    #phase { display: block; width: 200px; height: 200px; flex-shrink: 0; border-radius: 6px; background: #1e1e1e; }
 
     #gates-wrap { display: flex; gap: 1rem; align-items: flex-start; }
 
@@ -294,14 +276,7 @@
   </div>
 
   <div id="phase-wrap">
-    <div id="phase-col">
-      <div id="phase-sel">
-        <button class="phase-var-btn active" data-var="n">V, n</button>
-        <button class="phase-var-btn" data-var="m">V, m</button>
-        <button class="phase-var-btn" data-var="h">V, h</button>
-      </div>
-      <canvas id="phase" width="200" height="200"></canvas>
-    </div>
+    <canvas id="phase" width="200" height="200"></canvas>
     <div class="legend">
       <div class="legend-section">
         <div class="legend-section-title">Phase plane (V, n)</div>
@@ -311,7 +286,7 @@
         </div>
         <div class="legend-item">
           <div class="legend-dot" style="background: var(--gdv-q2);"></div>
-          <span>dx/dt = 0 (x-nullcline)</span>
+          <span>dn/dt = 0 (n-nullcline)</span>
         </div>
         <div class="legend-item">
           <div class="legend-dot" style="background: rgba(255,255,255,0.35);"></div>
@@ -440,7 +415,6 @@ let traceHead = 0, traceFull = false;
 vHistory.fill(V); mHistory.fill(m); hHistory.fill(h); nHistory.fill(n);
 
 const PHASE_DRAW = 400; // samples of trace history shown in phase plane (~20 ms)
-let phaseVar = 'n';    // 'm', 'h', or 'n'
 
 let lastFrameTime = null;
 
@@ -492,42 +466,18 @@ function hhStep() {
   n = Math.max(0, Math.min(1, n));
 }
 
-// V-nullcline: dV/dt = 0, fix the other two gates at steady state, solve for chosen gate
-function vNullclineY(vi, gv) {
+// V-nullcline: dV/dt = 0, fix m = m∞(V) and h = h∞(V), solve for n
+function vNullclineN(vi) {
   const mi = xinf(alphaM, betaM, vi);
   const hi = xinf(alphaH, betaH, vi);
-  const ni = xinf(alphaN, betaN, vi);
-  let val;
-  if (gv === 'n') {
-    const num = params.I_ext - params.g_Na*mi*mi*mi*hi*(vi-params.E_Na) - params.g_L*(vi-params.E_L);
-    const den = params.g_K * (vi - params.E_K);
-    if (Math.abs(den) < 1e-9) return null;
-    const n4 = num / den;
-    if (n4 < 0) return null;
-    val = Math.pow(n4, 0.25);
-  } else if (gv === 'm') {
-    const num = params.I_ext - params.g_K*Math.pow(ni,4)*(vi-params.E_K) - params.g_L*(vi-params.E_L);
-    const den = params.g_Na * hi * (vi - params.E_Na);
-    if (Math.abs(den) < 1e-9) return null;
-    const m3 = num / den;
-    if (m3 < 0) return null;
-    val = Math.cbrt(m3);
-  } else { // h
-    const num = params.I_ext - params.g_K*Math.pow(ni,4)*(vi-params.E_K) - params.g_L*(vi-params.E_L);
-    const den = params.g_Na * mi*mi*mi * (vi - params.E_Na);
-    if (Math.abs(den) < 1e-9) return null;
-    val = num / den;
-  }
-  return (val >= 0 && val <= 1) ? val : null;
+  const num = params.I_ext - params.g_Na*mi*mi*mi*hi*(vi-params.E_Na) - params.g_L*(vi-params.E_L);
+  const den = params.g_K * (vi - params.E_K);
+  if (Math.abs(den) < 1e-9) return null;
+  const n4 = num / den;
+  if (n4 < 0) return null;
+  const val = Math.pow(n4, 0.25);
+  return val <= 1 ? val : null;
 }
-
-const gateHistories = { m: mHistory, h: hHistory, n: nHistory };
-const gateColors    = { m: GDV.q[5], h: GDV.q[3], n: GDV.q[1] };
-const gateXNullcline = {
-  m: vi => xinf(alphaM, betaM, vi),
-  h: vi => xinf(alphaH, betaH, vi),
-  n: vi => xinf(alphaN, betaN, vi),
-};
 
 function drawPhase() {
   const W = phaseCanvas.width, H = phaseCanvas.height;
@@ -549,36 +499,40 @@ function drawPhase() {
     pctx.beginPath(); pctx.moveTo(ml, my(xv)); pctx.lineTo(ml + cW, my(xv)); pctx.stroke();
   });
 
-  // Axis labels
+  // Axis tick labels
   pctx.font = '9px monospace'; pctx.fillStyle = '#555';
   [-60, 0].forEach(v => pctx.fillText(v, mx(v) - (v < 0 ? 10 : 3), mt + cH + 12));
-  [0, 0.5, 1].forEach(xv => pctx.fillText(xv.toFixed(1), 2, my(xv) + 3));
-  pctx.fillStyle = '#666';
-  pctx.fillText('V', ml + cW - 4, mt + cH + 14);
-  pctx.fillText(phaseVar, 2, mt + 8);
+  pctx.fillText('1',  3, my(1)   + 8);
+  pctx.fillText('.5', 3, my(0.5) + 3);
+  pctx.fillText('0',  3, my(0)   - 2);
 
-  // V-nullcline
+  // Axis titles inside the chart — colored to match their signal
+  pctx.font = 'bold 10px monospace';
+  pctx.fillStyle = GDV.q[0]; // red — n (K⁺ activation)
+  pctx.fillText('n', ml + 4, mt + 11);
+  pctx.fillStyle = GDV.q[2]; // blue — V (membrane potential)
+  pctx.fillText('V', ml + cW - 10, mt + cH - 4);
+
+  // V-nullcline: dV/dt = 0 (m = m∞, h = h∞, solve for n)
   pctx.strokeStyle = GDV.q[4] + 'cc'; pctx.lineWidth = 1.5;
   pctx.beginPath(); let startedV = false;
   for (let vi = vMin; vi <= vMax; vi += 0.5) {
-    const yv = vNullclineY(vi, phaseVar);
+    const yv = vNullclineN(vi);
     if (yv === null) { startedV = false; continue; }
-    const x = mx(vi), y = my(yv);
-    startedV ? pctx.lineTo(x, y) : (pctx.moveTo(x, y), startedV = true);
+    startedV ? pctx.lineTo(mx(vi), my(yv)) : (pctx.moveTo(mx(vi), my(yv)), startedV = true);
   }
   pctx.stroke();
 
-  // x-nullcline
-  pctx.strokeStyle = gateColors[phaseVar] + 'cc'; pctx.lineWidth = 1.5;
+  // n-nullcline: dn/dt = 0 → n = n∞(V)
+  pctx.strokeStyle = GDV.q[1] + 'cc'; pctx.lineWidth = 1.5;
   pctx.beginPath();
-  const xNullFn = gateXNullcline[phaseVar];
   for (let vi = vMin; vi <= vMax; vi += 0.5) {
-    vi === vMin ? pctx.moveTo(mx(vi), my(xNullFn(vi))) : pctx.lineTo(mx(vi), my(xNullFn(vi)));
+    vi === vMin ? pctx.moveTo(mx(vi), my(xinf(alphaN, betaN, vi)))
+                : pctx.lineTo(mx(vi), my(xinf(alphaN, betaN, vi)));
   }
   pctx.stroke();
 
   // Phase trajectory from trace history (fading)
-  const gArr = gateHistories[phaseVar];
   const drawCount = Math.min(PHASE_DRAW, traceFull ? TRACE_LEN : traceHead);
   for (let i = 0; i < drawCount - 1; i++) {
     const idx  = (traceHead - drawCount + i     + TRACE_LEN) % TRACE_LEN;
@@ -586,15 +540,14 @@ function drawPhase() {
     pctx.strokeStyle = `rgba(255,255,255,${(i / drawCount) * 0.45})`;
     pctx.lineWidth = 1;
     pctx.beginPath();
-    pctx.moveTo(mx(vHistory[idx]),  my(gArr[idx]));
-    pctx.lineTo(mx(vHistory[idx1]), my(gArr[idx1]));
+    pctx.moveTo(mx(vHistory[idx]),  my(nHistory[idx]));
+    pctx.lineTo(mx(vHistory[idx1]), my(nHistory[idx1]));
     pctx.stroke();
   }
 
   // Current state dot
-  const curGate = { m, h, n }[phaseVar];
   pctx.beginPath();
-  pctx.arc(mx(V), my(curGate), 3, 0, Math.PI * 2);
+  pctx.arc(mx(V), my(n), 3, 0, Math.PI * 2);
   pctx.fillStyle = GDV.q[2]; pctx.fill();
 }
 
@@ -760,14 +713,6 @@ function applyPreset(name) {
     b.classList.toggle('active', b.dataset.preset === name);
   });
 }
-
-document.getElementById('phase-sel').addEventListener('click', e => {
-  if (!e.target.dataset.var) return;
-  phaseVar = e.target.dataset.var;
-  document.querySelectorAll('.phase-var-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.var === phaseVar);
-  });
-});
 
 document.getElementById('presets').addEventListener('click', e => {
   if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
