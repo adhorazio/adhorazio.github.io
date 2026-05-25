@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LIF Neuron — Spiking Neuromorphics</title>
+  <title>aLIF Neuron — Spiking Neuromorphics</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <style>
@@ -121,6 +121,7 @@
       font-variant-numeric: tabular-nums;
     }
 
+
     input[type="range"] {
       -webkit-appearance: none;
       width: 100%;
@@ -199,6 +200,22 @@
       margin-top: 0.1rem;
     }
 
+    .regime-badge {
+      display: inline-block;
+      padding: 0.12rem 0.45rem;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .derived-val {
+      font-size: 0.68rem;
+      color: var(--gdv-q1);
+      margin-top: 0.15rem;
+      opacity: 0.85;
+    }
 
     footer {
       width: 100%;
@@ -212,8 +229,6 @@
       border-top: 1px solid var(--border);
       margin-top: 2.5rem;
     }
-
-    .footer-ref { font-style: italic; line-height: 1.5; }
 
     .footer-bottom {
       display: flex;
@@ -266,7 +281,7 @@
 <body>
 
 <header>
-  <h1>LIF Neuron</h1>
+  <h1>aLIF Neuron</h1>
   <a href="../index.html">← Spiking Neuromorphics</a>
 </header>
 
@@ -275,9 +290,10 @@
   <div class="widget-title">Real-time simulation</div>
 
   <div class="presets" id="presets">
-    <button class="preset-btn active" data-preset="SUB">Sub-threshold</button>
-    <button class="preset-btn" data-preset="TONIC">Tonic spiking</button>
+    <button class="preset-btn" data-preset="SUB">Sub-threshold</button>
+    <button class="preset-btn active" data-preset="TONIC">Tonic spiking</button>
     <button class="preset-btn" data-preset="FAST">Fast spiking</button>
+    <button class="preset-btn" data-preset="BLOCK">Depolarization block</button>
   </div>
 
   <div id="canvas-wrap">
@@ -294,8 +310,12 @@
           <span>V (membrane potential)</span>
         </div>
         <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q1); opacity:.6;"></div>
-          <span>V<sub>θ</sub> (spike threshold)</span>
+          <div class="legend-dot" style="background: var(--gdv-q5); opacity:.8;"></div>
+          <span>V<sub>sub</sub> (spike threshold)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1); opacity:.8;"></div>
+          <span>V<sub>above</sub> (block threshold)</span>
         </div>
       </div>
       <div class="legend-section">
@@ -305,34 +325,28 @@
           <span>f(I) analytical</span>
         </div>
         <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3); opacity:.35;"></div>
-          <span>rheobase I<sub>th</sub></span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot dot" style="background: var(--gdv-q5);"></div>
+          <div class="legend-dot dot" style="background: var(--gdv-q4);"></div>
           <span>operating point</span>
         </div>
         <div class="freq-display" id="freq-display">—</div>
+        <div id="regime-display" style="margin-top:0.25rem;"></div>
       </div>
     </div>
   </div>
 
   <div class="controls">
     <div class="control-group">
-      <label><span>τ<sub>m</sub> — membrane time constant</span><span id="val-tau">100 ms</span></label>
+      <label><span>τ<sub>m</sub> — time constant</span><span id="val-tau">100 ms</span></label>
       <input type="range" id="sl-tau" min="5" max="500" step="5" value="100" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>rest</sub> — resting potential</span><span id="val-vrest">-70 mV</span></label>
-      <input type="range" id="sl-vrest" min="-85" max="-55" step="1" value="-70" />
+      <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
+      <input type="range" id="sl-vsub" min="10" max="80" step="1" value="42" />
+      <div class="derived-val">→ V<sub>above</sub> = <span id="val-vabove">98.0</span> mV</div>
     </div>
     <div class="control-group">
-      <label><span>V<sub>θ</sub> — spike threshold</span><span id="val-vthresh">-50 mV</span></label>
-      <input type="range" id="sl-vthresh" min="-65" max="-30" step="1" value="-50" />
-    </div>
-    <div class="control-group">
-      <label><span>I<sub>eff</sub> — effective input</span><span id="val-I">30 mV</span></label>
-      <input type="range" id="sl-I" min="0" max="55" step="1" value="30" />
+      <label><span>I<sub>eff</sub> — effective input</span><span id="val-I">60 mV</span></label>
+      <input type="range" id="sl-I" min="0" max="200" step="1" value="60" />
     </div>
     <div class="control-group">
       <label><span>speed</span><span id="val-spd">¼×</span></label>
@@ -347,14 +361,11 @@
   <div class="eq-box">
     <div class="eq-row" id="eq1"></div>
     <div class="eq-reset" id="eq2"></div>
+    <div class="eq-reset" id="eq3"></div>
   </div>
 </div>
 
 <footer>
-  <div class="footer-ref">
-    Lapicque, L. Recherches quantitatives sur l'excitation électrique des nerfs traitée comme une polarisation.
-    <em>J. Physiol. Pathol. Gén.</em> <strong>9</strong>, 620–635 (1907).
-  </div>
   <div class="footer-bottom">
     <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
     <a href="../LICENSE">MIT License</a>
@@ -363,22 +374,28 @@
 
 <script>
 const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
+const V_ABOVE_FACTOR = 7 / 3;
 
 const PRESETS = {
-  SUB:   { tau_m: 100, V_rest: -70, V_thresh: -50, I_eff: 30 },
-  TONIC: { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 25 },
-  FAST:  { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 45 },
+  SUB:   { tau_m: 100, V_sub: 42, I_eff: 20  },
+  TONIC: { tau_m: 100, V_sub: 42, I_eff: 60  },
+  FAST:  { tau_m: 20,  V_sub: 42, I_eff: 60  },
+  BLOCK: { tau_m: 100, V_sub: 42, I_eff: 100 },
 };
 
-let params = { ...PRESETS.SUB };
+function makeParams(raw) {
+  return { ...raw, V_above: V_ABOVE_FACTOR * raw.V_sub };
+}
+
+let params = makeParams(PRESETS.TONIC);
 
 const TRACE_LEN = 600;
 const vHistory  = new Float32Array(TRACE_LEN);
-vHistory.fill(params.V_rest);
+vHistory.fill(0);
 let traceHead = 0;
 let traceFull = false;
 
-let V             = params.V_rest;
+let V             = 0;
 let simStep       = 0;
 let lastSpikeStep = null;
 let simISI        = null;
@@ -400,58 +417,61 @@ resizeTrace();
 
 function step() {
   simStep++;
-  V += (-(V - params.V_rest) + params.I_eff) / params.tau_m; // dt = 1 ms
-  if (V >= params.V_thresh) {
+  V += (-V + params.I_eff) / params.tau_m; // V_rest = 0
+  if (V >= params.V_sub && params.I_eff < params.V_above) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
-    V = params.V_rest;
+    V = 0;
   }
 }
 
-// Analytical f-I curve: f = 1 / (τ_m · ln(I / (I − ΔVθ)))
+// Analytical f-I: 0 below V_sub, rising LIF curve between thresholds, 0 above V_above
 function fiFreq(I_eff) {
-  const dVth = params.V_thresh - params.V_rest;
-  if (dVth <= 0 || I_eff <= dVth) return 0;
-  const t_spike = params.tau_m * Math.log(I_eff / (I_eff - dVth));
-  return t_spike > 0 ? 1000 / t_spike : 0;
+  const { V_sub, V_above, tau_m } = params;
+  if (I_eff <= V_sub || I_eff >= V_above) return 0;
+  const t = tau_m * Math.log(I_eff / (I_eff - V_sub));
+  return t > 0 ? 1000 / t : 0;
 }
 
-// ── Drawing ───────────────────────────────────────────────────────────────────
+// ── Drawing: trace ────────────────────────────────────────────────────────────
 
 function drawTrace() {
   const W = traceCanvas.width, H = traceCanvas.height;
   tctx.clearRect(0, 0, W, H);
-  const Vr  = params.V_rest;
-  const Vth = params.V_thresh;
-  const vMin = -95, vMax = -20;
+
+  const vMin = -params.V_sub * 0.15;
+  const vMax = Math.max(params.V_above * 1.3, params.I_eff * 1.1 + 5);
   const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
 
-  // Horizontal grid — fixed reference lines
   tctx.font = '10px monospace';
-  [-80, -60, -40].forEach(yv => {
-    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
-    tctx.fillStyle = '#555';
-    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
-  });
 
-  // V_rest and V_thresh marker lines
-  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: GDV.q[0] + '99' }].forEach(({ v, label, color }) => {
-    const isThresh = v === Vth;
-    tctx.strokeStyle = isThresh ? GDV.q[0] + '55' : '#4a4a4a';
-    tctx.lineWidth = 1; tctx.setLineDash(isThresh ? [4, 4] : [2, 4]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(v)); tctx.lineTo(W, mapY(v)); tctx.stroke();
-    tctx.setLineDash([]);
-    tctx.fillStyle = color;
-    tctx.fillText(label + ' ' + v + ' mV', 4, mapY(v) - 3);
-  });
+  // V_rest = 0 grid line
+  tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
+  tctx.beginPath(); tctx.moveTo(0, mapY(0)); tctx.lineTo(W, mapY(0)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = '#555';
+  tctx.fillText('0 mV', 4, mapY(0) - 3);
+
+  // V_sub line (yellow)
+  tctx.strokeStyle = GDV.q[4] + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
+  tctx.beginPath(); tctx.moveTo(0, mapY(params.V_sub)); tctx.lineTo(W, mapY(params.V_sub)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = GDV.q[4] + 'cc';
+  tctx.fillText('Vₛᵤᵦ ' + params.V_sub.toFixed(0) + ' mV', 4, mapY(params.V_sub) - 3);
+
+  // V_above line (red)
+  tctx.strokeStyle = GDV.q[0] + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
+  tctx.beginPath(); tctx.moveTo(0, mapY(params.V_above)); tctx.lineTo(W, mapY(params.V_above)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = GDV.q[0] + 'cc';
+  tctx.fillText('Vₐ ' + params.V_above.toFixed(1) + ' mV', 4, mapY(params.V_above) - 3);
 
   // Cursor
   const cursorX = Math.round((traceHead / TRACE_LEN) * W);
   tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
 
-  // V trace helper
+  // V trace
   const drawSeg = (from, to, alpha) => {
     if (to <= from) return;
     tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
@@ -467,6 +487,8 @@ function drawTrace() {
   drawSeg(0, traceHead, 1.0);
 }
 
+// ── Drawing: f-I curve ────────────────────────────────────────────────────────
+
 function drawFICurve() {
   const W = fiCanvas.width, H = fiCanvas.height;
   const ml = 30, mt = 10, mr = 6, mb = 26;
@@ -475,25 +497,31 @@ function drawFICurve() {
   fctx.clearRect(0, 0, W, H);
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
-  const dVth  = params.V_thresh - params.V_rest;
-  const I_MAX = 60;
-  const F_MAX = 30;
+  const { V_sub, V_above, tau_m } = params;
+  const I_MAX = Math.max(120, V_above * 1.25);
+
+  // Peak frequency (limit approaching V_above from below)
+  const I_pk  = V_above - 0.01;
+  const t_pk  = tau_m * Math.log(I_pk / (I_pk - V_sub));
+  const f_pk  = t_pk > 0 ? 1000 / t_pk : 0;
+  const F_MAX = Math.max(50, f_pk * 1.4);
+
   const xi = I => ml + (I / I_MAX) * cW;
   const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
 
   // Grid
   fctx.lineWidth = 0.5;
-  [10, 20, 30].forEach(f => {
+  [Math.round(F_MAX / 3), Math.round(2 * F_MAX / 3)].forEach(f => {
     fctx.strokeStyle = '#333';
     fctx.beginPath(); fctx.moveTo(ml, yf(f)); fctx.lineTo(ml + cW, yf(f)); fctx.stroke();
     fctx.fillStyle = '#555'; fctx.font = '9px monospace';
-    fctx.fillText(f, 2, yf(f) + 3);
+    fctx.fillText(Math.round(f), 2, yf(f) + 3);
   });
-  [20, 40, 60].forEach(I => {
+  [Math.round(I_MAX / 3), Math.round(2 * I_MAX / 3)].forEach(I => {
     fctx.strokeStyle = '#333'; fctx.lineWidth = 0.5;
     fctx.beginPath(); fctx.moveTo(xi(I), mt); fctx.lineTo(xi(I), mt + cH); fctx.stroke();
     fctx.fillStyle = '#555'; fctx.font = '9px monospace';
-    fctx.fillText(I, xi(I) - 5, mt + cH + 14);
+    fctx.fillText(Math.round(I), xi(I) - 6, mt + cH + 14);
   });
 
   // Axes
@@ -507,24 +535,48 @@ function drawFICurve() {
   fctx.fillText('f (Hz)', ml + 2, mt + 9);
   fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 44, mt + cH + 22);
 
-  // Rheobase dashed line
-  if (dVth > 0 && dVth <= I_MAX) {
-    fctx.strokeStyle = GDV.q[2] + '55'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
-    fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
-    fctx.setLineDash([]);
-  }
+  // V_sub dashed marker (yellow)
+  fctx.strokeStyle = GDV.q[4] + '77'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+  fctx.beginPath(); fctx.moveTo(xi(V_sub), mt); fctx.lineTo(xi(V_sub), mt + cH); fctx.stroke();
 
-  // f-I curve
-  fctx.strokeStyle = GDV.q[2]; fctx.lineWidth = 1.5;
-  fctx.beginPath();
-  fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(Math.min(dVth, I_MAX)), yf(0));
-  let started = false;
-  for (let I = Math.max(dVth, 0); I <= I_MAX; I += I_MAX / 200) {
-    const f = fiFreq(I);
-    const x = xi(I), y = yf(f);
-    started ? fctx.lineTo(x, y) : (fctx.moveTo(x, y), started = true);
+  // V_above dashed marker (red)
+  if (V_above <= I_MAX) {
+    fctx.strokeStyle = GDV.q[0] + '77'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+    fctx.beginPath(); fctx.moveTo(xi(V_above), mt); fctx.lineTo(xi(V_above), mt + cH); fctx.stroke();
   }
+  fctx.setLineDash([]);
+
+  fctx.strokeStyle = GDV.q[2]; fctx.lineWidth = 1.5;
+
+  // Segment 1: flat 0 from 0 to V_sub
+  fctx.beginPath();
+  fctx.moveTo(ml, yf(0));
+  fctx.lineTo(xi(Math.min(V_sub, I_MAX)), yf(0));
   fctx.stroke();
+
+  // Segment 2: rising LIF curve from V_sub to V_above
+  if (V_sub < I_MAX) {
+    const I_end = Math.min(V_above, I_MAX);
+    const N = 300;
+    fctx.beginPath();
+    for (let s = 0; s <= N; s++) {
+      const I = V_sub + (I_end - V_sub - 0.01) * s / N + 0.001;
+      if (I >= V_above) break;
+      const t = tau_m * Math.log(I / (I - V_sub));
+      const f = t > 0 ? 1000 / t : 0;
+      s === 0 ? fctx.moveTo(xi(I), yf(f)) : fctx.lineTo(xi(I), yf(f));
+    }
+    fctx.stroke();
+
+    // Vertical drop at V_above + flat 0 after
+    if (V_above <= I_MAX) {
+      fctx.beginPath();
+      fctx.moveTo(xi(I_pk), yf(f_pk));
+      fctx.lineTo(xi(V_above), yf(0));
+      fctx.lineTo(xi(I_MAX), yf(0));
+      fctx.stroke();
+    }
+  }
 
   // Operating point
   const op_I = Math.min(params.I_eff, I_MAX);
@@ -532,32 +584,43 @@ function drawFICurve() {
   fctx.beginPath();
   fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
   fctx.fillStyle = GDV.q[4]; fctx.fill();
-
 }
 
 // ── Animation loop ────────────────────────────────────────────────────────────
 
 function loop() {
-  const now = performance.now();
+  const now   = performance.now();
   const speed = parseFloat(document.getElementById('sl-spd').value);
   const dtReal = lastFrameTime !== null ? now - lastFrameTime : 16.7;
   lastFrameTime = now;
-  const steps = Math.round(dtReal * speed); // 1 sim-ms per real-ms at speed=1
+  const steps = Math.round(dtReal * speed);
   for (let s = 0; s < steps; s++) {
     step();
     vHistory[traceHead] = V;
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
   }
+
   drawTrace();
   drawFICurve();
 
-  const freqEl = document.getElementById('freq-display');
-  const theorF = fiFreq(params.I_eff);
-  const theorStr = theorF > 0 ? theorF.toFixed(1) + ' Hz' : '—';
-  const obsF = (simISI !== null && (simStep - lastSpikeStep) < 3000)
+  const freqEl   = document.getElementById('freq-display');
+  const regimeEl = document.getElementById('regime-display');
+  const theorF   = fiFreq(params.I_eff);
+  const obsF     = (simISI !== null && (simStep - lastSpikeStep) < 3000)
     ? (1000 / simISI).toFixed(1) + ' Hz' : '—';
-  freqEl.innerHTML = `<span style="opacity:.6">theory</span> ${theorStr}<br><span style="opacity:.6">observed</span> ${obsF}`;
+
+  if (params.I_eff <= params.V_sub) {
+    freqEl.innerHTML   = '— (no spike)';
+    regimeEl.innerHTML = '<span class="regime-badge" style="background:rgba(0,154,222,0.15);color:var(--gdv-q3)">sub-threshold</span>';
+  } else if (params.I_eff >= params.V_above) {
+    freqEl.innerHTML   = '— (blocked)';
+    regimeEl.innerHTML = '<span class="regime-badge" style="background:rgba(255,31,91,0.15);color:var(--gdv-q1)">depol. block</span>';
+  } else {
+    const theorStr = theorF > 0 ? theorF.toFixed(1) + ' Hz' : '—';
+    freqEl.innerHTML   = `<span style="opacity:.6">theory</span> ${theorStr}<br><span style="opacity:.6">observed</span> ${obsF}`;
+    regimeEl.innerHTML = '<span class="regime-badge" style="background:rgba(255,198,30,0.15);color:var(--gdv-q5)">spiking</span>';
+  }
 
   requestAnimationFrame(loop);
 }
@@ -565,18 +628,19 @@ function loop() {
 // ── Controls ──────────────────────────────────────────────────────────────────
 
 [
-  ['tau_m',    'sl-tau',     'val-tau',     0, v => v + ' ms'],
-  ['V_rest',   'sl-vrest',   'val-vrest',   0, v => v + ' mV'],
-  ['V_thresh', 'sl-vthresh', 'val-vthresh', 0, v => v + ' mV'],
-  ['I_eff',    'sl-I',       'val-I',       0, v => v + ' mV'],
+  ['tau_m', 'sl-tau',  'val-tau',  0, v => v + ' ms'],
+  ['V_sub', 'sl-vsub', 'val-vsub', 0, v => v + ' mV'],
+  ['I_eff', 'sl-I',    'val-I',    0, v => v + ' mV'],
 ].forEach(([key, slId, valId, dec, fmt]) => {
   const sl = document.getElementById(slId);
   document.getElementById(valId).textContent = fmt(parseFloat(sl.value).toFixed(dec));
   sl.addEventListener('input', () => {
-    let val = parseFloat(sl.value);
-    if (key === 'V_rest'   && val >= params.V_thresh - 5) { val = params.V_thresh - 5; sl.value = val; }
-    if (key === 'V_thresh' && val <= params.V_rest  + 5) { val = params.V_rest  + 5; sl.value = val; }
+    const val = parseFloat(sl.value);
     params[key] = val;
+    if (key === 'V_sub') {
+      params.V_above = V_ABOVE_FACTOR * val;
+      document.getElementById('val-vabove').textContent = params.V_above.toFixed(1);
+    }
     document.getElementById(valId).textContent = fmt(val.toFixed(dec));
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     lastSpikeStep = null; simISI = null;
@@ -590,21 +654,20 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 });
 
 function applyPreset(name) {
-  const p = PRESETS[name];
-  params = { ...p };
-  V = p.V_rest;
-  vHistory.fill(p.V_rest); traceHead = 0; traceFull = false;
-  lastSpikeTime = null; realISI = null;
+  const raw = PRESETS[name];
+  params = makeParams(raw);
+  V = 0;
+  vHistory.fill(0); traceHead = 0; traceFull = false;
+  lastSpikeStep = null; simISI = null;
 
-  document.getElementById('sl-tau').value     = p.tau_m;
-  document.getElementById('sl-vrest').value   = p.V_rest;
-  document.getElementById('sl-vthresh').value = p.V_thresh;
-  document.getElementById('sl-I').value       = p.I_eff;
+  document.getElementById('sl-tau').value  = raw.tau_m;
+  document.getElementById('sl-vsub').value = raw.V_sub;
+  document.getElementById('sl-I').value    = raw.I_eff;
 
-  document.getElementById('val-tau').textContent     = p.tau_m   + ' ms';
-  document.getElementById('val-vrest').textContent   = p.V_rest  + ' mV';
-  document.getElementById('val-vthresh').textContent = p.V_thresh + ' mV';
-  document.getElementById('val-I').textContent       = p.I_eff   + ' mV';
+  document.getElementById('val-tau').textContent    = raw.tau_m + ' ms';
+  document.getElementById('val-vsub').textContent   = raw.V_sub + ' mV';
+  document.getElementById('val-vabove').textContent = params.V_above.toFixed(1);
+  document.getElementById('val-I').textContent      = raw.I_eff + ' mV';
 
   document.querySelectorAll('.preset-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === name);
@@ -619,12 +682,16 @@ requestAnimationFrame(loop);
 
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`\tau_m \frac{dV}{dt} = -(V - V_{\text{rest}}) + I_{\text{eff}}`,
+    String.raw`\tau_m \frac{dV}{dt} = -V + I_{\text{eff}}, \quad V_{\text{rest}} = 0`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`\text{if } V \geq V_\theta \;:\quad V \leftarrow V_{\text{rest}}`,
+    String.raw`\text{if } V \geq V_{\text{sub}} \text{ and } I_{\text{eff}} < V_{\text{above}} \;:\quad V \leftarrow 0`,
     document.getElementById('eq2'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`V_{\text{above}} = \tfrac{7}{3}\, V_{\text{sub}}`,
+    document.getElementById('eq3'), { displayMode: false }
   );
 });
 </script>
