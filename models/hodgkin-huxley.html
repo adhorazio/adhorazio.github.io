@@ -508,9 +508,9 @@ function drawPhase() {
 
   // Axis titles inside the chart — colored to match their signal
   pctx.font = 'bold 10px monospace';
-  pctx.fillStyle = GDV.q[0]; // red — n (K⁺ activation)
+  pctx.fillStyle = GDV.q[1]; // green — n (K⁺ activation)
   pctx.fillText('n', ml + 4, mt + 11);
-  pctx.fillStyle = GDV.q[2]; // blue — V (membrane potential)
+  pctx.fillStyle = GDV.q[4]; // yellow — V (membrane potential)
   pctx.fillText('V', ml + cW - 10, mt + cH - 4);
 
   // V-nullcline: dV/dt = 0 (m = m∞, h = h∞, solve for n)
