@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AdEx Neuron — Spiking Neuromorphics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --gdv-q1: #FF1F5B;
+      --gdv-q2: #00CD6C;
+      --gdv-q3: #009ADE;
+      --gdv-q4: #AF58BA;
+      --gdv-q5: #FFC61E;
+      --gdv-q6: #F28522;
+      --gdv-q7: #A0B1BA;
+      --gdv-q8: #A6761D;
+      --bg: #2b2b2b;
+      --surface: #333333;
+      --border: #444444;
+      --text: #e0e0e0;
+      --text-dim: #888888;
+      --accent: var(--gdv-q3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 2rem 2rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 760px;
+      padding: 16px 0 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    header a {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    header a:hover { color: var(--accent); }
+
+    main {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem 2rem;
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .widget-title {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gdv-q3);
+      font-weight: 600;
+    }
+
+    #canvas-wrap { position: relative; width: 100%; }
+
+    #trace {
+      display: block;
+      width: 100%;
+      height: 220px;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem 1.2rem;
+    }
+
+    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span[id] {
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--gdv-q3);
+      border: 2px solid var(--bg);
+    }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    .preset-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--gdv-q3);
+      color: var(--gdv-q3);
+    }
+
+    .win-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .win-label {
+      font-size: 0.70rem;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+
+    .win-btn {
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.70rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .win-btn:hover, .win-btn.active {
+      border-color: var(--gdv-q7);
+      color: var(--gdv-q7);
+    }
+
+    #phase-wrap { display: flex; gap: 1rem; align-items: flex-start; }
+
+    #phase {
+      display: block;
+      width: 220px;
+      height: 180px;
+      flex-shrink: 0;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .legend-section-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.6;
+      margin-bottom: 0.1rem;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+    .legend-dot.dot { height: 8px; width: 8px; border-radius: 50%; }
+
+
+    footer {
+      width: 100%;
+      max-width: 760px;
+      padding: 2rem 0 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2.5rem;
+    }
+
+    .footer-ref { font-style: italic; line-height: 1.5; }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--accent); }
+
+    .equations {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .eq-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .eq-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eq-row, .eq-reset {
+      padding: 0.55rem 1rem;
+    }
+
+    .eq-row + .eq-row { border-top: 1px solid var(--border); }
+
+    .eq-row .katex { color: var(--text); font-size: 1rem; }
+
+    .eq-reset { border-top: 1px solid var(--border); color: #b0b0b0; }
+    .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
+
+    .fixed-params {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.2rem;
+      font-size: 0.70rem;
+      color: var(--text-dim);
+    }
+
+    .fixed-params span .katex { font-size: 0.80rem; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AdEx Neuron</h1>
+  <a href="../index.html">← Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn active"  data-preset="TONIC">Tonic</button>
+    <button class="preset-btn"         data-preset="ADAPTING">Adapting</button>
+    <button class="preset-btn"         data-preset="IBURST">Init. burst</button>
+    <button class="preset-btn"         data-preset="BURST">Bursting</button>
+    <button class="preset-btn"         data-preset="IRREG">Irregular</button>
+  </div>
+
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div id="win-btns">
+      <button class="win-btn"        data-win="100">100 ms</button>
+      <button class="win-btn active" data-win="500">500 ms</button>
+      <button class="win-btn"        data-win="1000">1 s</button>
+      <button class="win-btn"        data-win="2000">2 s</button>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="trace" height="220"></canvas>
+  </div>
+
+  <div id="phase-wrap">
+    <canvas id="phase" width="220" height="180"></canvas>
+    <div class="legend">
+      <div class="legend-section">
+        <div class="legend-section-title">Trace</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>V (membrane potential)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q4); opacity:.8;"></div>
+          <span>w (adaptation current)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5); opacity:.7;"></div>
+          <span>V<sub>T</sub> (rheobase threshold)</span>
+        </div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Phase portrait</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>V-nullcline</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+          <span>w-nullcline</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: rgba(255,255,255,0.4);"></div>
+          <span>trajectory</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot dot" id="legend-state-dot" style="background: var(--gdv-q2);"></div>
+          <span>state (V, w)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label><span>I — input current</span><span id="val-I">65 pA</span></label>
+      <input type="range" id="sl-I" min="0" max="200" step="5" value="65" />
+    </div>
+    <div class="control-group">
+      <label><span>τ<sub>m</sub> — membrane time const.</span><span id="val-taum">20 ms</span></label>
+      <input type="range" id="sl-taum" min="2" max="50" step="1" value="20" />
+    </div>
+    <div class="control-group">
+      <label><span>a — subthreshold adapt.</span><span id="val-a">0.0 nS</span></label>
+      <input type="range" id="sl-a" min="-2" max="4" step="0.5" value="0" />
+    </div>
+    <div class="control-group">
+      <label><span>b — spike-triggered adapt.</span><span id="val-b">60 pA</span></label>
+      <input type="range" id="sl-b" min="0" max="200" step="1" value="60" />
+    </div>
+    <div class="control-group">
+      <label><span>τ<sub>w</sub> — adapt. time const.</span><span id="val-tauw">30 ms</span></label>
+      <input type="range" id="sl-tauw" min="10" max="500" step="5" value="30" />
+    </div>
+    <div class="control-group">
+      <label><span>V<sub>r</sub> — reset potential</span><span id="val-Vr">−55 mV</span></label>
+      <input type="range" id="sl-Vr" min="-70" max="-40" step="1" value="-55" />
+    </div>
+    <div class="control-group">
+      <label><span>speed</span><span id="val-spd">¼×</span></label>
+      <input type="range" id="sl-spd" min="1" max="5" step="1" value="2" />
+    </div>
+  </div>
+</div>
+
+<div class="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+    <div class="eq-reset" id="eq3"></div>
+  </div>
+</div>
+
+<div class="fixed-params">
+  <span id="fp1"></span>
+  <span id="fp2"></span>
+  <span id="fp3"></span>
+  <span id="fp4"></span>
+  <span id="fp5"></span>
+</div>
+
+</main>
+
+<footer>
+  <div class="footer-ref">
+    R. Brette &amp; W. Gerstner (2005). Adaptive exponential integrate-and-fire model as an effective description of neuronal activity. <em>Journal of Neurophysiology</em>, 94(5), 3637–3642.<br/>
+    W. Gerstner, W. Kistler, R. Naud &amp; L. Paninski. <em>Neuronal Dynamics</em>. Cambridge University Press, 2014. Ch. 6 — <a href="https://neuronaldynamics.epfl.ch/online/Ch6.html" target="_blank">neuronaldynamics.epfl.ch</a>
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
+
+// ── Fixed parameters (Gerstner textbook Ch. 6) ─────────────────────────────
+const g_L    = 2;    // nS   (R = 500 MΩ)
+const E_L    = -70;  // mV   (u_rest)
+const V_T    = -50;  // mV   (ϑ_rh, rheobase threshold)
+const Delta_T = 2;   // mV   (slope factor)
+const V_peak = 20;   // mV   (spike detection)
+const DT     = 0.1;  // ms   (integration time step)
+
+// ── Presets — Table 6.1, Gerstner et al. (Neuronal Dynamics) ──────────────
+// tau_m = C_m / g_L; varying tau_m with fixed g_L changes C_m
+// window: trace time span in ms (sets sampleEvery automatically)
+const PRESETS = {
+  TONIC:    { I_ext: 65, tau_m: 20,  a:  0.0, b: 60, tau_w:  30, V_r: -55, window:  500 },
+  ADAPTING: { I_ext: 65, tau_m: 20,  a:  0.0, b:  5, tau_w: 100, V_r: -55, window: 2000 },
+  IBURST:   { I_ext: 65, tau_m:  5,  a:  0.5, b:  7, tau_w: 100, V_r: -51, window: 1000 },
+  BURST:    { I_ext: 65, tau_m:  5,  a: -0.5, b:  7, tau_w: 100, V_r: -46, window: 2000 },
+  IRREG:    { I_ext: 65, tau_m: 9.9, a: -0.5, b:  7, tau_w: 100, V_r: -46, window: 2000 },
+};
+
+let params = { ...PRESETS.TONIC };
+
+// ── Simulation state ───────────────────────────────────────────────────────
+// Buffer holds 2 s of simulation at DT = 0.1 ms → 20 000 samples.
+// The window selector only changes the *view* into this ring buffer.
+const TRACE_LEN = 20000;
+const vHistory  = new Float32Array(TRACE_LEN);
+const wHistory  = new Float32Array(TRACE_LEN);
+vHistory.fill(E_L); wHistory.fill(0);
+let traceHead   = 0;
+let traceFull   = false;
+
+const PHASE_LEN = 600;
+const phaseV    = new Float32Array(PHASE_LEN);
+const phaseW    = new Float32Array(PHASE_LEN);
+phaseV.fill(E_L); phaseW.fill(0);
+let phaseHead   = 0;
+let phaseFull   = false;
+
+let V              = E_L;
+let w              = 0;
+let spiking        = false;
+let simStep        = 0;
+let lastFrameTime  = null;
+
+// ── Trace windowing ────────────────────────────────────────────────────────
+// traceEff: effective number of slots used in the ring buffer for the current window.
+// The oscilloscope writes 0→traceEff then wraps, giving a left-to-right scroll.
+let windowMs = 500;
+let traceEff  = Math.round(500 / DT);  // = 5000 for default 500 ms window
+
+function setWindow(ms) {
+  windowMs  = ms;
+  traceEff  = Math.min(Math.round(ms / DT), TRACE_LEN);
+  vHistory.fill(E_L); wHistory.fill(0);
+  traceHead = 0; traceFull = false;
+  document.querySelectorAll('.win-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.win) === ms);
+  });
+}
+
+const traceCanvas = document.getElementById('trace');
+const tctx        = traceCanvas.getContext('2d');
+const phaseCanvas = document.getElementById('phase');
+const pctx        = phaseCanvas.getContext('2d');
+
+function resizeTrace() {
+  traceCanvas.width  = traceCanvas.offsetWidth;
+  traceCanvas.height = traceCanvas.offsetHeight;
+}
+window.addEventListener('resize', resizeTrace);
+resizeTrace();
+
+// ── Simulation step (Euler, dt = 0.1 ms) ──────────────────────────────────
+
+function vNullcline(Vv) {
+  // w = -g_L*(V-E_L) + g_L*ΔT*exp((V-V_T)/ΔT) + I_ext
+  const arg = Math.min((Vv - V_T) / Delta_T, 50);
+  return -g_L * (Vv - E_L) + g_L * Delta_T * Math.exp(arg) + params.I_ext;
+}
+
+function step() {
+  simStep++;
+
+  if (spiking) {
+    spiking = false;
+    V = params.V_r;
+    w = w + params.b;
+    return;
+  }
+
+  const { I_ext, tau_m, a, tau_w } = params;
+  const C_m    = tau_m * g_L;           // pF  (implied by τ_m = C_m/g_L)
+  const expArg = Math.min((V - V_T) / Delta_T, 50);
+  const I_ion  = -g_L * (V - E_L) + g_L * Delta_T * Math.exp(expArg);
+  const dV = (DT / C_m)   * (I_ion + I_ext - w);
+  const dw = (DT / tau_w) * (a * (V - E_L) - w);
+
+  V += dV;
+  w += dw;
+
+  if (V >= V_peak) {
+    spiking = true;
+    V = V_peak;
+  }
+}
+
+// ── Drawing: trace (left-to-right oscilloscope, min/max V envelope) ───────
+
+function drawTrace() {
+  const W = traceCanvas.width, H = traceCanvas.height;
+  tctx.clearRect(0, 0, W, H);
+
+  const splitY = H * 0.76;
+
+  const vMin = E_L - 15, vMax = V_peak + 15;
+  const mapVY = v => splitY * (1 - (v - vMin) / (vMax - vMin));
+
+  // Dynamic w range from current buffer pass
+  const scanEnd = traceFull ? traceEff : traceHead;
+  let wHi = 20, wLo = -5;
+  for (let i = 0; i < scanEnd; i++) {
+    if (wHistory[i] > wHi) wHi = wHistory[i];
+    if (wHistory[i] < wLo) wLo = wHistory[i];
+  }
+  wHi = Math.max(wHi * 1.2, 20);
+  wLo = Math.min(wLo - 5, -5);
+  const wH   = H - splitY - 4;
+  const mapWY = wv => splitY + 4 + wH * (1 - (wv - wLo) / (wHi - wLo));
+
+  tctx.font = '10px monospace';
+
+  // Window label (top-right)
+  const winLabel = windowMs >= 1000 ? (windowMs / 1000).toFixed(0) + ' s' : windowMs + ' ms';
+  tctx.fillStyle = '#444'; tctx.textAlign = 'right';
+  tctx.fillText(winLabel, W - 6, 13);
+  tctx.textAlign = 'left';
+
+  // Separator
+  tctx.strokeStyle = '#2e2e2e'; tctx.lineWidth = 1; tctx.setLineDash([]);
+  tctx.beginPath(); tctx.moveTo(0, splitY + 2); tctx.lineTo(W, splitY + 2); tctx.stroke();
+
+  // Reference lines
+  tctx.strokeStyle = GDV.q[5] + '33'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
+  tctx.beginPath(); tctx.moveTo(0, mapVY(E_L)); tctx.lineTo(W, mapVY(E_L)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = GDV.q[5] + '66';
+  tctx.fillText('EL', 4, mapVY(E_L) - 3);
+
+  tctx.strokeStyle = GDV.q[4] + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
+  tctx.beginPath(); tctx.moveTo(0, mapVY(V_T)); tctx.lineTo(W, mapVY(V_T)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = GDV.q[4] + 'cc';
+  tctx.fillText('VT ' + V_T + ' mV', 4, mapVY(V_T) - 3);
+
+  tctx.strokeStyle = GDV.q[0] + '33'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
+  tctx.beginPath(); tctx.moveTo(0, mapVY(params.V_r)); tctx.lineTo(W, mapVY(params.V_r)); tctx.stroke();
+  tctx.setLineDash([]);
+
+  // Cursor
+  const cursorX = Math.round((traceHead / traceEff) * W);
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, splitY); tctx.stroke();
+
+  // ── V polyline, two passes (old faded / new bright) ──────────────────────
+  const drawV = (fromIdx, toIdx, alpha) => {
+    if (toIdx <= fromIdx) return;
+    tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 2.2; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = fromIdx; i < toIdx; i++) {
+      const x = (i / (traceEff - 1)) * W;
+      const y = mapVY(vHistory[i]);
+      if (i === fromIdx) { tctx.moveTo(x, y); } else { tctx.lineTo(x, y); }
+    }
+    tctx.stroke();
+    tctx.globalAlpha = 1;
+  };
+
+  if (traceFull) drawV(traceHead, traceEff, 0.14);
+  drawV(0, traceHead, 1.0);
+
+  // ── w polyline, two passes ─────────────────────────────────────────────
+  const drawW = (fromIdx, toIdx, alpha) => {
+    if (toIdx <= fromIdx) return;
+    tctx.strokeStyle = GDV.q[3]; tctx.lineWidth = 2; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    const step = Math.max(1, Math.floor((toIdx - fromIdx) / W));
+    let first = true;
+    for (let i = fromIdx; i < toIdx; i += step) {
+      const x = (i / (traceEff - 1)) * W;
+      const y = mapWY(wHistory[i]);
+      if (first) { tctx.moveTo(x, y); first = false; } else { tctx.lineTo(x, y); }
+    }
+    tctx.stroke();
+    tctx.globalAlpha = 1;
+  };
+
+  if (traceFull) drawW(traceHead, traceEff, 0.14);
+  drawW(0, traceHead, 0.85);
+
+  // w = 0 baseline
+  tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
+  tctx.beginPath(); tctx.moveTo(0, mapWY(0)); tctx.lineTo(W, mapWY(0)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.fillStyle = '#555';
+  tctx.fillText('w', 4, mapWY(0) - 3);
+}
+
+// ── Drawing: phase portrait ────────────────────────────────────────────────
+
+function drawPhase() {
+  const W = phaseCanvas.width, H = phaseCanvas.height;
+  const ml = 28, mt = 8, mr = 6, mb = 20;
+  const cW = W - ml - mr, cH = H - mt - mb;
+
+  pctx.clearRect(0, 0, W, H);
+  pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
+
+  const { I_ext, a, V_r, b } = params;
+
+  // Dynamic w range
+  let wHiDyn = 10, wLoDyn = 0;
+  for (let i = 0; i < PHASE_LEN; i++) {
+    if (phaseW[i] > wHiDyn) wHiDyn = phaseW[i];
+    if (phaseW[i] < wLoDyn) wLoDyn = phaseW[i];
+  }
+  const wHi = Math.max(wHiDyn * 1.2, 80);
+  const wLo = Math.min(wLoDyn - 5, -10);
+  const vLo = E_L - 8, vHi = V_peak + 8;
+
+  const xv = v  => ml + (v  - vLo) / (vHi - vLo) * cW;
+  const yw = wv => mt + cH - (wv - wLo) / (wHi - wLo) * cH;
+
+  // Axes
+  pctx.strokeStyle = '#555'; pctx.lineWidth = 1;
+  pctx.beginPath();
+  pctx.moveTo(ml, mt); pctx.lineTo(ml, mt + cH); pctx.lineTo(ml + cW, mt + cH);
+  pctx.stroke();
+
+  pctx.fillStyle = '#666'; pctx.font = '9px monospace';
+  pctx.fillText('w (pA)', ml + 2, mt + 9);
+  pctx.fillText('V (mV)', ml + cW - 36, mt + cH + 14);
+
+  // Grid lines
+  pctx.lineWidth = 0.5;
+  const wTicks = [Math.round(wHi * 0.35), Math.round(wHi * 0.70)].filter(v => v > wLo && v < wHi);
+  wTicks.forEach(wg => {
+    pctx.strokeStyle = '#2c2c2c';
+    pctx.beginPath(); pctx.moveTo(ml, yw(wg)); pctx.lineTo(ml + cW, yw(wg)); pctx.stroke();
+    pctx.fillStyle = '#555'; pctx.font = '9px monospace';
+    pctx.fillText(wg, 2, yw(wg) + 3);
+  });
+
+  // V_T dashed marker
+  pctx.strokeStyle = GDV.q[4] + '55'; pctx.lineWidth = 1; pctx.setLineDash([3, 3]);
+  pctx.beginPath(); pctx.moveTo(xv(V_T), mt); pctx.lineTo(xv(V_T), mt + cH); pctx.stroke();
+  pctx.setLineDash([]);
+
+  // E_L dashed marker
+  pctx.strokeStyle = GDV.q[5] + '33'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
+  pctx.beginPath(); pctx.moveTo(xv(E_L), mt); pctx.lineTo(xv(E_L), mt + cH); pctx.stroke();
+  pctx.setLineDash([]);
+
+  // V_r marker (thin red dashed)
+  if (V_r >= vLo && V_r <= vHi) {
+    pctx.strokeStyle = GDV.q[0] + '55'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
+    pctx.beginPath(); pctx.moveTo(xv(V_r), mt); pctx.lineTo(xv(V_r), mt + cH); pctx.stroke();
+    pctx.setLineDash([]);
+  }
+
+  // ── V-nullcline ────────────────────────────────────────────────────────
+  pctx.strokeStyle = GDV.q[2]; pctx.lineWidth = 1.8; pctx.setLineDash([]);
+  pctx.beginPath();
+  let firstVnull = true;
+  for (let px = 0; px <= cW; px++) {
+    const Vv  = vLo + (px / cW) * (vHi - vLo);
+    if (Vv >= V_peak) break;
+    const wv  = vNullcline(Vv);
+    if (wv < wLo - 20 || wv > wHi + 20) { firstVnull = true; continue; }
+    const cy  = yw(Math.max(wLo, Math.min(wHi, wv)));
+    if (firstVnull) { pctx.moveTo(ml + px, cy); firstVnull = false; }
+    else            { pctx.lineTo(ml + px, cy); }
+  }
+  pctx.stroke();
+
+  // ── w-nullcline ────────────────────────────────────────────────────────
+  pctx.strokeStyle = GDV.q[4]; pctx.lineWidth = 1.5;
+  pctx.beginPath();
+  let firstWnull = true;
+  for (let px = 0; px <= cW; px++) {
+    const Vv = vLo + (px / cW) * (vHi - vLo);
+    const wv = a * (Vv - E_L);
+    if (wv < wLo || wv > wHi) { firstWnull = true; continue; }
+    const cy = yw(wv);
+    if (firstWnull) { pctx.moveTo(ml + px, cy); firstWnull = false; }
+    else            { pctx.lineTo(ml + px, cy); }
+  }
+  pctx.stroke();
+
+  // ── Phase trajectory ───────────────────────────────────────────────────
+  const tLen = phaseFull ? PHASE_LEN : phaseHead;
+  if (tLen > 1) {
+    pctx.lineWidth = 0.9;
+    for (let i = 1; i < tLen; i++) {
+      const idx  = phaseFull ? (phaseHead + i) % PHASE_LEN : i;
+      const idx0 = phaseFull ? (phaseHead + i - 1) % PHASE_LEN : i - 1;
+      const Vv0 = phaseV[idx0], wv0 = phaseW[idx0];
+      const Vv1 = phaseV[idx],  wv1 = phaseW[idx];
+      if (Math.abs(Vv1 - Vv0) > 30 || Math.abs(wv1 - wv0) > 200) continue;
+      const alpha = 0.06 + 0.55 * (i / tLen);
+      pctx.strokeStyle = `rgba(210,210,210,${alpha.toFixed(2)})`;
+      pctx.beginPath();
+      pctx.moveTo(xv(Vv0), yw(Math.max(wLo, Math.min(wHi, wv0))));
+      pctx.lineTo(xv(Vv1), yw(Math.max(wLo, Math.min(wHi, wv1))));
+      pctx.stroke();
+    }
+  }
+
+  // ── State dot ──────────────────────────────────────────────────────────
+  const sV = Math.max(vLo, Math.min(vHi, V));
+  const sW = Math.max(wLo, Math.min(wHi, w));
+  pctx.beginPath();
+  pctx.arc(xv(sV), yw(sW), 4, 0, Math.PI * 2);
+  pctx.fillStyle = GDV.q[1]; pctx.fill();
+}
+
+// ── Animation loop ─────────────────────────────────────────────────────────
+
+function loop() {
+  const now     = performance.now();
+  const SPD_MAP  = [0.125, 0.25, 0.5, 0.75, 1.0];
+  const speed    = SPD_MAP[parseInt(document.getElementById('sl-spd').value) - 1];
+  const dtReal  = lastFrameTime !== null ? Math.min(now - lastFrameTime, 50) : 16.7;
+  lastFrameTime = now;
+
+  const steps = Math.max(1, Math.round((dtReal / DT) * speed));
+  for (let s = 0; s < steps; s++) {
+    step();
+    vHistory[traceHead] = V;
+    wHistory[traceHead] = w;
+    traceHead++;
+    if (traceHead >= traceEff) { traceHead = 0; traceFull = true; }
+    phaseV[phaseHead] = V;
+    phaseW[phaseHead] = w;
+    phaseHead++;
+    if (phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
+  }
+
+  drawTrace();
+  drawPhase();
+
+  document.getElementById('legend-state-dot').style.background = GDV.q[1];
+
+  requestAnimationFrame(loop);
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+
+const sliders = [
+  ['I_ext',  'sl-I',     'val-I',     v => Math.round(v) + ' pA'],
+  ['tau_m',  'sl-taum',  'val-taum',  v => (+v).toFixed(1) + ' ms'],
+  ['a',      'sl-a',     'val-a',     v => (+v).toFixed(1) + ' nS'],
+  ['b',      'sl-b',     'val-b',     v => Math.round(v) + ' pA'],
+  ['tau_w',  'sl-tauw',  'val-tauw',  v => Math.round(v) + ' ms'],
+  ['V_r',    'sl-Vr',    'val-Vr',    v => (v >= 0 ? v : '−' + Math.abs(v)) + ' mV'],
+];
+
+sliders.forEach(([key, slId, valId, fmt]) => {
+  const sl = document.getElementById(slId);
+  document.getElementById(valId).textContent = fmt(sl.value);
+  sl.addEventListener('input', () => {
+    params[key] = parseFloat(sl.value);
+    document.getElementById(valId).textContent = fmt(sl.value);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  });
+});
+
+const SPD_LABELS = ['⅛×', '¼×', '½×', '¾×', '1×'];
+document.getElementById('sl-spd').addEventListener('input', function () {
+  document.getElementById('val-spd').textContent = SPD_LABELS[parseInt(this.value) - 1];
+});
+
+function applyPreset(name) {
+  params = { ...PRESETS[name] };
+  V = E_L; w = 0; spiking = false;
+  vHistory.fill(E_L); wHistory.fill(0);
+  phaseV.fill(E_L);   phaseW.fill(0);
+  traceHead = 0; traceFull = false;
+  phaseHead = 0; phaseFull = false;
+  lastSpikeStep = null; simISI = null;
+
+  const setSlider = (id, val) => { document.getElementById(id).value = val; };
+  setSlider('sl-I',     params.I_ext);
+  setSlider('sl-taum',  params.tau_m);
+  setSlider('sl-a',     params.a);
+  setSlider('sl-b',     params.b);
+  setSlider('sl-tauw',  params.tau_w);
+  setSlider('sl-Vr',    params.V_r);
+
+  sliders.forEach(([key, slId, valId, fmt]) => {
+    document.getElementById(valId).textContent = fmt(document.getElementById(slId).value);
+  });
+
+  setWindow(params.window);  // update button highlight only; buffer already reset above
+
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+}
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+document.getElementById('win-btns').addEventListener('click', e => {
+  const ms = parseInt(e.target.dataset.win);
+  if (!isNaN(ms)) setWindow(ms);
+});
+
+requestAnimationFrame(loop);
+
+// ── KaTeX ──────────────────────────────────────────────────────────────────
+
+window.addEventListener('load', () => {
+  // Sync speed label with slider's actual value (browser may restore cached value)
+  document.getElementById('val-spd').textContent =
+    SPD_LABELS[parseInt(document.getElementById('sl-spd').value) - 1];
+
+  katex.render(
+    String.raw`\tau_m \frac{dV}{dt} = -(V - E_L) + \Delta_T \exp\!\left(\frac{V - V_T}{\Delta_T}\right) + R\,(I - w)`,
+    document.getElementById('eq1'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`\tau_w \frac{dw}{dt} = a\,(V - E_L) - w`,
+    document.getElementById('eq2'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`\text{if } V \geq V_\text{peak} \;:\quad V \leftarrow V_r,\quad w \leftarrow w + b`,
+    document.getElementById('eq3'), { displayMode: false }
+  );
+
+  [
+    [String.raw`E_L = -70\,\text{mV}`,                      'fp1'],
+    [String.raw`V_T = -50\,\text{mV}`,                      'fp2'],
+    [String.raw`\Delta_T = 2\,\text{mV}`,                   'fp3'],
+    [String.raw`R = 500\,\text{M}\Omega,\; g_L = 2\,\text{nS}`, 'fp4'],
+    [String.raw`V_\text{peak} = 20\,\text{mV}`,             'fp5'],
+  ].forEach(([expr, id]) => katex.render(expr, document.getElementById(id), { displayMode: false }));
+});
+</script>
+
+</body>
+</html>
