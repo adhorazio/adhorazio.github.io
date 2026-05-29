@@ -498,6 +498,10 @@
       <input type="range" id="sl-Rm" min="0.5" max="5" step="0.5" value="1" />
     </div>
     <div class="control-group">
+      <label><span>g<sub>L</sub> — shunting leak</span><span id="val-gL">0.00 µS</span></label>
+      <input type="range" id="sl-gL" min="0" max="5" step="0.05" value="0" />
+    </div>
+    <div class="control-group">
       <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
       <input type="range" id="sl-vsub" min="10" max="180" step="1" value="42" />
     </div>
@@ -591,11 +595,11 @@
 const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
 
 const PRESETS = {
-  SUB:   { Cm: 0.1,   Rm: 1, V_sub: 42, V_above: 98, I_eff: 20,  tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
-  TONIC: { Cm: 0.1,   Rm: 1, V_sub: 42, V_above: 98, I_eff: 60,  tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
-  FAST:  { Cm: 0.02,  Rm: 1, V_sub: 42, V_above: 98, I_eff: 60,  tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
-  BLOCK: { Cm: 0.1,   Rm: 1, V_sub: 42, V_above: 98, I_eff: 100, tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
-  BURST: { Cm: 0.010, Rm: 1, V_sub: 42, V_above: 98, I_eff: 60,  tau_wp:  50, b_plus: 10, enable_plus: true,  tau_wm: 500, b_minus: 5, enable_minus: true  },
+  SUB:   { Cm: 0.1,   Rm: 1, g_L: 0, V_sub: 42, V_above: 98, I_eff: 20,  tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
+  TONIC: { Cm: 0.1,   Rm: 1, g_L: 0, V_sub: 42, V_above: 98, I_eff: 60,  tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
+  FAST:  { Cm: 0.02,  Rm: 1, g_L: 0, V_sub: 42, V_above: 98, I_eff: 60,  tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
+  BLOCK: { Cm: 0.1,   Rm: 1, g_L: 0, V_sub: 42, V_above: 98, I_eff: 100, tau_wp: 200, b_plus:  5, enable_plus: false, tau_wm: 200, b_minus: 5, enable_minus: false },
+  BURST: { Cm: 0.010, Rm: 1, g_L: 0, V_sub: 42, V_above: 98, I_eff: 60,  tau_wp:  50, b_plus: 10, enable_plus: true,  tau_wm: 500, b_minus: 5, enable_minus: true  },
 };
 
 let params = { ...PRESETS.TONIC };
@@ -606,10 +610,10 @@ let Iw_plus  = 0;
 let Iw_minus = 0;
 
 // ── Regime ─────────────────────────────────────────────────────────────────────
-// Regime is determined by the steady-state V* = I_net * Rm
-// so the gM condition on V translates to a condition on I_net vs thresholds
+// Regime is determined by V* = I_net / (gL + g_L)
 function getRegime(I_net) {
-  const V_star = I_net * params.Rm;
+  const gTotal = 1.0 / params.Rm + params.g_L;
+  const V_star = I_net / gTotal;
   if (V_star < params.V_sub)    return 'sub';
   if (V_star < params.V_above)  return 'spike';
   return 'block';
@@ -715,17 +719,17 @@ resizeTrace();
 // ── Simulation step ────────────────────────────────────────────────────────────
 function step() {
   simStep++;
-  const gL    = 1.0 / params.Rm;
-  const I_net = params.I_eff
+  const gL     = 1.0 / params.Rm;
+  const gTotal = gL + params.g_L;           // intrinsic + shunting leak
+  const I_net  = params.I_eff
     + (params.enable_plus  ? Iw_plus  : 0)
     - (params.enable_minus ? Iw_minus : 0);
 
-  // Integrate membrane potential: Cm dV/dt = -gL*V + I_net  (dt = 1 ms)
-  V += (-gL * V + I_net) / (params.Cm * 1000) * DT;
+  // Integrate: Cm dV/dt = -(gM(V) + g_L)*V + I_net
+  V += (-gTotal * V + I_net) / (params.Cm * 1000) * DT;
 
-  // Spike condition: V reaches threshold AND steady-state is in spiking window
-  // (i.e., gM -> inf in [V_sub, V_above), gM = 0 or gL outside)
-  const V_star = I_net / gL;
+  // Spike condition: V reaches threshold AND V* = I_net/(gL+g_L) < V_above
+  const V_star = I_net / gTotal;
   if (V >= params.V_sub && V_star < params.V_above) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
@@ -746,12 +750,12 @@ function step() {
   }
 }
 
-// ── Analytical f-I (no adaptation, Rm and Cm explicit) ────────────────────────
+// ── Analytical f-I (no adaptation, Rm/Cm/g_L explicit) ───────────────────────
 function fiFreq(I_eff) {
-  const gL    = 1.0 / params.Rm;
-  const V_star = I_eff / gL;
+  const gTotal = 1.0 / params.Rm + params.g_L;
+  const V_star = I_eff / gTotal;
   if (V_star <= params.V_sub || V_star >= params.V_above) return 0;
-  const tau_m = params.Cm * params.Rm * 1000;
+  const tau_m = params.Cm / gTotal * 1000;  // Cm[µF]/gTotal[µS] → s → ×1000 → ms
   const T = tau_m * Math.log(V_star / (V_star - params.V_sub));
   return T > 0 ? 1000 / T : 0;
 }
@@ -818,13 +822,14 @@ function drawFICurve() {
   fctx.clearRect(0, 0, W, H);
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
-  const gL    = 1.0 / params.Rm;
-  const I_MAX = Math.max(120, params.V_above * params.Rm * 1.25);
+  const gL     = 1.0 / params.Rm;
+  const gTotal = gL + params.g_L;
+  const I_MAX  = Math.max(120, params.V_above * gTotal * 1.25);
 
   // Peak frequency (just below block threshold in terms of I_eff)
-  const I_pk  = params.V_above * gL - 0.01;
-  const V_pk  = I_pk / gL;
-  const tau_m = params.Cm * params.Rm * 1000;
+  const I_pk  = params.V_above * gTotal - 0.01;
+  const V_pk  = I_pk / gTotal;
+  const tau_m = params.Cm / gTotal * 1000;
   const t_pk  = V_pk > params.V_sub ? tau_m * Math.log(V_pk / (V_pk - params.V_sub)) : Infinity;
   const f_pk  = t_pk > 0 && isFinite(t_pk) ? 1000 / t_pk : 0;
   const F_MAX = Math.max(50, f_pk * 1.4);
@@ -857,8 +862,8 @@ function drawFICurve() {
   fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 44, mt + cH + 22);
 
   // Threshold markers
-  const I_sub_thr = params.V_sub * gL;
-  const I_blk_thr = params.V_above * gL;
+  const I_sub_thr = params.V_sub   * gTotal;
+  const I_blk_thr = params.V_above * gTotal;
 
   fctx.setLineDash([3, 3]);
   if (I_sub_thr <= I_MAX) {
@@ -1033,6 +1038,7 @@ function resetSim() {
 [
   ['Cm',      'sl-Cm',     'val-Cm',     3, v => v + ' µF' ],
   ['Rm',      'sl-Rm',     'val-Rm',     1, v => v + ' MΩ'],
+  ['g_L',     'sl-gL',     'val-gL',     2, v => v + ' µS'],
   ['V_sub',   'sl-vsub',   'val-vsub',   0, v => v + ' mV' ],
   ['V_above', 'sl-vabove', 'val-vabove', 0, v => v + ' mV' ],
   ['I_eff',   'sl-I',      'val-I',      0, v => v + ' mV' ],
@@ -1097,12 +1103,14 @@ function applyPreset(name) {
 
   document.getElementById('sl-Cm').value     = params.Cm;
   document.getElementById('sl-Rm').value     = params.Rm;
+  document.getElementById('sl-gL').value     = params.g_L;
   document.getElementById('sl-vsub').value   = params.V_sub;
   document.getElementById('sl-vabove').value = params.V_above;
   document.getElementById('sl-I').value      = params.I_eff;
 
   document.getElementById('val-Cm').textContent     = params.Cm.toFixed(3) + ' µF';
   document.getElementById('val-Rm').textContent     = params.Rm.toFixed(1) + ' MΩ';
+  document.getElementById('val-gL').textContent     = params.g_L.toFixed(2) + ' µS';
   document.getElementById('val-vsub').textContent   = params.V_sub   + ' mV';
   document.getElementById('val-vabove').textContent = params.V_above + ' mV';
   document.getElementById('val-I').textContent      = params.I_eff   + ' mV';
@@ -1137,7 +1145,7 @@ requestAnimationFrame(loop);
 // ── KaTeX equations ────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`C_m \frac{dV}{dt} = -g_M(V)\, V + I_{\text{eff}} + I_{w}^{+} - I_{w}^{-}`,
+    String.raw`C_m \frac{dV}{dt} = -\bigl(g_M(V) + g_L\bigr)\, V + I_{\text{eff}} + I_{w}^{+} - I_{w}^{-}`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
@@ -1153,7 +1161,7 @@ window.addEventListener('load', () => {
     document.getElementById('eq4'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_m = C_m R_m \quad(\text{effective time constant})`,
+    String.raw`\tau_m = \frac{C_m}{1/R_m + g_L} \quad(\text{effective time constant})`,
     document.getElementById('eq5'), { displayMode: false }
   );
 });
