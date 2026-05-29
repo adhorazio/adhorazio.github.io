@@ -185,19 +185,32 @@
     footer {
       width: 100%;
       max-width: 760px;
-      padding: 2rem 0 1rem;
+      padding: 0 0 1rem;
       font-size: 0.72rem;
       color: var(--text-dim);
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      border-top: 1px solid var(--border);
       margin-top: 2.5rem;
     }
 
     .footer-ref {
-      font-style: italic;
+      font-size: 0.72rem;
+      color: var(--text-dim);
       line-height: 1.5;
+      padding: 0.75rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ref-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.6;
+      display: block;
+      margin-bottom: 0.25rem;
     }
 
     .footer-bottom {
@@ -350,6 +363,7 @@
 
 <footer>
   <div class="footer-ref">
+    <span class="ref-label">Reference</span>
     Izhikevich, E. M. Simple model of spiking neurons. <em>IEEE Trans. Neural Netw.</em> <strong>14</strong>, 1569–1572 (2003).
     <a href="https://doi.org/10.1109/TNN.2003.820440" target="_blank" rel="noopener">https://doi.org/10.1109/TNN.2003.820440</a>
   </div>
