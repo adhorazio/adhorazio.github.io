@@ -61,7 +61,7 @@
     }
 
     /* ── canvases ── */
-    #trace { display: block; width: 100%; height: 210px; border-radius: 6px; background: #1e1e1e; }
+    #trace { display: block; width: 100%; height: 310px; border-radius: 6px; background: #1e1e1e; }
     .plots-row { display: flex; gap: 1rem; }
 
     /* ── window selector ── */
@@ -250,8 +250,9 @@ let V  = 0;
 let Iw = 0;
 const DT        = 0.1;    // ms
 const TRACE_LEN = 20000;  // 2000 ms max at 0.1 ms/step
-const vHistory  = new Float32Array(TRACE_LEN);
-const iHistory  = new Float32Array(TRACE_LEN); // I_net = I_eff + Iw
+const vHistory      = new Float32Array(TRACE_LEN);
+const iHistoryPulse = new Float32Array(TRACE_LEN); // user-injected pulse current
+const iHistoryIw    = new Float32Array(TRACE_LEN); // Iw+ adaptation current
 let windowMs  = 500;
 let traceEff  = Math.round(500 / DT);  // effective ring-buffer slots
 let traceHead = 0;
@@ -260,6 +261,11 @@ let simStep   = 0;
 let lastSpikeStep = null;
 let simISI        = null;
 let lastFrameTime = null;
+
+// ── Pulse injection ────────────────────────────────────────────────────────────
+let I_pulse    = 0;    // amplitude of ongoing pulse (mV)
+let pulseTimer = 0;    // remaining pulse duration (ms simulated)
+const PULSE_DUR = 300; // ms — rectangular pulse duration
 
 // ── History trail (for hysteresis diagram) ─────────────────────────────────────
 const TRAIL_LEN  = 300;
@@ -387,10 +393,10 @@ function getBranches() {
 function step(Ie) {
   simStep++;
   const gL   = 1 / Rm;
-  const Inet = Ie + Iw;
+  const Inet = Ie + Iw + I_pulse;          // total drive
   V += (-gL * V + Inet) / (Cm * 1000) * DT;
 
-  const Vs = Inet / gL;
+  const Vs = Inet;                         // Rm = 1
   if (V >= V_sub && Vs < V_blk) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
@@ -399,6 +405,12 @@ function step(Ie) {
     return true;
   }
   if (tau_wp > 0) Iw *= Math.exp(-DT / tau_wp);
+
+  // Rectangular pulse timer
+  if (pulseTimer > 0) {
+    pulseTimer -= DT;
+    if (pulseTimer <= 0) { pulseTimer = 0; I_pulse = 0; }
+  }
   return false;
 }
 
@@ -423,7 +435,7 @@ resizeCanvases();
 function setWindow(ms) {
   windowMs = ms;
   traceEff = Math.min(Math.round(ms / DT), TRACE_LEN);
-  vHistory.fill(0); iHistory.fill(0);
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   document.querySelectorAll('.win-btn').forEach(b =>
     b.classList.toggle('active', parseInt(b.dataset.win) === ms)
@@ -433,22 +445,67 @@ document.getElementById('win-btns').addEventListener('click', e => {
   if (e.target.dataset.win) setWindow(parseInt(e.target.dataset.win));
 });
 
-// ── Draw trace (split: V top 75%, I_net bottom 25%) ───────────────────────────
+// ── Draw trace — V panel + 3 stacked current panels ──────────────────────────
 function drawTrace() {
   const W = traceCanvas.width, H = traceCanvas.height;
   tctx.clearRect(0, 0, W, H);
-
-  const splitY = Math.round(H * 0.74);  // divider between V and I panels
-  const iH     = H - splitY - 2;       // current panel height
-
-  // ── voltage panel ──────────────────────────────────────────────────────────
-  const vMin = -V_sub * 0.1;
-  const vMax = V_blk * 1.12;
-  const mapVY = v => splitY * (1 - (v - vMin) / (vMax - vMin));
-
   tctx.font = '10px monospace';
 
-  // V=0 reference
+  // ── Layout geometry ─────────────────────────────────────────────────────────
+  const vH    = Math.round(H * 0.50);   // voltage panel height
+  const GAP1  = 10;                      // larger gap between V and currents
+  const GAP   = 4;                       // gap between current sub-panels
+  const cH    = Math.round((H - vH - GAP1 - 2 * GAP) / 3); // each current panel
+  const y_v   = 0;
+  const y_p   = vH + GAP1;              // I_pulse panel top
+  const y_iw  = y_p  + cH + GAP;       // Iw+ panel top
+  const y_ie  = y_iw + cH + GAP;       // Ieff panel top
+
+  // ── Shared current Y scale (all 3 panels same axis) ────────────────────────
+  const scanEnd = traceFull ? traceEff : traceHead;
+  let iMax = Math.max(V_sub * 1.25, I_eff * 1.4);
+  for (let i = 0; i < scanEnd; i++) {
+    if (iHistoryIw[i]    > iMax) iMax = iHistoryIw[i];
+    if (iHistoryPulse[i] > iMax) iMax = iHistoryPulse[i];
+  }
+  iMax = Math.ceil(iMax * 1.05);
+  const mapCY = (iv, top, h) =>
+    top + h - Math.min(Math.max(iv, 0) / iMax, 1) * h;
+
+  // Helper: draw separator line
+  const sep = y => {
+    tctx.strokeStyle = '#2a2a2a'; tctx.lineWidth = 1; tctx.setLineDash([]);
+    tctx.beginPath(); tctx.moveTo(0, y); tctx.lineTo(W, y); tctx.stroke();
+  };
+
+  // Helper: draw a sub-panel background (very subtle tint)
+  const panelBg = (y, h, color) => {
+    tctx.fillStyle = color;
+    tctx.fillRect(0, y, W, h);
+  };
+
+  // Helper: two-pass trace polyline
+  const drawLine = (buf, color, lw, top, h, from, to, alpha) => {
+    if (to <= from) return;
+    tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (traceEff - 1)) * W;
+      const y = mapCY(buf[i], top, h);
+      i === from ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  // Cursor X
+  const cursorX = Math.round((traceHead / traceEff) * W);
+
+  // ── 1. VOLTAGE PANEL ───────────────────────────────────────────────────────
+  const vMin = -V_sub * 0.08;
+  const vMax = V_blk * 1.1;
+  const mapVY = v => vH * (1 - (v - vMin) / (vMax - vMin));
+
+  // V=0 ref
   tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
   tctx.beginPath(); tctx.moveTo(0, mapVY(0)); tctx.lineTo(W, mapVY(0)); tctx.stroke();
   tctx.setLineDash([]);
@@ -463,11 +520,10 @@ function drawTrace() {
   tctx.fillText('Vₛᵤᵦ ' + V_sub + ' mV', 4, mapVY(V_sub) - 3);
 
   // Cursor
-  const cursorX = Math.round((traceHead / traceEff) * W);
-  tctx.strokeStyle = 'rgba(255,255,255,0.08)'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, splitY); tctx.stroke();
+  tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, vH); tctx.stroke();
 
-  // V polyline — two passes (faded old wrap / bright current)
+  // V polyline — two passes
   const drawV = (from, to, alpha) => {
     if (to <= from) return;
     tctx.strokeStyle = Q[2]; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
@@ -481,58 +537,70 @@ function drawTrace() {
   if (traceFull) drawV(traceHead, traceEff, 0.12);
   drawV(0, traceHead, 1.0);
 
-  // ── separator ──────────────────────────────────────────────────────────────
-  tctx.strokeStyle = '#2e2e2e'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(0, splitY + 1); tctx.lineTo(W, splitY + 1); tctx.stroke();
+  sep(vH + Math.round(GAP1 / 2));
 
-  // ── current panel ──────────────────────────────────────────────────────────
-  // Dynamic range: scan buffer for min/max I values
-  const scanEnd = traceFull ? traceEff : traceHead;
-  let iLo = 0, iHi = V_sub + 5;
-  for (let i = 0; i < scanEnd; i++) {
-    if (iHistory[i] < iLo) iLo = iHistory[i];
-    if (iHistory[i] > iHi) iHi = iHistory[i];
-  }
-  iHi = Math.max(iHi * 1.1, V_sub + 5);
-  const mapIY = iv => splitY + 2 + iH * (1 - (iv - iLo) / (iHi - iLo));
+  // ── 2. I_PULSE PANEL (yellow) ──────────────────────────────────────────────
+  panelBg(y_p, cH, 'rgba(255,198,30,0.03)');
 
-  // I_eff baseline (dashed orange)
-  tctx.strokeStyle = Q[5] + '55'; tctx.lineWidth = 1; tctx.setLineDash([3, 4]);
-  tctx.beginPath(); tctx.moveTo(0, mapIY(I_eff)); tctx.lineTo(W, mapIY(I_eff)); tctx.stroke();
+  // zero baseline
+  tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
+  tctx.beginPath(); tctx.moveTo(0, y_p + cH - 1); tctx.lineTo(W, y_p + cH - 1); tctx.stroke();
   tctx.setLineDash([]);
-  tctx.fillStyle = Q[5] + '99';
-  tctx.fillText('Ieff', 4, mapIY(I_eff) - 2);
 
-  // V_sub threshold in current panel (when I_net crosses here, neuron fires)
-  if (mapIY(V_sub) > splitY + 2 && mapIY(V_sub) < H - 2) {
+  tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, y_p); tctx.lineTo(cursorX, y_p + cH); tctx.stroke();
+
+  if (traceFull) drawLine(iHistoryPulse, Q[4], 1.5, y_p, cH, traceHead, traceEff, 0.12);
+  drawLine(iHistoryPulse, Q[4], 1.5, y_p, cH, 0, traceHead, 1.0);
+
+  tctx.fillStyle = Q[4] + 'cc'; tctx.font = '9px monospace';
+  tctx.fillText('I pulse', 4, y_p + 11);
+
+  sep(y_p + cH);
+
+  // ── 3. Iw+ PANEL (green) ──────────────────────────────────────────────────
+  panelBg(y_iw, cH, 'rgba(0,205,108,0.03)');
+
+  tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
+  tctx.beginPath(); tctx.moveTo(0, y_iw + cH - 1); tctx.lineTo(W, y_iw + cH - 1); tctx.stroke();
+  tctx.setLineDash([]);
+
+  tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, y_iw); tctx.lineTo(cursorX, y_iw + cH); tctx.stroke();
+
+  if (traceFull) drawLine(iHistoryIw, Q[1], 1.5, y_iw, cH, traceHead, traceEff, 0.12);
+  drawLine(iHistoryIw, Q[1], 1.5, y_iw, cH, 0, traceHead, 1.0);
+
+  tctx.fillStyle = Q[1] + 'cc'; tctx.font = '9px monospace';
+  tctx.fillText('Iw⁺', 4, y_iw + 11);
+
+  sep(y_iw + cH);
+
+  // ── 4. I_eff PANEL (orange) — flat constant baseline ──────────────────────
+  panelBg(y_ie, H - y_ie, 'rgba(242,133,34,0.04)');
+
+  tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, y_ie); tctx.lineTo(cursorX, H); tctx.stroke();
+
+  // Draw I_eff as a filled step from 0 to I_eff
+  const ieY = mapCY(I_eff, y_ie, H - y_ie);
+  tctx.fillStyle = Q[5] + '22';
+  tctx.fillRect(0, ieY, W, H - ieY);
+  tctx.strokeStyle = Q[5]; tctx.lineWidth = 1.5; tctx.setLineDash([]);
+  tctx.beginPath(); tctx.moveTo(0, ieY); tctx.lineTo(W, ieY); tctx.stroke();
+
+  tctx.fillStyle = Q[5] + 'dd'; tctx.font = '9px monospace';
+  tctx.fillText('Ieff  ' + I_eff.toFixed(1) + ' mV', 4, y_ie + 11);
+
+  // shared threshold marker on Ieff panel
+  const thY = mapCY(V_sub, y_ie, H - y_ie);
+  if (thY > y_ie + 2 && thY < H - 2) {
     tctx.strokeStyle = Q[4] + '44'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
-    tctx.beginPath(); tctx.moveTo(0, mapIY(V_sub)); tctx.lineTo(W, mapIY(V_sub)); tctx.stroke();
+    tctx.beginPath(); tctx.moveTo(0, thY); tctx.lineTo(W, thY); tctx.stroke();
     tctx.setLineDash([]);
     tctx.fillStyle = Q[4] + '66';
-    tctx.fillText('Vₛᵤᵦ', W - 30, mapIY(V_sub) - 2);
+    tctx.fillText('Vₛᵤᵦ ' + V_sub, W - 56, thY - 2);
   }
-
-  // Cursor in current panel
-  tctx.strokeStyle = 'rgba(255,255,255,0.08)'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(cursorX, splitY + 2); tctx.lineTo(cursorX, H); tctx.stroke();
-
-  // I_net polyline — two passes
-  const drawI = (from, to, alpha) => {
-    if (to <= from) return;
-    tctx.strokeStyle = Q[5]; tctx.lineWidth = 1.6; tctx.globalAlpha = alpha;
-    tctx.beginPath();
-    for (let i = from; i < to; i++) {
-      const x = (i / (traceEff - 1)) * W;
-      i === from ? tctx.moveTo(x, mapIY(iHistory[i])) : tctx.lineTo(x, mapIY(iHistory[i]));
-    }
-    tctx.stroke(); tctx.globalAlpha = 1;
-  };
-  if (traceFull) drawI(traceHead, traceEff, 0.12);
-  drawI(0, traceHead, 1.0);
-
-  // Label
-  tctx.fillStyle = Q[5] + 'cc'; tctx.font = '9px monospace';
-  tctx.fillText('Iₙₑₜ = Ieff + Iw⁺', 4, splitY + iH * 0.4);
 }
 
 // ── Draw f-I curve ─────────────────────────────────────────────────────────────
@@ -800,10 +868,10 @@ function loop() {
   const steps    = Math.round(dtReal * spd / DT);
 
   for (let s = 0; s < steps; s++) {
-    const I_net_now = currentI + Iw;   // capture before step mutates Iw
     const spiked = step(currentI);
-    vHistory[traceHead] = V;
-    iHistory[traceHead] = currentI + Iw; // post-spike Iw shows the jump
+    vHistory[traceHead]      = V;
+    iHistoryPulse[traceHead] = I_pulse;  // current pulse amplitude (0 when no pulse)
+    iHistoryIw[traceHead]    = Iw;       // adaptation current (post-spike, shows jump)
     traceHead++;
     if (traceHead >= traceEff) { traceHead = 0; traceFull = true; }
 
@@ -855,7 +923,8 @@ function loop() {
 // ── Controls ───────────────────────────────────────────────────────────────────
 function resetSim() {
   V = 0; Iw = 0;
-  vHistory.fill(0); iHistory.fill(0); traceHead = 0; traceFull = false;
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
   lastSpikeStep = null; simISI = null; simStep = 0;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 }
@@ -870,7 +939,8 @@ document.getElementById('sl-bp').addEventListener('input', function () {
   document.getElementById('val-bp').textContent = b_plus.toFixed(1);
   branchCache = null;
   scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistory.fill(0); traceHead = 0; traceFull = false;
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
 });
 
 document.getElementById('sl-tauwp').addEventListener('input', function () {
@@ -878,7 +948,8 @@ document.getElementById('sl-tauwp').addEventListener('input', function () {
   document.getElementById('val-tauwp').textContent = tau_wp + ' ms';
   branchCache = null;
   scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistory.fill(0); traceHead = 0; traceFull = false;
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
 });
 
 document.getElementById('sl-spd').addEventListener('input', function () {
@@ -887,21 +958,15 @@ document.getElementById('sl-spd').addEventListener('input', function () {
   document.getElementById('val-spd').textContent = label;
 });
 
-// Trigger pulse: set Iw to the stable spiking FP value (if one exists)
+// Trigger pulse: inject a rectangular current pulse strong enough to cross threshold
 document.getElementById('btn-pulse').addEventListener('click', () => {
-  const f_star = findStableFP(I_eff);
-  if (f_star !== null) {
-    Iw = K() * f_star;
-    V  = 0;
-    lastSpikeStep = null; simISI = null;
-  } else {
-    // Fallback: just add 5 spike-equivalents of Iw+
-    Iw += 5 * b_plus;
-    V  = 0;
-  }
+  // Amplitude: push I_net at least 8 mV above V_sub regardless of current Iw
+  I_pulse    = Math.max(V_sub - I_eff - Iw + 8, 6);
+  pulseTimer = PULSE_DUR;
 });
 
 document.getElementById('btn-reset').addEventListener('click', () => {
+  I_pulse = 0; pulseTimer = 0;
   resetSim();
   scanMode = false;
   document.getElementById('btn-scan').classList.remove('active');
@@ -927,7 +992,8 @@ document.getElementById('btn-scan').addEventListener('click', () => {
   scanSteps = 0; scanSpikes = 0;
   scanData  = { up: [], down: [] };
   // Start from silence
-  V = 0; Iw = 0; lastSpikeStep = null; simISI = null;
+  V = 0; Iw = 0; I_pulse = 0; pulseTimer = 0;
+  lastSpikeStep = null; simISI = null;
   scanMode  = true;
   document.getElementById('btn-scan').classList.add('active');
   document.getElementById('btn-scan').textContent = 'Stop scan ■';
