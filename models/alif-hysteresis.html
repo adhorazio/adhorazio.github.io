@@ -177,7 +177,15 @@
   <div class="controls">
     <div class="control-group">
       <label><span>I<sub>eff</sub> — input current</span><span id="val-I">38 mV</span></label>
-      <input type="range" id="sl-I" min="0" max="65" step="0.5" value="38" />
+      <input type="range" id="sl-I" min="0" max="120" step="0.5" value="38" />
+    </div>
+    <div class="control-group">
+      <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
+      <input type="range" id="sl-vsub" min="10" max="180" step="1" value="42" />
+    </div>
+    <div class="control-group">
+      <label><span>V<sub>above</sub> — block threshold</span><span id="val-vabove">98 mV</span></label>
+      <input type="range" id="sl-vabove" min="15" max="200" step="1" value="98" />
     </div>
     <div class="control-group">
       <label><span>b<sup>+</sup> — spike increment</span><span id="val-bp">8.0</span></label>
@@ -235,8 +243,8 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 // ── Fixed model params ─────────────────────────────────────────────────────────
 const Cm    = 0.1;   // µF
 const Rm    = 1.0;   // MΩ
-const V_sub = 42;    // mV — spike threshold
-const V_blk = 98;    // mV — depolarisation block threshold
+let   V_sub = 42;    // mV — spike threshold  (adjustable)
+let   V_blk = 98;    // mV — depolarisation block threshold (adjustable)
 const tau_m = Cm * Rm * 1000; // 100 ms
 
 // ── User params ────────────────────────────────────────────────────────────────
@@ -287,6 +295,20 @@ let I_scan_lo, I_scan_hi;
 
 // ── Derived ────────────────────────────────────────────────────────────────────
 const K = () => b_plus * tau_wp / 1000; // load-line slope (mV/(Hz))
+
+// ── Regime detection ───────────────────────────────────────────────────────────
+function getRegime(I_net) {
+  const Vs = I_net * Rm; // steady-state V* (Rm=1 so Vs = I_net)
+  if (Vs < V_sub)  return 'sub';
+  if (Vs < V_blk)  return 'spike';
+  return 'block';
+}
+function regimeColor(I_net) {
+  const r = getRegime(I_net);
+  if (r === 'sub')   return Q[2]; // blue
+  if (r === 'spike') return Q[1]; // green
+  return Q[0];                    // red
+}
 
 function fiFreq(I) {
   const Vs = I * Rm; // steady-state V
@@ -512,12 +534,21 @@ function drawTrace() {
   tctx.fillStyle = '#555';
   tctx.fillText('0 mV', 4, mapVY(0) - 3);
 
-  // V_sub threshold
+  // V_sub threshold (yellow)
   tctx.strokeStyle = Q[4] + '55'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
   tctx.beginPath(); tctx.moveTo(0, mapVY(V_sub)); tctx.lineTo(W, mapVY(V_sub)); tctx.stroke();
   tctx.setLineDash([]);
   tctx.fillStyle = Q[4] + 'bb';
   tctx.fillText('Vₛᵤᵦ ' + V_sub + ' mV', 4, mapVY(V_sub) - 3);
+
+  // V_above threshold (red — depolarisation block)
+  if (mapVY(V_blk) > 2) {
+    tctx.strokeStyle = Q[0] + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
+    tctx.beginPath(); tctx.moveTo(0, mapVY(V_blk)); tctx.lineTo(W, mapVY(V_blk)); tctx.stroke();
+    tctx.setLineDash([]);
+    tctx.fillStyle = Q[0] + 'cc';
+    tctx.fillText('Vₐ ' + V_blk + ' mV', 4, mapVY(V_blk) - 3);
+  }
 
   // Cursor
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
@@ -838,19 +869,24 @@ function drawHyst() {
 
 // ── State badge ────────────────────────────────────────────────────────────────
 function updateBadge() {
-  const badge = document.getElementById('state-badge');
-  const obsF = (simISI !== null && (simStep - (lastSpikeStep || 0)) * DT < 1500)
+  const badge   = document.getElementById('state-badge');
+  const I_net   = I_eff + Iw + I_pulse;
+  const regime  = getRegime(I_net);
+  const obsF    = (simISI !== null && (simStep - (lastSpikeStep || 0)) * DT < 1500)
     ? 1000 / (simISI * DT) : 0;
-  const spiking = Iw > 1 && obsF > 0.5;
 
-  if (spiking) {
+  if (regime === 'block') {
+    badge.textContent = 'depol. block · Iw+ = ' + Iw.toFixed(1);
+    badge.style.background = 'rgba(255,31,91,0.15)';
+    badge.style.color = Q[0];
+  } else if (regime === 'spike' && obsF > 0.5) {
     badge.textContent = 'spiking · ' + obsF.toFixed(1) + ' Hz · Iw+ = ' + Iw.toFixed(1);
     badge.style.background = 'rgba(0,205,108,0.15)';
-    badge.style.color = '#00CD6C';
+    badge.style.color = Q[1];
   } else {
     badge.textContent = 'silent · Iw+ = ' + Iw.toFixed(1);
     badge.style.background = 'rgba(0,154,222,0.12)';
-    badge.style.color = '#009ADE';
+    badge.style.color = Q[2];
   }
 }
 
@@ -932,6 +968,28 @@ function resetSim() {
 document.getElementById('sl-I').addEventListener('input', function () {
   I_eff = parseFloat(this.value);
   document.getElementById('val-I').textContent = I_eff.toFixed(1) + ' mV';
+});
+
+document.getElementById('sl-vsub').addEventListener('input', function () {
+  let val = parseFloat(this.value);
+  if (val >= V_blk - 5) { val = V_blk - 5; this.value = val; }
+  V_sub = val;
+  document.getElementById('val-vsub').textContent = val + ' mV';
+  branchCache = null; scanData = { up: [], down: [] };
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
+  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
+});
+
+document.getElementById('sl-vabove').addEventListener('input', function () {
+  let val = parseFloat(this.value);
+  if (val <= V_sub + 5) { val = V_sub + 5; this.value = val; }
+  V_blk = val;
+  document.getElementById('val-vabove').textContent = val + ' mV';
+  branchCache = null; scanData = { up: [], down: [] };
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
+  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 });
 
 document.getElementById('sl-bp').addEventListener('input', function () {
