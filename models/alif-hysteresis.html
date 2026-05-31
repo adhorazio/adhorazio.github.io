@@ -204,10 +204,6 @@
       <input type="range" id="sl-tauwp" min="50" max="1000" step="10" value="400" />
     </div>
     <div class="control-group">
-      <label><span>τ<sub>ref</sub> — refractory period</span><span id="val-tref">63 ms</span></label>
-      <input type="range" id="sl-tref" min="0" max="500" step="1" value="63" />
-    </div>
-    <div class="control-group">
       <label><span>speed</span><span id="val-spd">½×</span></label>
       <input type="range" id="sl-spd" min="0.25" max="4" step="0.25" value="0.5" />
     </div>
@@ -263,10 +259,9 @@ let   V_blk = 98;    // mV — block threshold = Imax = 98 µA
 
 // ── User params ────────────────────────────────────────────────────────────────
 let I_eff  = 38;   // below I_on=42 → silent without Iw+, bistable zone
-let b_plus  = 8;
-let tau_wp  = 400;
-let tau_ref = 63;   // ms — absolute refractory / reset time: f = 1/(T_RC + tau_ref)
-let speed   = 0.5;
+let b_plus = 8;
+let tau_wp = 400;
+let speed  = 0.5;
 
 // ── Simulation state ───────────────────────────────────────────────────────────
 let V  = 0;
@@ -330,15 +325,12 @@ function regimeColor(I_net) {
   return Q[0];
 }
 
-// fiFreq: T_total = T_RC + tau_ref  →  f = 1 / T_total
-// T_RC = τm·ln(V*/(V*-Vsub))  (charging time)
-// tau_ref = absolute refractory period (limits f at high I, matches f(Imax)=1.3f₀)
+// fiFreq: f = 1 / (τm · ln(V*/(V*-Vsub)))
 function fiFreq(I) {
-  const Vs    = Vstar(I);                        // V* = I·Rm
+  const Vs    = Vstar(I);
   if (Vs <= V_sub || Vs >= V_blk) return 0;
   const tau_m = Cm * Rm * 1000;                 // ms
-  const T_RC  = tau_m * Math.log(Vs / (Vs - V_sub));
-  const T     = T_RC + tau_ref;
+  const T     = tau_m * Math.log(Vs / (Vs - V_sub));
   return T > 0 ? 1000 / T : 0;
 }
 
@@ -417,7 +409,7 @@ let branchCache = null;
 let cacheKey    = '';
 
 function getBranches() {
-  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + tau_ref;
+  const key = b_plus + ',' + tau_wp + ',' + Rm;
   if (branchCache && key === cacheKey) return branchCache;
   cacheKey = key;
 
@@ -1096,11 +1088,6 @@ document.getElementById('sl-bp').addEventListener('input', function () {
   traceHead = 0; traceFull = false;
 });
 
-document.getElementById('sl-tref').addEventListener('input', function () {
-  tau_ref = parseFloat(this.value);
-  document.getElementById('val-tref').textContent = tau_ref + ' ms';
-  branchCache = null; scanData = { up: [], down: [] };
-});
 
 document.getElementById('sl-tauwp').addEventListener('input', function () {
   tau_wp = parseFloat(this.value);
@@ -1170,7 +1157,7 @@ window.addEventListener('load', () => {
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`T = \tau_m \ln\!\frac{V^*}{V^*-V_{sub}} + \tau_{ref},\quad f = \frac{1}{T},\quad \tau_m = C_m R_m`,
+    String.raw`\tau_m = C_m R_m \quad (\text{membrane time constant})`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
