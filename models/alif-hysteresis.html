@@ -730,6 +730,22 @@ function drawFI() {
     fctx.stroke(); fctx.setLineDash([]);
   }
 
+  // ── Bare I_eff marker (no Iw+) ───────────────────────────────────────────────
+  if (I_eff <= I_MAX) {
+    // Vertical dotted line at I_eff
+    fctx.strokeStyle = Q[6] + '66'; fctx.lineWidth = 1; fctx.setLineDash([3, 4]);
+    fctx.beginPath(); fctx.moveTo(xi(I_eff), mt); fctx.lineTo(xi(I_eff), mt + cH); fctx.stroke();
+    fctx.setLineDash([]);
+    // Gray diamond at (I_eff, fiFreq(I_eff))
+    const f0 = fiFreq(I_eff), px0 = xi(I_eff), py0 = yf(f0), r0 = 5;
+    fctx.beginPath();
+    fctx.moveTo(px0, py0 - r0); fctx.lineTo(px0 + r0, py0);
+    fctx.lineTo(px0, py0 + r0); fctx.lineTo(px0 - r0, py0);
+    fctx.closePath();
+    fctx.fillStyle = 'transparent'; fctx.strokeStyle = Q[6]; fctx.lineWidth = 1.5;
+    fctx.fill(); fctx.stroke();
+  }
+
   // ── Fixed-point diamonds (same style as alif.html) ───────────────────────────
   if (k > 0) {
     let g_prev = null;
