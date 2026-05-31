@@ -188,8 +188,8 @@
       <input type="range" id="sl-rm" min="0.5" max="5" step="0.5" value="1" />
     </div>
     <div class="control-group">
-      <label><span>g<sub>L</sub> — leak conductance</span><span id="val-gl">1.00 µS</span></label>
-      <input type="range" id="sl-gl" min="0.1" max="10" step="0.1" value="1" />
+      <label><span>a — leak slope g<sub>L</sub>(V)=aV</span><span id="val-gl">0.020 µS/mV</span></label>
+      <input type="range" id="sl-gl" min="0" max="0.2" step="0.002" value="0.02" />
     </div>
     <div class="control-group">
       <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
@@ -255,12 +255,12 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 
 // ── Fixed model params ─────────────────────────────────────────────────────────
 let   Cm  = 0.1;   // µF — membrane capacitance (adjustable)
-let   Rm  = 1.0;   // MΩ — sub-threshold membrane resistance
-let   gL  = 1.0;   // µS — constant leak conductance
-let   V_sub = 42;  // mV — spike threshold  (adjustable)
-let   V_blk = 98;  // mV — depolarisation block threshold (adjustable)
-// gTotal = 1/Rm + gL  (sub-threshold total conductance, µS)
-// tau_m  = Cm / gTotal * 1000  (ms) — computed dynamically
+let   Rm     = 1.0;    // MΩ — sub-threshold membrane resistance
+let   a_leak = 0.02;   // µS/mV — voltage-dependent leak slope: gL(V) = a·V
+let   V_sub  = 42;     // mV — spike threshold  (adjustable)
+let   V_blk  = 98;     // mV — depolarisation block threshold (adjustable)
+// gL(V) = a_leak · V  (nonlinear leak, zero at rest)
+// sub-threshold: Cm dV/dt = -V/Rm - a·V² + Inet
 
 // ── User params ────────────────────────────────────────────────────────────────
 let I_eff  = 38;
@@ -312,27 +312,44 @@ let I_scan_lo, I_scan_hi;
 const K = () => b_plus * tau_wp / 1000; // load-line slope (mV/(Hz))
 
 // ── Regime detection ───────────────────────────────────────────────────────────
-const gTotal = () => 1 / Rm + gL; // total sub-threshold conductance (µS)
+// ── Nonlinear steady-state helpers ────────────────────────────────────────────
+// V* solves  V/Rm + a·V² = I  →  a·V²+ V/Rm - I = 0
+function Vstar(I) {
+  if (a_leak <= 0) return I * Rm;                         // linear: V* = I·Rm
+  const disc = 1 / (a_leak * Rm) ** 2 + 4 * I / a_leak;
+  if (disc < 0) return 0;
+  return (-1 / (a_leak * Rm) + Math.sqrt(disc)) / 2;
+}
+// Current required to set steady-state V* = Vs
+function I_for_Vstar(Vs) {
+  return Vs / Rm + a_leak * Vs * Vs;
+}
 
 function getRegime(I_net) {
-  const Vs = I_net / gTotal(); // steady-state V* = I_net / (gM + gL)
+  const Vs = Vstar(I_net);
   if (Vs < V_sub)  return 'sub';
   if (Vs < V_blk)  return 'spike';
   return 'block';
 }
 function regimeColor(I_net) {
   const r = getRegime(I_net);
-  if (r === 'sub')   return Q[2]; // blue
-  if (r === 'spike') return Q[1]; // green
-  return Q[0];                    // red
+  if (r === 'sub')   return Q[2];
+  if (r === 'spike') return Q[1];
+  return Q[0];
 }
 
+// fiFreq: numerical integration of T = ∫₀^{Vsub} Cm dV / (I - V/Rm - a·V²)
 function fiFreq(I) {
-  const gt    = gTotal();
-  const Vs    = I / gt;                    // steady-state V* = I / (gM + gL)
+  const Vs = Vstar(I);
   if (Vs <= V_sub || Vs >= V_blk) return 0;
-  const tau_m = Cm / gt * 1000;           // ms — sub-threshold time constant
-  const T     = tau_m * Math.log(Vs / (Vs - V_sub));
+  const N = 300;
+  let T = 0;
+  for (let j = 0; j < N; j++) {
+    const Vm    = V_sub * (j + 0.5) / N;
+    const denom = I - Vm / Rm - a_leak * Vm * Vm;
+    if (denom <= 0) return 0;
+    T += Cm * 1000 * (V_sub / N) / denom;
+  }
   return T > 0 ? 1000 / T : 0;
 }
 
@@ -341,8 +358,9 @@ function fiFreq(I) {
 function findStableFP(Ie) {
   const k = K();
   if (k <= 0) return null;
-  const gt    = gTotal();
-  const f_max = (V_blk * gt - Ie) / k;   // I_blk = V_blk * gTotal
+  const I_blk = I_for_Vstar(V_blk);
+  const I_on  = I_for_Vstar(V_sub);
+  const f_max = (I_blk - Ie) / k;
   if (f_max <= 0.5) return null;
 
   let last_h = null, last_f = null, found = null;
@@ -350,7 +368,7 @@ function findStableFP(Ie) {
   for (let i = 1; i <= N; i++) {
     const f    = f_max * i / N;
     const Inet = Ie + k * f;
-    if (Inet >= V_blk * gt || Inet <= V_sub * gt) { last_h = null; continue; }
+    if (Inet >= I_blk || Inet <= I_on) { last_h = null; continue; }
     const h = fiFreq(Inet) - f;
     if (last_h !== null && last_h > 0 && h <= 0) {
       // Stable FP: g crosses from above to below identity. Bisect.
@@ -370,8 +388,9 @@ function findStableFP(Ie) {
 function findUnstableFP(Ie) {
   const k = K();
   if (k <= 0) return null;
-  const gt    = gTotal();
-  const f_max = (V_blk * gt - Ie) / k;   // I_blk = V_blk * gTotal
+  const I_blk = I_for_Vstar(V_blk);
+  const I_on  = I_for_Vstar(V_sub);
+  const f_max = (I_blk - Ie) / k;
   if (f_max <= 0.5) return null;
 
   let last_h = null, last_f = null;
@@ -379,7 +398,7 @@ function findUnstableFP(Ie) {
   for (let i = 1; i <= N; i++) {
     const f    = f_max * i / N;
     const Inet = Ie + k * f;
-    if (Inet >= V_blk * gt || Inet <= V_sub * gt) { last_h = null; continue; }
+    if (Inet >= I_blk || Inet <= I_on) { last_h = null; continue; }
     const h = fiFreq(Inet) - f;
     if (last_h !== null && last_h < 0 && h >= 0) {
       let fa = last_f, fb = f;
@@ -396,7 +415,7 @@ function findUnstableFP(Ie) {
 
 // Binary-search for I_off = lowest I_eff where a stable spiking FP exists.
 function findIoff() {
-  let lo = 0, hi = V_sub * gTotal(); // I_on = V_sub * gTotal
+  let lo = 0, hi = I_for_Vstar(V_sub); // I_on
   for (let it = 0; it < 55; it++) {
     const mid = (lo + hi) / 2;
     (findStableFP(mid) !== null) ? hi = mid : lo = mid;
@@ -409,12 +428,12 @@ let branchCache = null;
 let cacheKey    = '';
 
 function getBranches() {
-  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + gL;
+  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + a_leak;
   if (branchCache && key === cacheKey) return branchCache;
   cacheKey = key;
 
   const I_off = findIoff();
-  const I_MAX = V_blk * gTotal() * 1.1;
+  const I_MAX = I_for_Vstar(V_blk) * 1.1;
   const N_I   = 80;
   const stable   = [];
   const unstable = [];
@@ -423,7 +442,7 @@ function getBranches() {
     const Ie = I_MAX * i / N_I;
     const fs = findStableFP(Ie);
     if (fs !== null) stable.push({ I: Ie, f: fs });
-    if (Ie < V_sub * gTotal()) {   // unstable branch only below I_on
+    if (Ie < I_for_Vstar(V_sub)) { // unstable branch only below I_on
       const fu = findUnstableFP(Ie);
       if (fu !== null) unstable.push({ I: Ie, f: fu });
     }
@@ -436,19 +455,18 @@ function getBranches() {
 function step(Ie) {
   simStep++;
   const Inet = Ie + Iw + I_pulse;          // total drive
-  const gt   = gTotal();
-  const Vs   = Inet / gt;                  // steady-state V* = I_net / (gM + gL)
+  const Vs   = Vstar(Inet);               // steady-state V*
 
-  // gM(V): 1/Rm below threshold, +∞ in spiking window, 0 in block
+  // gM(V): 1/Rm sub-threshold, +∞ spiking, 0 block; gL(V) = a·V always
   if (Vs >= V_blk) {
-    // Block: gM = 0 → only gL active
-    V += (-gL * V + Inet) / (Cm * 1000) * DT;
+    // Block: gM = 0 → Cm dV/dt = -a·V² + Inet
+    V += (-a_leak * V * V + Inet) / (Cm * 1000) * DT;
   } else {
-    // Sub-threshold or spiking zone: gM = 1/Rm → total = gt
-    V += (-gt * V + Inet) / (Cm * 1000) * DT;
+    // Sub-threshold / spiking: gM = 1/Rm → Cm dV/dt = -V/Rm - a·V² + Inet
+    V += (-V / Rm - a_leak * V * V + Inet) / (Cm * 1000) * DT;
   }
 
-  if (V >= V_sub && Vs < V_blk) {
+  if (V >= V_sub && Vs < V_blk) {  // Vs still uses Vstar(Inet)
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
     V = 0;
@@ -514,7 +532,7 @@ function drawTrace() {
 
   // ── Shared current Y scale (all 3 panels same axis) ────────────────────────
   const scanEnd = traceFull ? traceEff : traceHead;
-  let iMax = Math.max(V_sub * gTotal() * 1.25, I_eff * 1.4);
+  let iMax = Math.max(I_for_Vstar(V_sub) * 1.25, I_eff * 1.4);
   for (let i = 0; i < scanEnd; i++) {
     if (iHistoryIw[i]    > iMax) iMax = iHistoryIw[i];
     if (iHistoryPulse[i] > iMax) iMax = iHistoryPulse[i];
@@ -652,8 +670,8 @@ function drawTrace() {
   tctx.fillStyle = Q[5] + 'dd'; tctx.font = '9px monospace';
   tctx.fillText('Ieff  ' + I_eff.toFixed(1) + ' mV', 4, y_ie + 11);
 
-  // shared threshold marker on Ieff panel (I_on = V_sub * gTotal)
-  const thY = mapCY(V_sub * gTotal(), y_ie, H - y_ie);
+  // shared threshold marker on Ieff panel (I_on)
+  const thY = mapCY(I_for_Vstar(V_sub), y_ie, H - y_ie);
   if (thY > y_ie + 2 && thY < H - 2) {
     tctx.strokeStyle = Q[4] + '44'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
     tctx.beginPath(); tctx.moveTo(0, thY); tctx.lineTo(W, thY); tctx.stroke();
@@ -672,9 +690,9 @@ function drawFI() {
   fctx.clearRect(0, 0, W, H);
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
-  const gt    = gTotal();
-  const I_MAX = Math.max(100, V_blk * gt * 1.15);
-  const f_pk  = fiFreq(V_blk * gt - 0.5);
+  const I_blk = I_for_Vstar(V_blk);
+  const I_MAX = Math.max(100, I_blk * 1.15);
+  const f_pk  = fiFreq(I_blk - 0.5);
   const F_MAX = Math.max(30, f_pk * 1.3);
   const xi = I => ml + (I / I_MAX) * cW;
   const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
@@ -694,8 +712,8 @@ function drawFI() {
   fctx.fillText('f (Hz)', ml + 2, mt + 9);
   fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 42, mt + cH + 20);
 
-  // Threshold markers (in current units: I_sub = V_sub*gt, I_blk = V_blk*gt)
-  const I_sub = V_sub * gt, I_blk = V_blk * gt;
+  // Threshold markers in current units
+  const I_sub = I_for_Vstar(V_sub);
   fctx.setLineDash([3, 3]);
   fctx.strokeStyle = Q[4] + '77'; fctx.lineWidth = 1;
   fctx.beginPath(); fctx.moveTo(xi(I_sub), mt); fctx.lineTo(xi(I_sub), mt + cH); fctx.stroke();
@@ -798,7 +816,7 @@ function drawHyst() {
   hctx.fillStyle = '#1e1e1e'; hctx.fillRect(0, 0, W, H);
 
   const { stable, unstable, I_off } = getBranches();
-  const I_on  = V_sub * gTotal();
+  const I_on  = I_for_Vstar(V_sub);
   const I_MAX = Math.max(I_on * 1.5, 65);
   const allF  = stable.map(p => p.f).concat([1]);
   const F_MAX = Math.max(30, Math.max(...allF) * 1.25);
@@ -1064,8 +1082,8 @@ document.getElementById('sl-I').addEventListener('input', function () {
 });
 
 document.getElementById('sl-gl').addEventListener('input', function () {
-  gL = parseFloat(this.value);
-  document.getElementById('val-gl').textContent = gL.toFixed(2) + ' µS';
+  a_leak = parseFloat(this.value);
+  document.getElementById('val-gl').textContent = a_leak.toFixed(3) + ' µS/mV';
   branchCache = null; scanData = { up: [], down: [] };
   vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
@@ -1121,7 +1139,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 // Trigger pulse: inject a rectangular current pulse strong enough to cross threshold
 document.getElementById('btn-pulse').addEventListener('click', () => {
   // Push I_net at least 8 current-units above I_on = V_sub * gTotal
-  I_pulse    = Math.max(V_sub * gTotal() - I_eff - Iw + 8, 6);
+  I_pulse    = Math.max(I_for_Vstar(V_sub) - I_eff - Iw + 8, 6);
   pulseTimer = PULSE_DUR;
 });
 
@@ -1145,7 +1163,7 @@ document.getElementById('btn-scan').addEventListener('click', () => {
   // Start scan
   branchCache = null;
   const { I_off } = getBranches();
-  const I_on = V_sub * gTotal();           // spiking onset current
+  const I_on = I_for_Vstar(V_sub);         // spiking onset current
   I_scan_lo  = Math.max(0, I_off - 10);
   I_scan_hi  = I_on + 15;
   scanI     = I_scan_lo;
@@ -1167,11 +1185,11 @@ window.addEventListener('load', () => {
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`g_M(V) = \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases} \qquad g_L = \text{const}`,
+    String.raw`g_M(V) = \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases} \qquad g_L(V) = aV`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_m = \frac{C_m}{\,1/R_m + g_L\,} \quad \Bigl(\text{sub-threshold time constant}\Bigr)`,
+    String.raw`\text{sub-thr.:}\quad C_m\frac{dV}{dt} = -\frac{V}{R_m} - aV^2 + I_{\text{net}}, \quad V^* = \frac{-\frac{1}{aR_m}+\sqrt{\frac{1}{(aR_m)^2}+\frac{4I}{a}}}{2}`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
