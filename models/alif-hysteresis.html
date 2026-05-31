@@ -341,7 +341,8 @@ function fiFreq(I) {
 function findStableFP(Ie) {
   const k = K();
   if (k <= 0) return null;
-  const f_max = (V_blk - 0.2 - Ie) / k;
+  const gt    = gTotal();
+  const f_max = (V_blk * gt - Ie) / k;   // I_blk = V_blk * gTotal
   if (f_max <= 0.5) return null;
 
   let last_h = null, last_f = null, found = null;
@@ -349,7 +350,7 @@ function findStableFP(Ie) {
   for (let i = 1; i <= N; i++) {
     const f    = f_max * i / N;
     const Inet = Ie + k * f;
-    if (Inet >= V_blk || Inet <= V_sub) { last_h = null; continue; }
+    if (Inet >= V_blk * gt || Inet <= V_sub * gt) { last_h = null; continue; }
     const h = fiFreq(Inet) - f;
     if (last_h !== null && last_h > 0 && h <= 0) {
       // Stable FP: g crosses from above to below identity. Bisect.
@@ -369,7 +370,8 @@ function findStableFP(Ie) {
 function findUnstableFP(Ie) {
   const k = K();
   if (k <= 0) return null;
-  const f_max = (V_blk - 0.2 - Ie) / k;
+  const gt    = gTotal();
+  const f_max = (V_blk * gt - Ie) / k;   // I_blk = V_blk * gTotal
   if (f_max <= 0.5) return null;
 
   let last_h = null, last_f = null;
@@ -377,7 +379,7 @@ function findUnstableFP(Ie) {
   for (let i = 1; i <= N; i++) {
     const f    = f_max * i / N;
     const Inet = Ie + k * f;
-    if (Inet >= V_blk || Inet <= V_sub) { last_h = null; continue; }
+    if (Inet >= V_blk * gt || Inet <= V_sub * gt) { last_h = null; continue; }
     const h = fiFreq(Inet) - f;
     if (last_h !== null && last_h < 0 && h >= 0) {
       let fa = last_f, fb = f;
@@ -421,7 +423,7 @@ function getBranches() {
     const Ie = I_MAX * i / N_I;
     const fs = findStableFP(Ie);
     if (fs !== null) stable.push({ I: Ie, f: fs });
-    if (Ie < V_sub) {
+    if (Ie < V_sub * gTotal()) {   // unstable branch only below I_on
       const fu = findUnstableFP(Ie);
       if (fu !== null) unstable.push({ I: Ie, f: fu });
     }
