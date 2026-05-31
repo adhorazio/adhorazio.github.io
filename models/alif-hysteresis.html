@@ -730,7 +730,29 @@ function drawFI() {
     fctx.stroke(); fctx.setLineDash([]);
   }
 
-  // Operating point
+  // ── Fixed-point diamonds ──────────────────────────────────────────────────────
+  const drawDiamond = (px, py, r, fill, stroke) => {
+    fctx.beginPath();
+    fctx.moveTo(px, py - r); fctx.lineTo(px + r, py);
+    fctx.lineTo(px, py + r); fctx.lineTo(px - r, py);
+    fctx.closePath();
+    fctx.fillStyle   = fill;
+    fctx.strokeStyle = stroke;
+    fctx.lineWidth   = 1.5;
+    fctx.fill(); fctx.stroke();
+  };
+  const fs = findStableFP(I_eff);
+  if (fs !== null) {
+    const I_fp = I_eff + k * fs;
+    if (I_fp <= I_MAX) drawDiamond(xi(I_fp), yf(fs), 6, Q[1], '#1e1e1e');
+  }
+  const fu = findUnstableFP(I_eff);
+  if (fu !== null) {
+    const I_fp = I_eff + k * fu;
+    if (I_fp <= I_MAX) drawDiamond(xi(I_fp), yf(fu), 5, 'transparent', Q[5]);
+  }
+
+  // Operating point (real-time dot)
   const Inet_now = I_eff + Iw;
   const op_f = fiFreq(Inet_now);
   const op_x = Math.max(ml, Math.min(ml + cW, xi(Math.min(Inet_now, I_MAX))));
