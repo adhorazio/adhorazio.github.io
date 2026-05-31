@@ -246,96 +246,143 @@
 </footer>
 
 <script>
-// ── Palette ────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+//  aLIF — Persistent Activity & Hysteresis
+//  Self-excitatory Iw+ only: bistability via load-line / f-I intersection
+//
+//  MEMBRANE EQUATION
+//    Cm dV/dt = -gM(V)·V + Inet     with  Inet = Ieff + Iw+ + I_pulse
+//
+//  CONDUCTANCE
+//    gM(V) = 1/Rm   if  V < Vsub      (sub-threshold RC)
+//            +∞      if  Vsub ≤ V < Vblk  (spike → instantaneous reset to 0)
+//            0       if  V ≥ Vblk       (depolarisation block, no spike)
+//
+//  ANALYTICAL f-I CURVE (no adaptation)
+//    V* = I·Rm   (steady-state)
+//    T  = τm · ln(V* / (V* - Vsub))   with  τm = Cm·Rm
+//    f  = 1/T   for  I ∈ (I_on, I_blk),   0 otherwise
+//    I_on  = Vsub/Rm,   I_blk = Vblk/Rm
+//
+//  ADAPTATION (self-excitation)
+//    τw+ · dIw+/dt = -Iw+
+//    on spike: Iw+ ← Iw+ + b+
+//    load-line slope: K = b+ · τw+ / 1000   [µA / Hz]
+//    stable spiking FP: fiFreq(Ieff + K·f) = f
+//
+//  CIRCUIT CALIBRATION (electronic oscillator, Rm = 1 MΩ)
+//    I_on  = Vsub/Rm = 42 µA  = 0.6·I₀   (spike onset)
+//    I_blk = Vblk/Rm = 98 µA  = 1.4·I₀   (depol. block)
+//    I₀    = 70 µA  (midpoint reference,  f₀ = f(70) = 1.09/τm)
+//    Note: model is type-I (f→0 at onset); circuit has steeper onset (type-II).
+//          f(98)/f₀ ≈ 1.64 in model vs 1.3 in circuit — inherent log-LIF limit.
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ── GDV colour palette ─────────────────────────────────────────────────────────
 const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'];
+// Q[0]=red  Q[1]=green  Q[2]=blue  Q[3]=purple  Q[4]=yellow  Q[5]=orange  Q[6]=gray
 
-// ── Fixed model params ─────────────────────────────────────────────────────────
-let   Cm  = 0.1;   // µF — membrane capacitance (adjustable)
-let   Rm    = 1.0;   // MΩ — membrane resistance
-let   V_sub = 42;    // mV — spike threshold = Imin = 42 µA (I_on with Rm=1)
-let   V_blk = 98;    // mV — block threshold = Imax = 98 µA
-// Model: Cm dV/dt = -gM(V)·V + Inet
-// gM(V) = 1/Rm (sub-thr) | +∞ (spiking → reset) | 0 (block)
+// ── Model parameters (all adjustable via sliders) ──────────────────────────────
+let Cm    = 0.1;  // µF  — membrane capacitance  (τm = Cm·Rm)
+let Rm    = 1.0;  // MΩ  — membrane resistance   (I_on = Vsub/Rm, I_blk = Vblk/Rm)
+let V_sub = 42;   // mV  — spike threshold  →  I_on  = 42 µA  = 0.6·I₀  with Rm=1
+let V_blk = 98;   // mV  — block threshold  →  I_blk = 98 µA  = 1.4·I₀  with Rm=1
 
-// ── User params ────────────────────────────────────────────────────────────────
-let I_eff  = 38;   // below I_on=42 → silent without Iw+, bistable zone
-let b_plus = 8;
-let tau_wp = 400;
-let speed  = 0.5;
+// ── User / network parameters ──────────────────────────────────────────────────
+let I_eff  = 38;  // µA  — baseline drive (below I_on=42: silent without Iw+)
+let b_plus = 8;   // µA  — Iw+ increment per spike
+let tau_wp = 400; // ms  — Iw+ decay time constant
+let speed  = 0.5; // ×   — simulation speed multiplier
 
 // ── Simulation state ───────────────────────────────────────────────────────────
-let V  = 0;
-let Iw = 0;
-const DT        = 0.1;    // ms
-const TRACE_LEN = 20000;  // 2000 ms max at 0.1 ms/step
-const vHistory      = new Float32Array(TRACE_LEN);
-const iHistoryPulse = new Float32Array(TRACE_LEN); // user-injected pulse current
-const iHistoryIw    = new Float32Array(TRACE_LEN); // Iw+ adaptation current
-let windowMs  = 500;
-let traceEff  = Math.round(500 / DT);  // effective ring-buffer slots
-let traceHead = 0;
-let traceFull = false;
+let V  = 0;   // membrane voltage (mV)
+let Iw = 0;   // self-excitatory adaptation current (µA)
+const DT        = 0.1;    // ms — Euler integration step
+const TRACE_LEN = 20000;  // ring-buffer length (= 2000 ms at DT=0.1 ms)
+const vHistory      = new Float32Array(TRACE_LEN); // V(t) oscilloscope buffer
+const iHistoryPulse = new Float32Array(TRACE_LEN); // I_pulse(t) buffer
+const iHistoryIw    = new Float32Array(TRACE_LEN); // Iw+(t) buffer
+let windowMs  = 500;                        // oscilloscope window (ms)
+let traceEff  = Math.round(500 / DT);       // active ring-buffer slots
+let traceHead = 0;                          // write pointer
+let traceFull = false;                      // true once buffer has wrapped
 let simStep   = 0;
 let lastSpikeStep = null;
-let simISI        = null;
+let simISI        = null;   // last inter-spike interval (steps)
 let lastFrameTime = null;
 
-// ── Pulse injection ────────────────────────────────────────────────────────────
-let I_pulse    = 0;    // amplitude of ongoing pulse (mV)
-let pulseTimer = 0;    // remaining pulse duration (ms simulated)
-const PULSE_DUR = 300; // ms — rectangular pulse duration
+// ── Rectangular pulse injection ────────────────────────────────────────────────
+// Clicking "Trigger pulse" pushes I_net above I_on for PULSE_DUR ms,
+// allowing Iw+ to build up and sustain spiking (crossing the bistable boundary).
+let I_pulse    = 0;       // current pulse amplitude (µA)
+let pulseTimer = 0;       // remaining pulse time (ms, simulated)
+const PULSE_DUR = 300;    // ms — pulse width
 
-// ── History trail (for hysteresis diagram) ─────────────────────────────────────
+// ── Operating-point trail (hysteresis diagram) ─────────────────────────────────
 const TRAIL_LEN  = 300;
-const trailI     = new Float32Array(TRAIL_LEN).fill(NaN);
-const trailF     = new Float32Array(TRAIL_LEN).fill(NaN);
+const trailI     = new Float32Array(TRAIL_LEN).fill(NaN); // Ieff history
+const trailF     = new Float32Array(TRAIL_LEN).fill(NaN); // observed f history
 let trailHead    = 0;
-let trailSample  = 0; // frame counter for downsampling
 
-// ── Scan state ────────────────────────────────────────────────────────────────
+// ── Auto-scan state ────────────────────────────────────────────────────────────
+// Sweeps Ieff up then down to measure hysteresis loop empirically.
 let scanMode      = false;
-let scanDir       = +1;    // +1 = up, -1 = down
-let scanI         = 0;
-let scanSteps     = 0;
-let scanSpikes    = 0;
-const SCAN_DWELL  = 1000; // ms per I step (simulated)
-const SCAN_N      = 24;   // steps per sweep direction
-let scanData      = { up: [], down: [] };
+let scanDir       = +1;       // +1 = up-sweep, -1 = down-sweep
+let scanI         = 0;        // current scan Ieff
+let scanSteps     = 0;        // steps elapsed at current I
+let scanSpikes    = 0;        // spike count in second half of dwell window
+const SCAN_DWELL  = 1000;     // ms simulated per I step
+const SCAN_N      = 24;       // number of I steps per half-sweep
+let scanData      = { up: [], down: [] };   // measured {I, f} points
 let I_scan_lo, I_scan_hi;
 
-// ── Derived ────────────────────────────────────────────────────────────────────
-const K = () => b_plus * tau_wp / 1000; // load-line slope (mV/(Hz))
+// ── Load-line slope ────────────────────────────────────────────────────────────
+// At mean firing rate f, Iw+ mean = b+·τw+·f/1000  →  ΔI = K·f
+// Bistability exists when the load line K·f + Ieff is tangent to the f-I curve.
+const K = () => b_plus * tau_wp / 1000; // µA / Hz
 
-// ── Regime detection ───────────────────────────────────────────────────────────
-// ── Steady-state helpers ───────────────────────────────────────────────────────
-// V* = I · Rm  (gM = 1/Rm → Cm dV/dt = -V/Rm + I → V* = I·Rm)
+// ── Steady-state & regime helpers ─────────────────────────────────────────────
+// Sub-threshold: Cm dV/dt = -V/Rm + I  →  V* = I·Rm  (gM = 1/Rm)
 function Vstar(I)        { return I * Rm; }
 function I_for_Vstar(Vs) { return Vs / Rm; }
 
+// Regime: compare V* to voltage thresholds
 function getRegime(I_net) {
   const Vs = Vstar(I_net);
-  if (Vs < V_sub)  return 'sub';
-  if (Vs < V_blk)  return 'spike';
-  return 'block';
+  if (Vs < V_sub)  return 'sub';    // silent
+  if (Vs < V_blk)  return 'spike';  // repetitive firing
+  return 'block';                    // depolarisation block
 }
 function regimeColor(I_net) {
   const r = getRegime(I_net);
-  if (r === 'sub')   return Q[2];
-  if (r === 'spike') return Q[1];
-  return Q[0];
+  if (r === 'sub')   return Q[2];  // blue
+  if (r === 'spike') return Q[1];  // green
+  return Q[0];                     // red
 }
 
-// fiFreq: f = 1 / (τm · ln(V*/(V*-Vsub)))
+// ── Analytical f-I curve (no adaptation) ──────────────────────────────────────
+// Period of repetitive firing: V integrates from 0 to Vsub against (V* - V).
+//   T = τm · ln( V* / (V* - Vsub) )   [ms]
+//   f = 1000 / T                        [Hz]
+// Type-I bifurcation: f → 0 as I → I_on+  (logarithmic onset).
+// Circuit note: electronic oscillator shows steeper (type-II-like) onset;
+//   model underestimates f near I_on and overestimates f near I_blk (1.64 vs 1.3·f₀).
 function fiFreq(I) {
   const Vs    = Vstar(I);
   if (Vs <= V_sub || Vs >= V_blk) return 0;
-  const tau_m = Cm * Rm * 1000;                 // ms
+  const tau_m = Cm * Rm * 1000;              // ms — membrane time constant
   const T     = tau_m * Math.log(Vs / (Vs - V_sub));
   return T > 0 ? 1000 / T : 0;
 }
 
 // ── Fixed-point finders ────────────────────────────────────────────────────────
-// Solves f = fiFreq(Ie + K*f). Returns stable FP > 0, or null.
+// The self-excitatory network has fixed points where: f = fiFreq(Ieff + K·f)
+// Graphically: intersection of the f-I curve with the load line I = Ieff + K·f.
+// Sign of  h(f) = fiFreq(Ieff+K·f) - f  determines stability:
+//   h: + → −  ⟹ stable FP   (load line crosses f-I from above)
+//   h: − → +  ⟹ unstable FP (load line crosses f-I from below)
+
+// Returns the last stable FP (highest f), or null if none exists.
 function findStableFP(Ie) {
   const k = K();
   if (k <= 0) return null;
@@ -394,7 +441,8 @@ function findUnstableFP(Ie) {
   return null;
 }
 
-// Binary-search for I_off = lowest I_eff where a stable spiking FP exists.
+// I_off = lower edge of bistable window (below I_on = Vsub/Rm).
+// Binary-search: smallest Ieff for which a stable spiking FP exists.
 function findIoff() {
   let lo = 0, hi = I_for_Vstar(V_sub); // I_on
   for (let it = 0; it < 55; it++) {
@@ -404,7 +452,9 @@ function findIoff() {
   return hi;
 }
 
-// ── Branch cache ───────────────────────────────────────────────────────────────
+// ── Branch cache (stable / unstable spiking branches for hysteresis diagram) ───
+// Recomputed only when b+, τw+, or Rm changes (cache key check).
+// Vsub/Vblk changes also invalidate via slider listeners.
 let branchCache = null;
 let cacheKey    = '';
 
@@ -432,15 +482,17 @@ function getBranches() {
   return branchCache;
 }
 
-// ── Simulation step ────────────────────────────────────────────────────────────
+// ── Euler integration step (DT = 0.1 ms) ──────────────────────────────────────
 function step(Ie) {
   simStep++;
-  const Inet = Ie + Iw + I_pulse;          // total drive
-  const Vs   = Vstar(Inet);               // steady-state V*
+  const Inet = Ie + Iw + I_pulse;   // total input current (µA)
+  const Vs   = Vstar(Inet);         // steady-state V* = Inet·Rm
 
-  // gM(V): 1/Rm always (block: gM=0 but V saturates at V*≥V_blk, no spike)
+  // Single-equation integration: Cm dV/dt = -V/Rm + Inet
+  // (gM = 1/Rm in all non-spiking regimes; block detected via V* ≥ Vblk)
   V += (-V / Rm + Inet) / (Cm * 1000) * DT;
 
+  // Spike condition: V crosses Vsub AND V* < Vblk (not in block)
   if (V >= V_sub && Vs < V_blk) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
