@@ -730,26 +730,29 @@ function drawFI() {
     fctx.stroke(); fctx.setLineDash([]);
   }
 
-  // ── Fixed-point diamonds ──────────────────────────────────────────────────────
-  const drawDiamond = (px, py, r, fill, stroke) => {
-    fctx.beginPath();
-    fctx.moveTo(px, py - r); fctx.lineTo(px + r, py);
-    fctx.lineTo(px, py + r); fctx.lineTo(px - r, py);
-    fctx.closePath();
-    fctx.fillStyle   = fill;
-    fctx.strokeStyle = stroke;
-    fctx.lineWidth   = 1.5;
-    fctx.fill(); fctx.stroke();
-  };
-  const fs = findStableFP(I_eff);
-  if (fs !== null) {
-    const I_fp = I_eff + k * fs;
-    if (I_fp <= I_MAX) drawDiamond(xi(I_fp), yf(fs), 6, Q[1], '#1e1e1e');
-  }
-  const fu = findUnstableFP(I_eff);
-  if (fu !== null) {
-    const I_fp = I_eff + k * fu;
-    if (I_fp <= I_MAX) drawDiamond(xi(I_fp), yf(fu), 5, 'transparent', Q[5]);
+  // ── Fixed-point diamonds (same style as alif.html) ───────────────────────────
+  if (k > 0) {
+    let g_prev = null;
+    for (let s = 1; s <= 600; s++) {
+      const f   = (s / 600) * F_MAX;
+      const I_l = I_eff + k * f;
+      const g   = (I_l > 0 && I_l < I_MAX) ? fiFreq(I_l) - f : -f;
+      if (g_prev !== null && g_prev * g < 0) {
+        const f0   = (s - 1) / 600 * F_MAX;
+        const f_fp = f0 - g_prev * (f - f0) / (g - g_prev);
+        const I_fp = I_eff + k * f_fp;
+        if (I_fp > 0 && I_fp < I_MAX && f_fp > 0) {
+          const px = xi(I_fp), py = yf(f_fp), r = 5;
+          fctx.beginPath();
+          fctx.moveTo(px, py - r); fctx.lineTo(px + r, py);
+          fctx.lineTo(px, py + r); fctx.lineTo(px - r, py);
+          fctx.closePath();
+          fctx.fillStyle = Q[1]; fctx.strokeStyle = '#1e1e1e'; fctx.lineWidth = 1;
+          fctx.fill(); fctx.stroke();
+        }
+      }
+      g_prev = g;
+    }
   }
 
   // Operating point (real-time dot)
