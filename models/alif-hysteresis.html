@@ -1082,11 +1082,11 @@ document.getElementById('btn-scan').addEventListener('click', () => {
 // ── KaTeX ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`C_m \frac{dV}{dt} = -g_M(V)\,V + I_{\text{eff}} + I_w^{+}`,
+    String.raw`C_m \frac{dV}{dt} = -\bigl(g_M(V) + g_L\bigr)\,V + I_{\text{eff}} + I_w^{+}`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`g_M(V) = \begin{cases} g_L & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases}`,
+    String.raw`g_M(V) = \begin{cases} 0 & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases} \qquad g_L = \text{const}`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
