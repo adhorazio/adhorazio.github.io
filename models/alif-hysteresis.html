@@ -180,6 +180,10 @@
       <input type="range" id="sl-I" min="0" max="120" step="0.5" value="38" />
     </div>
     <div class="control-group">
+      <label><span>g<sub>L</sub> — leak conductance</span><span id="val-gl">1.00 µS</span></label>
+      <input type="range" id="sl-gl" min="0.1" max="3" step="0.05" value="1" />
+    </div>
+    <div class="control-group">
       <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
       <input type="range" id="sl-vsub" min="10" max="180" step="1" value="42" />
     </div>
@@ -189,7 +193,7 @@
     </div>
     <div class="control-group">
       <label><span>b<sup>+</sup> — spike increment</span><span id="val-bp">8.0</span></label>
-      <input type="range" id="sl-bp" min="1" max="25" step="0.5" value="8" />
+      <input type="range" id="sl-bp" min="0" max="25" step="0.5" value="8" />
     </div>
     <div class="control-group">
       <label><span>τ<sub>w</sub><sup>+</sup> — time constant</span><span id="val-tauwp">400 ms</span></label>
@@ -241,11 +245,11 @@
 const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'];
 
 // ── Fixed model params ─────────────────────────────────────────────────────────
-const Cm    = 0.1;   // µF
-const Rm    = 1.0;   // MΩ
-let   V_sub = 42;    // mV — spike threshold  (adjustable)
-let   V_blk = 98;    // mV — depolarisation block threshold (adjustable)
-const tau_m = Cm * Rm * 1000; // 100 ms
+const Cm  = 0.1;   // µF
+let   gL  = 1.0;   // µS — leak conductance (= 1/Rm, adjustable)
+let   V_sub = 42;  // mV — spike threshold  (adjustable)
+let   V_blk = 98;  // mV — depolarisation block threshold (adjustable)
+// tau_m = Cm / gL * 1000  (ms) — computed dynamically in fiFreq
 
 // ── User params ────────────────────────────────────────────────────────────────
 let I_eff  = 38;
@@ -298,7 +302,7 @@ const K = () => b_plus * tau_wp / 1000; // load-line slope (mV/(Hz))
 
 // ── Regime detection ───────────────────────────────────────────────────────────
 function getRegime(I_net) {
-  const Vs = I_net * Rm; // steady-state V* (Rm=1 so Vs = I_net)
+  const Vs = I_net / gL; // steady-state V* = I_net / gL
   if (Vs < V_sub)  return 'sub';
   if (Vs < V_blk)  return 'spike';
   return 'block';
@@ -311,9 +315,10 @@ function regimeColor(I_net) {
 }
 
 function fiFreq(I) {
-  const Vs = I * Rm; // steady-state V
+  const Vs    = I / gL;                   // steady-state V* = I / gL
   if (Vs <= V_sub || Vs >= V_blk) return 0;
-  const T = tau_m * Math.log(Vs / (Vs - V_sub));
+  const tau_m = Cm / gL * 1000;          // ms — membrane time constant
+  const T     = tau_m * Math.log(Vs / (Vs - V_sub));
   return T > 0 ? 1000 / T : 0;
 }
 
@@ -414,11 +419,10 @@ function getBranches() {
 // ── Simulation step ────────────────────────────────────────────────────────────
 function step(Ie) {
   simStep++;
-  const gL   = 1 / Rm;
   const Inet = Ie + Iw + I_pulse;          // total drive
   V += (-gL * V + Inet) / (Cm * 1000) * DT;
 
-  const Vs = Inet;                         // Rm = 1
+  const Vs = Inet / gL;                    // steady-state V*
   if (V >= V_sub && Vs < V_blk) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
@@ -970,6 +974,15 @@ document.getElementById('sl-I').addEventListener('input', function () {
   document.getElementById('val-I').textContent = I_eff.toFixed(1) + ' mV';
 });
 
+document.getElementById('sl-gl').addEventListener('input', function () {
+  gL = parseFloat(this.value);
+  document.getElementById('val-gl').textContent = gL.toFixed(2) + ' µS';
+  branchCache = null; scanData = { up: [], down: [] };
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
+  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
+});
+
 document.getElementById('sl-vsub').addEventListener('input', function () {
   let val = parseFloat(this.value);
   if (val >= V_blk - 5) { val = V_blk - 5; this.value = val; }
@@ -1060,7 +1073,7 @@ document.getElementById('btn-scan').addEventListener('click', () => {
 // ── KaTeX ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`C_m \frac{dV}{dt} = -g_M(V)\,V + I_{\text{eff}} + I_w^{+}`,
+    String.raw`C_m \frac{dV}{dt} = -(g_M(V) + g_L)\,V + I_{\text{eff}} + I_w^{+}`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
