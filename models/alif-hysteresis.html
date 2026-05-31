@@ -180,6 +180,10 @@
       <input type="range" id="sl-I" min="0" max="120" step="0.5" value="38" />
     </div>
     <div class="control-group">
+      <label><span>R<sub>m</sub> — sub-thr. resistance</span><span id="val-rm">1.0 MΩ</span></label>
+      <input type="range" id="sl-rm" min="0.5" max="5" step="0.5" value="1" />
+    </div>
+    <div class="control-group">
       <label><span>g<sub>L</sub> — leak conductance</span><span id="val-gl">1.00 µS</span></label>
       <input type="range" id="sl-gl" min="0.1" max="3" step="0.05" value="1" />
     </div>
@@ -246,10 +250,12 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 
 // ── Fixed model params ─────────────────────────────────────────────────────────
 const Cm  = 0.1;   // µF
-let   gL  = 1.0;   // µS — leak conductance (= 1/Rm, adjustable)
+let   Rm  = 1.0;   // MΩ — sub-threshold membrane resistance
+let   gL  = 1.0;   // µS — constant leak conductance
 let   V_sub = 42;  // mV — spike threshold  (adjustable)
 let   V_blk = 98;  // mV — depolarisation block threshold (adjustable)
-// tau_m = Cm / gL * 1000  (ms) — computed dynamically in fiFreq
+// gTotal = 1/Rm + gL  (sub-threshold total conductance, µS)
+// tau_m  = Cm / gTotal * 1000  (ms) — computed dynamically
 
 // ── User params ────────────────────────────────────────────────────────────────
 let I_eff  = 38;
@@ -301,8 +307,10 @@ let I_scan_lo, I_scan_hi;
 const K = () => b_plus * tau_wp / 1000; // load-line slope (mV/(Hz))
 
 // ── Regime detection ───────────────────────────────────────────────────────────
+const gTotal = () => 1 / Rm + gL; // total sub-threshold conductance (µS)
+
 function getRegime(I_net) {
-  const Vs = I_net / gL; // steady-state V* = I_net / gL
+  const Vs = I_net / gTotal(); // steady-state V* = I_net / (gM + gL)
   if (Vs < V_sub)  return 'sub';
   if (Vs < V_blk)  return 'spike';
   return 'block';
@@ -315,9 +323,10 @@ function regimeColor(I_net) {
 }
 
 function fiFreq(I) {
-  const Vs    = I / gL;                   // steady-state V* = I / gL
+  const gt    = gTotal();
+  const Vs    = I / gt;                    // steady-state V* = I / (gM + gL)
   if (Vs <= V_sub || Vs >= V_blk) return 0;
-  const tau_m = Cm / gL * 1000;          // ms — membrane time constant
+  const tau_m = Cm / gt * 1000;           // ms — sub-threshold time constant
   const T     = tau_m * Math.log(Vs / (Vs - V_sub));
   return T > 0 ? 1000 / T : 0;
 }
@@ -380,7 +389,7 @@ function findUnstableFP(Ie) {
 
 // Binary-search for I_off = lowest I_eff where a stable spiking FP exists.
 function findIoff() {
-  let lo = 0, hi = V_sub;
+  let lo = 0, hi = V_sub * gTotal(); // I_on = V_sub * gTotal
   for (let it = 0; it < 55; it++) {
     const mid = (lo + hi) / 2;
     (findStableFP(mid) !== null) ? hi = mid : lo = mid;
@@ -393,12 +402,12 @@ let branchCache = null;
 let cacheKey    = '';
 
 function getBranches() {
-  const key = b_plus + ',' + tau_wp;
+  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + gL;
   if (branchCache && key === cacheKey) return branchCache;
   cacheKey = key;
 
   const I_off = findIoff();
-  const I_MAX = V_blk + 10;
+  const I_MAX = V_blk * gTotal() * 1.1;
   const N_I   = 80;
   const stable   = [];
   const unstable = [];
@@ -420,15 +429,16 @@ function getBranches() {
 function step(Ie) {
   simStep++;
   const Inet = Ie + Iw + I_pulse;          // total drive
-  const Vs   = Inet / gL;                  // steady-state V* = I_net / gL
+  const gt   = gTotal();
+  const Vs   = Inet / gt;                  // steady-state V* = I_net / (gM + gL)
 
-  // gM(V): gL below threshold, +∞ in spiking window, 0 in block
-  // → integrate with effective conductance matching each regime
+  // gM(V): 1/Rm below threshold, +∞ in spiking window, 0 in block
   if (Vs >= V_blk) {
-    // Block: gM = 0 → only gL remains constant (same as alif.html code)
+    // Block: gM = 0 → only gL active
     V += (-gL * V + Inet) / (Cm * 1000) * DT;
   } else {
-    V += (-gL * V + Inet) / (Cm * 1000) * DT;
+    // Sub-threshold or spiking zone: gM = 1/Rm → total = gt
+    V += (-gt * V + Inet) / (Cm * 1000) * DT;
   }
 
   if (V >= V_sub && Vs < V_blk) {
@@ -497,7 +507,7 @@ function drawTrace() {
 
   // ── Shared current Y scale (all 3 panels same axis) ────────────────────────
   const scanEnd = traceFull ? traceEff : traceHead;
-  let iMax = Math.max(V_sub * 1.25, I_eff * 1.4);
+  let iMax = Math.max(V_sub * gTotal() * 1.25, I_eff * 1.4);
   for (let i = 0; i < scanEnd; i++) {
     if (iHistoryIw[i]    > iMax) iMax = iHistoryIw[i];
     if (iHistoryPulse[i] > iMax) iMax = iHistoryPulse[i];
@@ -635,8 +645,8 @@ function drawTrace() {
   tctx.fillStyle = Q[5] + 'dd'; tctx.font = '9px monospace';
   tctx.fillText('Ieff  ' + I_eff.toFixed(1) + ' mV', 4, y_ie + 11);
 
-  // shared threshold marker on Ieff panel
-  const thY = mapCY(V_sub, y_ie, H - y_ie);
+  // shared threshold marker on Ieff panel (I_on = V_sub * gTotal)
+  const thY = mapCY(V_sub * gTotal(), y_ie, H - y_ie);
   if (thY > y_ie + 2 && thY < H - 2) {
     tctx.strokeStyle = Q[4] + '44'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
     tctx.beginPath(); tctx.moveTo(0, thY); tctx.lineTo(W, thY); tctx.stroke();
@@ -655,8 +665,9 @@ function drawFI() {
   fctx.clearRect(0, 0, W, H);
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
-  const I_MAX = Math.max(100, V_blk * 1.1);
-  const f_pk  = fiFreq(V_blk - 0.5);
+  const gt    = gTotal();
+  const I_MAX = Math.max(100, V_blk * gt * 1.15);
+  const f_pk  = fiFreq(V_blk * gt - 0.5);
   const F_MAX = Math.max(30, f_pk * 1.3);
   const xi = I => ml + (I / I_MAX) * cW;
   const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
@@ -676,23 +687,24 @@ function drawFI() {
   fctx.fillText('f (Hz)', ml + 2, mt + 9);
   fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 42, mt + cH + 20);
 
-  // Threshold markers
+  // Threshold markers (in current units: I_sub = V_sub*gt, I_blk = V_blk*gt)
+  const I_sub = V_sub * gt, I_blk = V_blk * gt;
   fctx.setLineDash([3, 3]);
   fctx.strokeStyle = Q[4] + '77'; fctx.lineWidth = 1;
-  fctx.beginPath(); fctx.moveTo(xi(V_sub), mt); fctx.lineTo(xi(V_sub), mt + cH); fctx.stroke();
+  fctx.beginPath(); fctx.moveTo(xi(I_sub), mt); fctx.lineTo(xi(I_sub), mt + cH); fctx.stroke();
   fctx.strokeStyle = Q[0] + '55'; fctx.lineWidth = 1;
-  if (xi(V_blk) <= ml + cW) {
-    fctx.beginPath(); fctx.moveTo(xi(V_blk), mt); fctx.lineTo(xi(V_blk), mt + cH); fctx.stroke();
+  if (xi(I_blk) <= ml + cW) {
+    fctx.beginPath(); fctx.moveTo(xi(I_blk), mt); fctx.lineTo(xi(I_blk), mt + cH); fctx.stroke();
   }
   fctx.setLineDash([]);
 
   // f-I curve
   fctx.strokeStyle = Q[2]; fctx.lineWidth = 1.5;
-  fctx.beginPath(); fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(V_sub), yf(0)); fctx.stroke();
+  fctx.beginPath(); fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(I_sub), yf(0)); fctx.stroke();
   fctx.beginPath();
   let started = false;
   for (let s = 0; s <= 400; s++) {
-    const I = V_sub + (V_blk - V_sub - 0.1) * s / 400;
+    const I = I_sub + (I_blk - I_sub - 0.1) * s / 400;
     const f = fiFreq(I);
     if (f <= 0) { started = false; continue; }
     started ? fctx.lineTo(xi(I), yf(f)) : (fctx.moveTo(xi(I), yf(f)), started = true);
@@ -735,7 +747,8 @@ function drawHyst() {
   hctx.fillStyle = '#1e1e1e'; hctx.fillRect(0, 0, W, H);
 
   const { stable, unstable, I_off } = getBranches();
-  const I_MAX = 65;
+  const I_on  = V_sub * gTotal();
+  const I_MAX = Math.max(I_on * 1.5, 65);
   const allF  = stable.map(p => p.f).concat([1]);
   const F_MAX = Math.max(30, Math.max(...allF) * 1.25);
 
@@ -757,7 +770,6 @@ function drawHyst() {
   hctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 42, mt + cH + 20);
 
   // Bistable region shading
-  const I_on = V_sub;
   if (I_off < I_on && I_on <= I_MAX) {
     const x0 = xi(I_off), x1 = xi(I_on);
     hctx.fillStyle = 'rgba(255,198,30,0.05)';
@@ -771,10 +783,10 @@ function drawHyst() {
 
   // I_on marker (yellow)
   hctx.setLineDash([3, 3]); hctx.strokeStyle = Q[4] + '88'; hctx.lineWidth = 1;
-  hctx.beginPath(); hctx.moveTo(xi(V_sub), mt); hctx.lineTo(xi(V_sub), mt + cH); hctx.stroke();
+  hctx.beginPath(); hctx.moveTo(xi(I_on), mt); hctx.lineTo(xi(I_on), mt + cH); hctx.stroke();
   hctx.setLineDash([]);
   hctx.font = '8px monospace'; hctx.fillStyle = Q[4] + 'aa';
-  hctx.fillText('Iₒₙ', xi(V_sub) + 2, mt + 9);
+  hctx.fillText('Iₒₙ', xi(I_on) + 2, mt + 9);
 
   // I_off marker (orange)
   if (I_off > 0 && I_off < I_MAX) {
@@ -787,7 +799,7 @@ function drawHyst() {
 
   // Silent branch (f = 0, I_eff ∈ [0, I_on])
   hctx.strokeStyle = Q[2] + 'cc'; hctx.lineWidth = 2;
-  hctx.beginPath(); hctx.moveTo(xi(0), yf(0)); hctx.lineTo(xi(Math.min(I_on, I_MAX)), yf(0)); hctx.stroke();
+  hctx.beginPath(); hctx.moveTo(xi(0), yf(0)); hctx.lineTo(xi(Math.min(I_on, I_MAX) - 0.5), yf(0)); hctx.stroke();
   hctx.fillStyle = Q[2] + '88'; hctx.font = '8px monospace';
   hctx.fillText('silent', xi(5), yf(0) - 4);
 
@@ -834,7 +846,7 @@ function drawHyst() {
     hctx.closePath(); hctx.fill();
   };
   // Arrow on silent branch (pointing right)
-  arrowAt(xi(I_on * 0.55), yf(0), 1, 0, Q[2] + 'aa');
+  arrowAt(xi(I_on * 0.4), yf(0), 1, 0, Q[2] + 'aa');
   // Arrow on spiking branch (pointing left)
   if (stable.length > 2) {
     const idx = Math.floor(stable.length * 0.4);
@@ -977,6 +989,15 @@ function resetSim() {
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 }
 
+document.getElementById('sl-rm').addEventListener('input', function () {
+  Rm = parseFloat(this.value);
+  document.getElementById('val-rm').textContent = Rm.toFixed(1) + ' MΩ';
+  branchCache = null; scanData = { up: [], down: [] };
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
+  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
+});
+
 document.getElementById('sl-I').addEventListener('input', function () {
   I_eff = parseFloat(this.value);
   document.getElementById('val-I').textContent = I_eff.toFixed(1) + ' mV';
@@ -1039,8 +1060,8 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 
 // Trigger pulse: inject a rectangular current pulse strong enough to cross threshold
 document.getElementById('btn-pulse').addEventListener('click', () => {
-  // Amplitude: push I_net at least 8 mV above V_sub regardless of current Iw
-  I_pulse    = Math.max(V_sub - I_eff - Iw + 8, 6);
+  // Push I_net at least 8 current-units above I_on = V_sub * gTotal
+  I_pulse    = Math.max(V_sub * gTotal() - I_eff - Iw + 8, 6);
   pulseTimer = PULSE_DUR;
 });
 
@@ -1064,7 +1085,7 @@ document.getElementById('btn-scan').addEventListener('click', () => {
   // Start scan
   branchCache = null;
   const { I_off } = getBranches();
-  const I_on = V_sub * gL;                // spiking onset current
+  const I_on = V_sub * gTotal();           // spiking onset current
   I_scan_lo  = Math.max(0, I_off - 10);
   I_scan_hi  = I_on + 15;
   scanI     = I_scan_lo;
@@ -1086,7 +1107,7 @@ window.addEventListener('load', () => {
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`g_M(V) = \begin{cases} 0 & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases} \qquad g_L = \text{const}`,
+    String.raw`g_M(V) = \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases} \qquad g_L = \text{const}`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
