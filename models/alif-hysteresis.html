@@ -176,8 +176,8 @@
 
   <div class="controls">
     <div class="control-group">
-      <label><span>I<sub>eff</sub> — input current</span><span id="val-I">38.0 µA</span></label>
-      <input type="range" id="sl-I" min="0" max="300" step="0.5" value="38" />
+      <label><span>I<sub>eff</sub> — input current</span><span id="val-I">10.0 µA</span></label>
+      <input type="range" id="sl-I" min="0" max="300" step="0.5" value="10" />
     </div>
     <div class="control-group">
       <label><span>C<sub>m</sub> — capacitance</span><span id="val-cm">0.100 µF</span></label>
@@ -188,12 +188,12 @@
       <input type="range" id="sl-rm" min="0.5" max="5" step="0.5" value="1" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
-      <input type="range" id="sl-vsub" min="5" max="200" step="1" value="42" />
+      <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">13 mV</span></label>
+      <input type="range" id="sl-vsub" min="1" max="100" step="0.5" value="13" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>above</sub> — block threshold</span><span id="val-vabove">98 mV</span></label>
-      <input type="range" id="sl-vabove" min="15" max="300" step="1" value="98" />
+      <label><span>V<sub>above</sub> — block threshold</span><span id="val-vabove">200 mV</span></label>
+      <input type="range" id="sl-vabove" min="15" max="500" step="5" value="200" />
     </div>
     <div class="control-group">
       <label><span>b<sup>+</sup> — spike increment</span><span id="val-bp">8.0</span></label>
@@ -211,11 +211,11 @@
 
   <div class="hint-box">
     <div class="hint-title">How to see hysteresis</div>
-    <div class="hint-step"><span class="n">1.</span><span>At I<sub>eff</sub> = 38 µA the system is <em>silent</em> — below I<sub>on</sub> = 42 µA (= 0.6 I₀) without I<sub>w</sub><sup>+</sup>. Operating point on the lower (blue) branch.</span></div>
-    <div class="hint-step"><span class="n">2.</span><span>Click <strong>Trigger pulse</strong> — I<sub>w</sub><sup>+</sup> pushes I<sub>net</sub> above I<sub>on</sub>. Persistent spiking begins; the operating point jumps to the upper (green) branch.</span></div>
+    <div class="hint-step"><span class="n">1.</span><span>At I<sub>eff</sub> = 10 µA the system is <em>silent</em> — below I<sub>on</sub> = 13 µA. The circuit's operating range [42–98 µA] sits inside the spiking window, giving f(42)≈0.5f₀ and f(98)≈1.4f₀.</span></div>
+    <div class="hint-step"><span class="n">2.</span><span>Click <strong>Trigger pulse</strong> — I<sub>w</sub><sup>+</sup> pushes I<sub>net</sub> above I<sub>on</sub> = 13 µA. Persistent spiking begins; the operating point jumps to the upper (green) branch.</span></div>
     <div class="hint-step"><span class="n">3.</span><span>Slowly drag I<sub>eff</sub> down — spiking persists below I<sub>on</sub>, down to I<sub>off</sub> (orange marker). Then it collapses.</span></div>
-    <div class="hint-step"><span class="n">4.</span><span>Raise I<sub>eff</sub> again — stays silent until I<sub>on</sub> = 42 µA (yellow). Same current, different state: that is hysteresis.</span></div>
-    <div class="hint-step"><span class="n">★</span><span>Spiking window: I<sub>on</sub> = 0.6 I₀ = 42 µA → I<sub>above</sub> = 1.4 I₀ = 98 µA, with I₀ = 70 µA. Click <strong>Auto-scan</strong> to trace the full loop.</span></div>
+    <div class="hint-step"><span class="n">4.</span><span>Raise I<sub>eff</sub> again — stays silent until I<sub>on</sub> = 13 µA (yellow). Same current, different state: that is hysteresis.</span></div>
+    <div class="hint-step"><span class="n">★</span><span>f₀·τ<sub>m</sub> ≈ 5 at I₀ = 70 µA. Cm sets the absolute frequency scale. Click <strong>Auto-scan</strong> to trace the full loop.</span></div>
   </div>
 </div>
 </main>
@@ -252,13 +252,13 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 // ── Fixed model params ─────────────────────────────────────────────────────────
 let   Cm  = 0.1;   // µF — membrane capacitance (adjustable)
 let   Rm    = 1.0;   // MΩ — membrane resistance
-let   V_sub = 42;    // mV — spike threshold  (I_on = 0.6·I₀ = 42 µA with Rm=1)
-let   V_blk = 98;    // mV — depolarisation block threshold (I_blk = 1.4·I₀ = 98 µA)
+let   V_sub = 13;    // mV — spike onset (I_on=13µA): f(42)≈0.55f₀, f(98)≈1.44f₀, f₀·τm≈5
+let   V_blk = 200;   // mV — block threshold (well above I_max=98µA operating range)
 // Model: Cm dV/dt = -gM(V)·V + Inet
 // gM(V) = 1/Rm (sub-thr) | +∞ (spiking → reset) | 0 (block)
 
 // ── User params ────────────────────────────────────────────────────────────────
-let I_eff  = 38;   // below I_on=42 → silent without Iw+
+let I_eff  = 10;   // below I_on=13 → silent without Iw+, bistable zone
 let b_plus = 8;
 let tau_wp = 400;
 let speed  = 0.5;
