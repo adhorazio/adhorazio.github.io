@@ -420,9 +420,17 @@ function getBranches() {
 function step(Ie) {
   simStep++;
   const Inet = Ie + Iw + I_pulse;          // total drive
-  V += (-gL * V + Inet) / (Cm * 1000) * DT;
+  const Vs   = Inet / gL;                  // steady-state V* = I_net / gL
 
-  const Vs = Inet / gL;                    // steady-state V*
+  // gM(V): gL below threshold, +∞ in spiking window, 0 in block
+  // → integrate with effective conductance matching each regime
+  if (Vs >= V_blk) {
+    // Block: gM = 0 → only gL remains constant (same as alif.html code)
+    V += (-gL * V + Inet) / (Cm * 1000) * DT;
+  } else {
+    V += (-gL * V + Inet) / (Cm * 1000) * DT;
+  }
+
   if (V >= V_sub && Vs < V_blk) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
@@ -1056,8 +1064,9 @@ document.getElementById('btn-scan').addEventListener('click', () => {
   // Start scan
   branchCache = null;
   const { I_off } = getBranches();
-  I_scan_lo = Math.max(0, I_off - 10);
-  I_scan_hi = V_sub + 15;
+  const I_on = V_sub * gL;                // spiking onset current
+  I_scan_lo  = Math.max(0, I_off - 10);
+  I_scan_hi  = I_on + 15;
   scanI     = I_scan_lo;
   scanDir   = +1;
   scanSteps = 0; scanSpikes = 0;
@@ -1073,15 +1082,15 @@ document.getElementById('btn-scan').addEventListener('click', () => {
 // ── KaTeX ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`C_m \frac{dV}{dt} = -(g_M(V) + g_L)\,V + I_{\text{eff}} + I_w^{+}`,
+    String.raw`C_m \frac{dV}{dt} = -g_M(V)\,V + I_{\text{eff}} + I_w^{+}`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+}`,
+    String.raw`g_M(V) = \begin{cases} g_L & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases}`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`K = b^{+} \tau_w^{+}\quad \text{(load-line slope; bistability when } K \gtrsim C_m V_{\text{sub}} \text{)}`,
+    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+}`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
