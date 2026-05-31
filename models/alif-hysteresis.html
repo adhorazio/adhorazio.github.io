@@ -226,7 +226,8 @@
     <div class="eq-row" id="eq1"></div>
     <div class="eq-row" id="eq2"></div>
     <div class="eq-row" id="eq3"></div>
-    <div class="eq-reset" id="eq4"></div>
+    <div class="eq-row" id="eq4"></div>
+    <div class="eq-reset" id="eq5"></div>
   </div>
 </div>
 
@@ -1111,12 +1112,16 @@ window.addEventListener('load', () => {
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+}`,
+    String.raw`\tau_m = \frac{C_m}{\,1/R_m + g_L\,} \quad \Bigl(\text{sub-threshold time constant}\Bigr)`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
-    String.raw`\text{on spike: } V \leftarrow 0,\quad I_w^{+} \leftarrow I_w^{+} + b^{+}`,
+    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+}`,
     document.getElementById('eq4'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`\text{on spike: } V \leftarrow 0,\quad I_w^{+} \leftarrow I_w^{+} + b^{+}`,
+    document.getElementById('eq5'), { displayMode: false }
   );
 });
 
