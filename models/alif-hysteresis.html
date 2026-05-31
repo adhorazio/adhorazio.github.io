@@ -743,11 +743,14 @@ function drawFI() {
         const I_fp = I_eff + k * f_fp;
         if (I_fp > 0 && I_fp < I_MAX && f_fp > 0) {
           const px = xi(I_fp), py = yf(f_fp), r = 5;
+          const stable = g_prev > 0; // + → − crossing = stable FP
           fctx.beginPath();
           fctx.moveTo(px, py - r); fctx.lineTo(px + r, py);
           fctx.lineTo(px, py + r); fctx.lineTo(px - r, py);
           fctx.closePath();
-          fctx.fillStyle = Q[1]; fctx.strokeStyle = '#1e1e1e'; fctx.lineWidth = 1;
+          fctx.fillStyle   = stable ? Q[1] : 'transparent';
+          fctx.strokeStyle = stable ? '#1e1e1e' : Q[5];
+          fctx.lineWidth   = stable ? 1 : 1.5;
           fctx.fill(); fctx.stroke();
         }
       }
