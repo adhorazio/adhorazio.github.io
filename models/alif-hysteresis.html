@@ -188,9 +188,6 @@
       <input type="range" id="sl-rm" min="0.5" max="5" step="0.5" value="1" />
     </div>
     <div class="control-group">
-      <label><span>a — leak slope g<sub>L</sub>(V)=aV</span><span id="val-gl">0.020 µS/mV</span></label>
-      <input type="range" id="sl-gl" min="0" max="0.2" step="0.002" value="0.02" />
-    </div>
     <div class="control-group">
       <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
       <input type="range" id="sl-vsub" min="10" max="180" step="1" value="42" />
@@ -255,12 +252,11 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 
 // ── Fixed model params ─────────────────────────────────────────────────────────
 let   Cm  = 0.1;   // µF — membrane capacitance (adjustable)
-let   Rm     = 1.0;    // MΩ — sub-threshold membrane resistance
-let   a_leak = 0.02;   // µS/mV — voltage-dependent leak slope: gL(V) = a·V
-let   V_sub  = 42;     // mV — spike threshold  (adjustable)
-let   V_blk  = 98;     // mV — depolarisation block threshold (adjustable)
-// gL(V) = a_leak · V  (nonlinear leak, zero at rest)
-// sub-threshold: Cm dV/dt = -V/Rm - a·V² + Inet
+let   Rm    = 1.0;   // MΩ — membrane resistance
+let   V_sub = 42;    // mV — spike threshold
+let   V_blk = 98;    // mV — depolarisation block threshold
+// Model: Cm dV/dt = -gM(V)·V + Inet
+// gM(V) = 1/Rm (sub-thr) | +∞ (spiking → reset) | 0 (block)
 
 // ── User params ────────────────────────────────────────────────────────────────
 let I_eff  = 38;
@@ -312,18 +308,10 @@ let I_scan_lo, I_scan_hi;
 const K = () => b_plus * tau_wp / 1000; // load-line slope (mV/(Hz))
 
 // ── Regime detection ───────────────────────────────────────────────────────────
-// ── Nonlinear steady-state helpers ────────────────────────────────────────────
-// V* solves  V/Rm + a·V² = I  →  a·V²+ V/Rm - I = 0
-function Vstar(I) {
-  if (a_leak <= 0) return I * Rm;                         // linear: V* = I·Rm
-  const disc = 1 / (a_leak * Rm) ** 2 + 4 * I / a_leak;
-  if (disc < 0) return 0;
-  return (-1 / (a_leak * Rm) + Math.sqrt(disc)) / 2;
-}
-// Current required to set steady-state V* = Vs
-function I_for_Vstar(Vs) {
-  return Vs / Rm + a_leak * Vs * Vs;
-}
+// ── Steady-state helpers ───────────────────────────────────────────────────────
+// V* = I · Rm  (gM = 1/Rm → Cm dV/dt = -V/Rm + I → V* = I·Rm)
+function Vstar(I)        { return I * Rm; }
+function I_for_Vstar(Vs) { return Vs / Rm; }
 
 function getRegime(I_net) {
   const Vs = Vstar(I_net);
@@ -338,18 +326,12 @@ function regimeColor(I_net) {
   return Q[0];
 }
 
-// fiFreq: numerical integration of T = ∫₀^{Vsub} Cm dV / (I - V/Rm - a·V²)
+// fiFreq: analytical ISI for sub-threshold RC — T = τm · ln(V*/(V*-Vsub))
 function fiFreq(I) {
-  const Vs = Vstar(I);
+  const Vs    = Vstar(I);                        // V* = I·Rm
   if (Vs <= V_sub || Vs >= V_blk) return 0;
-  const N = 300;
-  let T = 0;
-  for (let j = 0; j < N; j++) {
-    const Vm    = V_sub * (j + 0.5) / N;
-    const denom = I - Vm / Rm - a_leak * Vm * Vm;
-    if (denom <= 0) return 0;
-    T += Cm * 1000 * (V_sub / N) / denom;
-  }
+  const tau_m = Cm * Rm * 1000;                 // ms
+  const T     = tau_m * Math.log(Vs / (Vs - V_sub));
   return T > 0 ? 1000 / T : 0;
 }
 
@@ -428,7 +410,7 @@ let branchCache = null;
 let cacheKey    = '';
 
 function getBranches() {
-  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + a_leak;
+  const key = b_plus + ',' + tau_wp + ',' + Rm;
   if (branchCache && key === cacheKey) return branchCache;
   cacheKey = key;
 
@@ -457,16 +439,10 @@ function step(Ie) {
   const Inet = Ie + Iw + I_pulse;          // total drive
   const Vs   = Vstar(Inet);               // steady-state V*
 
-  // gM(V): 1/Rm sub-threshold, +∞ spiking, 0 block; gL(V) = a·V always
-  if (Vs >= V_blk) {
-    // Block: gM = 0 → Cm dV/dt = -a·V² + Inet
-    V += (-a_leak * V * V + Inet) / (Cm * 1000) * DT;
-  } else {
-    // Sub-threshold / spiking: gM = 1/Rm → Cm dV/dt = -V/Rm - a·V² + Inet
-    V += (-V / Rm - a_leak * V * V + Inet) / (Cm * 1000) * DT;
-  }
+  // gM(V): 1/Rm always (block: gM=0 but V saturates at V*≥V_blk, no spike)
+  V += (-V / Rm + Inet) / (Cm * 1000) * DT;
 
-  if (V >= V_sub && Vs < V_blk) {  // Vs still uses Vstar(Inet)
+  if (V >= V_sub && Vs < V_blk) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
     V = 0;
@@ -1081,14 +1057,6 @@ document.getElementById('sl-I').addEventListener('input', function () {
   document.getElementById('val-I').textContent = I_eff.toFixed(1) + ' mV';
 });
 
-document.getElementById('sl-gl').addEventListener('input', function () {
-  a_leak = parseFloat(this.value);
-  document.getElementById('val-gl').textContent = a_leak.toFixed(3) + ' µS/mV';
-  branchCache = null; scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
-  traceHead = 0; traceFull = false;
-  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
-});
 
 document.getElementById('sl-vsub').addEventListener('input', function () {
   let val = parseFloat(this.value);
@@ -1185,11 +1153,11 @@ window.addEventListener('load', () => {
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`g_M(V) = \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases} \qquad g_L(V) = aV`,
+    String.raw`g_M(V) = \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases}`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`\text{sub-thr.:}\quad C_m\frac{dV}{dt} = -\frac{V}{R_m} - aV^2 + I_{\text{net}}, \quad V^* = \frac{-\frac{1}{aR_m}+\sqrt{\frac{1}{(aR_m)^2}+\frac{4I}{a}}}{2}`,
+    String.raw`\tau_m = C_m R_m \quad (\text{membrane time constant})`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
