@@ -180,6 +180,10 @@
       <input type="range" id="sl-I" min="0" max="300" step="0.5" value="38" />
     </div>
     <div class="control-group">
+      <label><span>C<sub>m</sub> — capacitance</span><span id="val-cm">0.100 µF</span></label>
+      <input type="range" id="sl-cm" min="0.005" max="0.5" step="0.005" value="0.1" />
+    </div>
+    <div class="control-group">
       <label><span>R<sub>m</sub> — sub-thr. resistance</span><span id="val-rm">1.0 MΩ</span></label>
       <input type="range" id="sl-rm" min="0.5" max="5" step="0.5" value="1" />
     </div>
@@ -250,7 +254,7 @@
 const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'];
 
 // ── Fixed model params ─────────────────────────────────────────────────────────
-const Cm  = 0.1;   // µF
+let   Cm  = 0.1;   // µF — membrane capacitance (adjustable)
 let   Rm  = 1.0;   // MΩ — sub-threshold membrane resistance
 let   gL  = 1.0;   // µS — constant leak conductance
 let   V_sub = 42;  // mV — spike threshold  (adjustable)
@@ -989,6 +993,15 @@ function resetSim() {
   lastSpikeStep = null; simISI = null; simStep = 0;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 }
+
+document.getElementById('sl-cm').addEventListener('input', function () {
+  Cm = parseFloat(this.value);
+  document.getElementById('val-cm').textContent = Cm.toFixed(3) + ' µF';
+  branchCache = null; scanData = { up: [], down: [] };
+  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
+  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
+});
 
 document.getElementById('sl-rm').addEventListener('input', function () {
   Rm = parseFloat(this.value);
