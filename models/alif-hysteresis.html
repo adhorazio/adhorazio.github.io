@@ -91,6 +91,21 @@
       background: var(--gdv-q3); border: 2px solid var(--bg);
     }
 
+    /* ── stimulus panel ── */
+    .stim-panel { display: flex; flex-direction: column; gap: 0.55rem; }
+    .stim-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .stim-btn {
+      padding: 0.2rem 0.55rem; border-radius: 4px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-dim); font-size: 0.72rem;
+      cursor: pointer; transition: border-color 0.15s, color 0.15s; font-family: inherit;
+      letter-spacing: 0.02em;
+    }
+    .stim-btn:hover { border-color: var(--gdv-q4); color: var(--gdv-q4); }
+    .stim-btn.active { border-color: var(--gdv-q4); color: var(--gdv-q4); background: rgba(175,88,186,0.1); }
+    #btn-fire { border-color: var(--gdv-q5); color: var(--gdv-q5); }
+    #btn-fire:hover, #btn-fire.active { background: rgba(255,198,30,0.12); border-color: var(--gdv-q5); color: var(--gdv-q5); }
+    .stim-params { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1.2rem; }
+
     /* ── hint box ── */
     .hint-box {
       background: rgba(0,0,0,0.25); border: 1px solid var(--border);
@@ -151,10 +166,34 @@
   <div class="widget-title">Self-excitatory I<sub>w</sub><sup>+</sup> — Bistability demo</div>
 
   <div class="action-row">
-    <button class="act-btn" id="btn-pulse">Trigger pulse ▲</button>
     <button class="act-btn" id="btn-reset">Reset to silence</button>
     <button class="act-btn" id="btn-scan">Auto-scan ↔</button>
-    <span id="state-badge">—</span>
+    <span id="state-badge" style="margin-left:auto;">—</span>
+  </div>
+
+  <div class="stim-panel">
+    <div class="stim-top">
+      <span class="win-label">Stimulus</span>
+      <div id="stim-type-btns" style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+        <button class="stim-btn active" data-stim="rect+">+rect</button>
+        <button class="stim-btn"        data-stim="rect-">−rect</button>
+        <button class="stim-btn"        data-stim="ramp">ramp ▲▼</button>
+        <button class="stim-btn"        data-stim="noise">noise ~</button>
+        <button class="stim-btn"        data-stim="sine">I<sub>pulse</sub> ∿</button>
+        <button class="stim-btn"        data-stim="ieff-sine">I<sub>eff</sub> ∿</button>
+      </div>
+      <button class="act-btn" id="btn-fire">Fire ▶</button>
+    </div>
+    <div class="stim-params">
+      <div class="control-group">
+        <label><span>Amplitude</span><span id="val-stim-amp">8.0 µA</span></label>
+        <input type="range" autocomplete="off" id="sl-stim-amp" min="0" max="100" step="0.5" value="8" />
+      </div>
+      <div class="control-group">
+        <label><span id="stim-dur-label">Duration</span><span id="val-stim-dur">300 ms</span></label>
+        <input type="range" autocomplete="off" id="sl-stim-dur" min="10" max="2000" step="10" value="300" />
+      </div>
+    </div>
   </div>
 
   <div class="win-row">
@@ -224,7 +263,7 @@
   <div class="hint-box">
     <div class="hint-title">How to see hysteresis</div>
     <div class="hint-step"><span class="n">1.</span><span>At I<sub>eff</sub> = 38 µA the system is <em>silent</em> — below I<sub>on</sub> = 42 µA without I<sub>w</sub><sup>+</sup>. Operating point on the lower (blue) branch.</span></div>
-    <div class="hint-step"><span class="n">2.</span><span>Click <strong>Trigger pulse</strong> — I<sub>w</sub><sup>+</sup> pushes I<sub>net</sub> above 42 µA. Persistent spiking begins; operating point jumps to the upper (green) branch.</span></div>
+    <div class="hint-step"><span class="n">2.</span><span>Select <strong>+rect</strong> stimulus and click <strong>Fire</strong> — I<sub>w</sub><sup>+</sup> pushes I<sub>net</sub> above 42 µA. Persistent spiking begins; operating point jumps to the upper (green) branch.</span></div>
     <div class="hint-step"><span class="n">3.</span><span>Slowly drag I<sub>eff</sub> down — spiking persists below I<sub>on</sub>, down to I<sub>off</sub> (orange). Then it collapses.</span></div>
     <div class="hint-step"><span class="n">4.</span><span>Raise I<sub>eff</sub> — stays silent until I<sub>on</sub> = 42 µA (yellow). Same current, different state: hysteresis.</span></div>
     <div class="hint-step"><span class="n">★</span><span>Circuit: I<sub>on</sub>=42 µA, I<sub>block</sub>=98 µA, I₀=70 µA. f₀=f(70)=1.09/τ<sub>m</sub>. Cm sets the frequency scale. Click <strong>Auto-scan</strong> to trace the loop.</span></div>
@@ -333,12 +372,14 @@ let I_hold = 98;   // µA — corresponds to Imax = 1.4·I₀ = 98 µA
 let lastFrameTime = null;
 let hystZoom = false;  // zoom hysteresis x-axis to bistable region
 
-// ── Rectangular pulse injection ────────────────────────────────────────────────
-// Clicking "Trigger pulse" pushes I_net above I_on for PULSE_DUR ms,
-// allowing Iw+ to build up and sustain spiking (crossing the bistable boundary).
-let I_pulse    = 0;       // current pulse amplitude (µA)
-let pulseTimer = 0;       // remaining pulse time (ms, simulated)
-const PULSE_DUR = 300;    // ms — pulse width
+// ── Stimulus system ────────────────────────────────────────────────────────────
+let I_pulse   = 0;        // injected current this step (µA, on I_pulse channel)
+let ieffMod   = 0;        // additive modulation to Ieff (for Ieff ∿ type)
+let stimType  = 'rect+';  // 'rect+' | 'rect-' | 'ramp' | 'noise' | 'sine' | 'ieff-sine'
+let stimAmp   = 8;        // µA — amplitude (σ for noise)
+let stimDur   = 300;      // ms — duration (one-shots) or period (continuous)
+let stimOn    = false;    // stim currently running?
+let stimT     = 0;        // simulated time elapsed in current stim (ms)
 
 // ── Operating-point trail (hysteresis diagram) ─────────────────────────────────
 const TRAIL_LEN  = 300;
@@ -503,10 +544,56 @@ function getBranches() {
   return branchCache;
 }
 
+// ── Stimulus engine ────────────────────────────────────────────────────────────
+function stopStim() {
+  stimOn = false; stimT = 0; I_pulse = 0; ieffMod = 0;
+  const btn = document.getElementById('btn-fire');
+  btn.textContent = 'Fire ▶'; btn.classList.remove('active');
+}
+
+function stepStim() {
+  if (!stimOn) { I_pulse = 0; ieffMod = 0; return; }
+  stimT += DT;
+  I_pulse = 0; ieffMod = 0;
+
+  switch (stimType) {
+    case 'rect+':
+      I_pulse = stimAmp;
+      if (stimT >= stimDur) stopStim();
+      break;
+    case 'rect-':
+      I_pulse = -stimAmp;
+      if (stimT >= stimDur) stopStim();
+      break;
+    case 'ramp': {
+      // triangle: 0 → +amp (first half) → 0 (second half)
+      const ph = Math.min(stimT / stimDur, 1);
+      I_pulse = stimAmp * (1 - 2 * Math.abs(ph - 0.5));
+      if (stimT >= stimDur) stopStim();
+      break;
+    }
+    case 'noise': {
+      // Box-Muller Gaussian noise, σ = stimAmp, continuous
+      const u1 = Math.random() || 1e-10, u2 = Math.random();
+      I_pulse = stimAmp * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      break;
+    }
+    case 'sine':
+      // Sinusoidal injection on I_pulse, continuous
+      I_pulse = stimAmp * Math.sin(2 * Math.PI * stimT / stimDur);
+      break;
+    case 'ieff-sine':
+      // Sinusoidal modulation of Ieff, continuous
+      ieffMod = stimAmp * Math.sin(2 * Math.PI * stimT / stimDur);
+      break;
+  }
+}
+
 // ── Euler integration step (DT = 0.1 ms) ──────────────────────────────────────
 function step(Ie) {
   simStep++;
-  const Inet  = Ie + Iw + I_pulse;        // total input current (µA)
+  stepStim();                              // update I_pulse / ieffMod for this step
+  const Inet  = Ie + ieffMod + Iw + I_pulse; // total input current (µA)
 
   // Physical gM:  sub-threshold = 1/Rm  |  spike (thyristor ON) = +∞
   // When gM → ∞ and Ra is in series, the effective conductance seen by Cm is:
@@ -548,10 +635,6 @@ function step(Ie) {
   // Iw+ decays continuously (during AND between spikes)
   if (tau_wp > 0) Iw *= Math.exp(-DT / tau_wp);
 
-  if (pulseTimer > 0) {
-    pulseTimer -= DT;
-    if (pulseTimer <= 0) { pulseTimer = 0; I_pulse = 0; }
-  }
   return false;
 }
 
@@ -752,7 +835,7 @@ function drawTrace() {
   // I_pulse own scale: scan buffer max, floor at a small minimum
   let ipMax = 1;
   for (let i = 0; i < scanEnd; i++) { if (iHistoryPulse[i] > ipMax) ipMax = iHistoryPulse[i]; }
-  ipMax = Math.max(ipMax * 1.15, PULSE_DUR > 0 ? 1 : 1);  // headroom
+  ipMax = Math.max(ipMax * 1.15, 1);  // headroom
   const mapIpY = v => y_p + cH - Math.min(Math.max(v, 0) / ipMax, 1) * cH;
 
   // zero baseline
@@ -857,11 +940,11 @@ function drawTrace() {
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_ie); tctx.lineTo(cursorX, H); tctx.stroke();
 
-  // Ieff Y scale: fixed at I_hold so the line moves dynamically
-  // and always has ample headroom above the label
-  const ieH   = H - y_ie;
-  const ieMax = Math.max(I_hold * 1.05, I_eff * 1.1);
-  const ieY   = y_ie + ieH - (I_eff / ieMax) * ieH;
+  // Ieff panel — shows effective Ieff = I_eff + ieffMod
+  const ieffEff = I_eff + ieffMod;
+  const ieH     = H - y_ie;
+  const ieMax   = Math.max(I_hold * 1.05, ieffEff * 1.1);
+  const ieY     = y_ie + ieH - Math.max(0, ieffEff / ieMax) * ieH;
   tctx.fillStyle = Q[5] + '22';
   tctx.fillRect(0, ieY, W, H - ieY);
   tctx.strokeStyle = Q[5]; tctx.lineWidth = 1.5; tctx.setLineDash([]);
@@ -872,7 +955,7 @@ function drawTrace() {
   tctx.fillText('Ieff', 4, y_ie + 11);
   tctx.textAlign = 'right';
   tctx.fillStyle = Q[5] + 'aa';
-  tctx.fillText(I_eff.toFixed(1) + ' µA', W - 2, y_ie + (H - y_ie) - 3);
+  tctx.fillText(ieffEff.toFixed(1) + ' µA', W - 2, y_ie + (H - y_ie) - 3);
   tctx.textAlign = 'left';
 
 }
@@ -1271,6 +1354,7 @@ function loop() {
 // ── Controls ───────────────────────────────────────────────────────────────────
 function resetSim() {
   V = 0; Iw = 0; spikePhase = false;
+  I_pulse = 0; ieffMod = 0;
   vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   lastSpikeStep = null; simISI = null; simStep = 0;
@@ -1350,15 +1434,44 @@ document.getElementById('sl-spd').addEventListener('input', function () {
   document.getElementById('val-spd').textContent = label;
 });
 
-// Trigger pulse: inject a rectangular current pulse strong enough to cross threshold
-document.getElementById('btn-pulse').addEventListener('click', () => {
-  // Push I_net at least 8 current-units above I_on = V_sub * gTotal
-  I_pulse    = Math.max(I_for_Vstar(V_sub) - I_eff - Iw + 8, 6);
-  pulseTimer = PULSE_DUR;
+// ── Stimulus controls ──────────────────────────────────────────────────────────
+document.getElementById('stim-type-btns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-stim]');
+  if (!btn) return;
+  stimType = btn.dataset.stim;
+  document.querySelectorAll('.stim-btn').forEach(b => b.classList.toggle('active', b === btn));
+  // Update duration label
+  const isOneShot = stimType === 'rect+' || stimType === 'rect-' || stimType === 'ramp';
+  document.getElementById('stim-dur-label').textContent = isOneShot ? 'Duration' : 'Period';
+  // Stop any running stim when switching type
+  if (stimOn) stopStim();
+});
+
+document.getElementById('sl-stim-amp').addEventListener('input', function () {
+  stimAmp = parseFloat(this.value);
+  document.getElementById('val-stim-amp').textContent = stimAmp.toFixed(1) + ' µA';
+});
+
+document.getElementById('sl-stim-dur').addEventListener('input', function () {
+  stimDur = parseFloat(this.value);
+  document.getElementById('val-stim-dur').textContent = stimDur + ' ms';
+});
+
+document.getElementById('btn-fire').addEventListener('click', () => {
+  const isContinuous = stimType === 'noise' || stimType === 'sine' || stimType === 'ieff-sine';
+  if (stimOn && isContinuous) {
+    stopStim(); return;
+  }
+  // Start stim
+  stopStim();
+  stimOn = true; stimT = 0;
+  const btn = document.getElementById('btn-fire');
+  if (isContinuous) { btn.textContent = 'Stop ■'; btn.classList.add('active'); }
+  // For one-shots: btn stays as-is, stopStim() will be called when done
 });
 
 document.getElementById('btn-reset').addEventListener('click', () => {
-  I_pulse = 0; pulseTimer = 0;
+  stopStim();
   resetSim();
   scanMode = false;
   document.getElementById('btn-scan').classList.remove('active');
@@ -1385,7 +1498,7 @@ document.getElementById('btn-scan').addEventListener('click', () => {
   scanSteps = 0; scanSpikes = 0;
   scanData  = { up: [], down: [] };
   // Start from silence
-  V = 0; Iw = 0; I_pulse = 0; pulseTimer = 0;
+  stopStim(); V = 0; Iw = 0;
   lastSpikeStep = null; simISI = null;
   scanMode  = true;
   document.getElementById('btn-scan').classList.add('active');
@@ -1434,7 +1547,9 @@ function initSliders() {
     ['sl-ihold', I_hold,  'val-ihold', v => v + ' µA'],
     ['sl-bp',    b_plus,  'val-bp',    v => v.toFixed(1)],
     ['sl-tauwp', tau_wp,  'val-tauwp', v => v + ' ms'],
-    ['sl-spd',   speed,   'val-spd',   v => v === 0.5 ? '½×' : v + '×'],
+    ['sl-spd',      speed,    'val-spd',      v => v === 0.5 ? '½×' : v + '×'],
+    ['sl-stim-amp', stimAmp,  'val-stim-amp', v => v.toFixed(1) + ' µA'],
+    ['sl-stim-dur', stimDur,  'val-stim-dur', v => v + ' ms'],
   ].forEach(([sid, val, vid, fmt]) => {
     const s = document.getElementById(sid); if (s) s.value = val;
     const v = document.getElementById(vid); if (v) v.textContent = fmt(val);
