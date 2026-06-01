@@ -58,6 +58,7 @@
       border-radius: 3px; font-variant-numeric: tabular-nums;
       background: rgba(0,0,0,0.3); color: var(--text-dim);
       transition: background 0.3s, color 0.3s;
+      font-family: monospace;
     }
 
     /* ── canvases ── */
@@ -168,7 +169,7 @@
   <div class="action-row">
     <button class="act-btn" id="btn-reset">Reset to silence</button>
     <button class="act-btn" id="btn-scan">Auto-scan ↔</button>
-    <span id="state-badge" style="margin-left:auto;">—</span>
+    <span id="state-badge" style="margin-left:auto;">— Hz · Iw⁺ =  0</span>
   </div>
 
   <div class="stim-panel">
@@ -364,6 +365,7 @@ let traceFull = false;                      // true once buffer has wrapped
 let simStep   = 0;
 let lastSpikeStep = null;
 let simISI        = null;   // last inter-spike interval (steps)
+let smoothISI     = null;   // EMA-smoothed ISI for stable Hz display (steps)
 let spikePhase = false;  // true while transistor is ON (gM = 1/Ra)
 // I_hold: holding current threshold (µA).
 // Transistor turns OFF only when V < Vsub AND I_inst = (V-Va)·(gM+gL) < I_hold.
@@ -616,7 +618,10 @@ function step(Ie) {
   // ── Spike detection: upward crossing of Vsub ──────────────────────────────
   if (!spikePhase && V >= V_sub) {
     // Upward crossing: fire once, enter spike phase
-    if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
+    if (lastSpikeStep !== null) {
+      simISI    = simStep - lastSpikeStep;
+      smoothISI = smoothISI === null ? simISI : 0.25 * simISI + 0.75 * smoothISI; // EMA α=0.25
+    }
     lastSpikeStep = simStep;
     Iw  += b_plus;   // only Iw incremented — V not forced to 0
     spikePhase  = true;
@@ -832,32 +837,35 @@ function drawTrace() {
   // ── 3. I_PULSE PANEL (yellow) — own adaptive scale ───────────────────────
   panelBg(y_p, cH, 'rgba(255,198,30,0.03)');
 
-  // I_pulse own scale: scan buffer max, floor at a small minimum
-  let ipMax = 1;
-  for (let i = 0; i < scanEnd; i++) { if (iHistoryPulse[i] > ipMax) ipMax = iHistoryPulse[i]; }
-  ipMax = Math.max(ipMax * 1.15, 1);  // headroom
-  const mapIpY = v => y_p + cH - Math.min(Math.max(v, 0) / ipMax, 1) * cH;
+  // I_pulse bipolar scale — track max absolute value so negatives display too
+  let ipAbsMax = 1;
+  for (let i = 0; i < scanEnd; i++) {
+    const a = Math.abs(iHistoryPulse[i]);
+    if (a > ipAbsMax) ipAbsMax = a;
+  }
+  ipAbsMax = Math.max(ipAbsMax * 1.15, 1);
+  const ipZeroY = y_p + cH / 2;                                 // 0-line at panel centre
+  const mapIpY  = v => ipZeroY - (v / ipAbsMax) * (cH / 2);    // positive up, negative down
 
-  // zero baseline
+  // Zero baseline (centre)
   tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
-  tctx.beginPath(); tctx.moveTo(0, y_p + cH - 1); tctx.lineTo(W, y_p + cH - 1); tctx.stroke();
+  tctx.beginPath(); tctx.moveTo(0, ipZeroY); tctx.lineTo(W, ipZeroY); tctx.stroke();
   tctx.setLineDash([]);
 
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_p); tctx.lineTo(cursorX, y_p + cH); tctx.stroke();
 
-  // Fill + line (two-pass)
+  // Fill (from zero line to signal) + trace — two-pass
   const drawIpArea = (from, to, alpha) => {
     if (to <= from) return;
-    const baseline = y_p + cH;
     tctx.globalAlpha = alpha * 0.25;
     tctx.fillStyle = Q[4];
     tctx.beginPath();
-    tctx.moveTo((from / (traceEff - 1)) * W, baseline);
+    tctx.moveTo((from / (traceEff - 1)) * W, ipZeroY);
     for (let i = from; i < to; i++) {
       tctx.lineTo((i / (traceEff - 1)) * W, mapIpY(iHistoryPulse[i]));
     }
-    tctx.lineTo(((to - 1) / (traceEff - 1)) * W, baseline);
+    tctx.lineTo(((to - 1) / (traceEff - 1)) * W, ipZeroY);
     tctx.closePath(); tctx.fill();
     tctx.globalAlpha = alpha;
     tctx.strokeStyle = Q[4]; tctx.lineWidth = 1.5;
@@ -877,6 +885,13 @@ function drawTrace() {
   tctx.textAlign = 'right';
   tctx.fillStyle = Q[4] + 'aa';
   tctx.fillText(ipObsMax.toFixed(1) + ' µA', W - 2, y_p + cH - 3);
+  // Show negative peak if present
+  let ipObsMin = 0;
+  for (let i = 0; i < scanEnd; i++) { if (iHistoryPulse[i] < ipObsMin) ipObsMin = iHistoryPulse[i]; }
+  if (ipObsMin < -0.1) {
+    tctx.fillStyle = Q[4] + '88';
+    tctx.fillText(ipObsMin.toFixed(1) + ' µA', W - 2, y_p + 11);
+  }
   tctx.textAlign = 'left';
 
   sep(y_p + cH);
@@ -1260,22 +1275,24 @@ function drawHyst() {
 
 // ── State badge ────────────────────────────────────────────────────────────────
 function updateBadge() {
-  const badge   = document.getElementById('state-badge');
-  const I_net   = I_eff + Iw + I_pulse;
-  const regime  = getRegime(I_net);
-  const obsF    = (simISI !== null && (simStep - (lastSpikeStep || 0)) * DT < 1500)
-    ? 1000 / (simISI * DT) : 0;
+  if (frameCount % 15 !== 0) return;   // throttle ~4× per second
+  const badge  = document.getElementById('state-badge');
+  const I_net  = I_eff + ieffMod + Iw + I_pulse;
+  const regime = getRegime(I_net);
+  const stale  = (simStep - (lastSpikeStep || 0)) * DT > 1500;
+  const obsF   = (!stale && smoothISI !== null) ? 1000 / (smoothISI * DT) : 0;
+
+  const hzStr = (obsF > 0.5 ? obsF.toFixed(1) : '  —').padStart(4);
+  const iwStr = Math.round(Iw).toString().padStart(2);
+  badge.textContent = hzStr + ' Hz · Iw⁺ = ' + iwStr;
 
   if (regime === 'block') {
-    badge.textContent = 'depol. block · Iw+ = ' + Iw.toFixed(1);
     badge.style.background = 'rgba(255,31,91,0.15)';
     badge.style.color = Q[0];
   } else if (regime === 'spike' && obsF > 0.5) {
-    badge.textContent = 'spiking · ' + obsF.toFixed(1) + ' Hz · Iw+ = ' + Iw.toFixed(1);
     badge.style.background = 'rgba(0,205,108,0.15)';
     badge.style.color = Q[1];
   } else {
-    badge.textContent = 'silent · Iw+ = ' + Iw.toFixed(1);
     badge.style.background = 'rgba(0,154,222,0.12)';
     badge.style.color = Q[2];
   }
@@ -1357,7 +1374,7 @@ function resetSim() {
   I_pulse = 0; ieffMod = 0;
   vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
-  lastSpikeStep = null; simISI = null; simStep = 0;
+  lastSpikeStep = null; simISI = null; smoothISI = null; simStep = 0;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 }
 
