@@ -606,9 +606,6 @@ function drawTrace() {
   // ── Shared Y scale for I_pulse and I_eff panels ───────────────────────────
   const scanEnd = traceFull ? traceEff : traceHead;
   let iMax = Math.max(I_for_Vstar(V_sub) * 1.25, I_eff * 1.4);
-  for (let i = 0; i < scanEnd; i++) {
-    if (iHistoryPulse[i] > iMax) iMax = iHistoryPulse[i];
-  }
   iMax = Math.ceil(iMax * 1.05);
   const mapCY = (iv, top, h) =>
     top + h - Math.min(Math.max(iv, 0) / iMax, 1) * h;
@@ -621,9 +618,13 @@ function drawTrace() {
   iwMax = iwMax * 1.15;
   const mapIwY = v => y_iw + cH - Math.min(Math.max(v, 0) / iwMax, 1) * cH;
 
-  // ── Mean of Iw+ over visible window ───────────────────────────────────────
-  let iwSum = 0;
-  for (let i = 0; i < scanEnd; i++) iwSum += iHistoryIw[i];
+  // ── Mean of Iw+ and max of Va / I_pulse over visible window ──────────────
+  let iwSum = 0, vaObsMax = 0, ipObsMax = 0;
+  for (let i = 0; i < scanEnd; i++) {
+    iwSum    += iHistoryIw[i];
+    if (vaHistory[i]      > vaObsMax) vaObsMax = vaHistory[i];
+    if (iHistoryPulse[i]  > ipObsMax) ipObsMax = iHistoryPulse[i];
+  }
   const iwMean = scanEnd > 0 ? iwSum / scanEnd : 0;
 
   // Helper: draw separator line
@@ -735,16 +736,24 @@ function drawTrace() {
   if (traceFull) drawVaArea(traceHead, traceEff, 0.12);
   drawVaArea(0, traceHead, 1.0);
 
-  // Y-axis label for Va (right side)
-  tctx.fillStyle = Q[3] + 'cc'; tctx.font = '9px monospace';
+  tctx.font = '9px monospace'; tctx.textAlign = 'left';
+  tctx.fillStyle = Q[3] + 'cc';
   tctx.fillText('Va', 4, y_va + 11);
-  tctx.fillStyle = Q[3] + '88';
-  tctx.fillText(vaMax.toFixed(1) + ' mV', W - 42, y_va + 10);
+  tctx.textAlign = 'right';
+  tctx.fillStyle = Q[3] + 'aa';
+  tctx.fillText(vaObsMax.toFixed(2) + ' mV', W - 2, y_va + cH - 3);
+  tctx.textAlign = 'left';
 
   sep(y_va + cH);
 
-  // ── 3. I_PULSE PANEL (yellow) — uses y_p ─────────────────────────────────
+  // ── 3. I_PULSE PANEL (yellow) — own adaptive scale ───────────────────────
   panelBg(y_p, cH, 'rgba(255,198,30,0.03)');
+
+  // I_pulse own scale: scan buffer max, floor at a small minimum
+  let ipMax = 1;
+  for (let i = 0; i < scanEnd; i++) { if (iHistoryPulse[i] > ipMax) ipMax = iHistoryPulse[i]; }
+  ipMax = Math.max(ipMax * 1.15, PULSE_DUR > 0 ? 1 : 1);  // headroom
+  const mapIpY = v => y_p + cH - Math.min(Math.max(v, 0) / ipMax, 1) * cH;
 
   // zero baseline
   tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
@@ -754,11 +763,38 @@ function drawTrace() {
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_p); tctx.lineTo(cursorX, y_p + cH); tctx.stroke();
 
-  if (traceFull) drawLine(iHistoryPulse, Q[4], 1.5, y_p, cH, traceHead, traceEff, 0.12);
-  drawLine(iHistoryPulse, Q[4], 1.5, y_p, cH, 0, traceHead, 1.0);
+  // Fill + line (two-pass)
+  const drawIpArea = (from, to, alpha) => {
+    if (to <= from) return;
+    const baseline = y_p + cH;
+    tctx.globalAlpha = alpha * 0.25;
+    tctx.fillStyle = Q[4];
+    tctx.beginPath();
+    tctx.moveTo((from / (traceEff - 1)) * W, baseline);
+    for (let i = from; i < to; i++) {
+      tctx.lineTo((i / (traceEff - 1)) * W, mapIpY(iHistoryPulse[i]));
+    }
+    tctx.lineTo(((to - 1) / (traceEff - 1)) * W, baseline);
+    tctx.closePath(); tctx.fill();
+    tctx.globalAlpha = alpha;
+    tctx.strokeStyle = Q[4]; tctx.lineWidth = 1.5;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (traceEff - 1)) * W;
+      i === from ? tctx.moveTo(x, mapIpY(iHistoryPulse[i])) : tctx.lineTo(x, mapIpY(iHistoryPulse[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+  if (traceFull) drawIpArea(traceHead, traceEff, 0.12);
+  drawIpArea(0, traceHead, 1.0);
 
-  tctx.fillStyle = Q[4] + 'cc'; tctx.font = '9px monospace';
+  tctx.font = '9px monospace'; tctx.textAlign = 'left';
+  tctx.fillStyle = Q[4] + 'cc';
   tctx.fillText('I pulse', 4, y_p + 11);
+  tctx.textAlign = 'right';
+  tctx.fillStyle = Q[4] + 'aa';
+  tctx.fillText(ipObsMax.toFixed(1) + ' µA', W - 2, y_p + cH - 3);
+  tctx.textAlign = 'left';
 
   sep(y_p + cH);
 
