@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Izhikevich +u — Bistability &amp; Hysteresis</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --gdv-q1: #FF1F5B;
+      --gdv-q2: #00CD6C;
+      --gdv-q3: #009ADE;
+      --gdv-q4: #AF58BA;
+      --gdv-q5: #FFC61E;
+      --gdv-q6: #F28522;
+      --gdv-q7: #A0B1BA;
+      --gdv-q8: #A6761D;
+      --bg: #2b2b2b;
+      --surface: #333333;
+      --border: #444444;
+      --text: #e0e0e0;
+      --text-dim: #888888;
+      --accent: var(--gdv-q3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 2rem 2rem;
+    }
+
+    header {
+      width: 100%;
+      max-width: 760px;
+      padding: 16px 0 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    header h1 span { color: var(--text); }
+
+    header a {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.15s;
+    }
+
+    header a:hover { color: var(--accent); }
+
+    main {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem 2rem;
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .widget-title {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gdv-q3);
+      font-weight: 600;
+    }
+
+    #canvas-wrap { position: relative; width: 100%; }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 200px;
+      border-radius: 6px;
+      background: #1e1e1e;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem 1.2rem;
+    }
+
+    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .control-group label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span {
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--gdv-q3);
+      border: 2px solid var(--bg);
+    }
+
+    /* ── adaptation sections (same as alif.html) ── */
+    .adapt-section { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .adapt-header {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding: 0.5rem 0.8rem; background: rgba(255,255,255,0.03);
+      cursor: pointer; user-select: none;
+    }
+    .adapt-header:hover { background: rgba(255,255,255,0.06); }
+    .toggle-btn {
+      padding: 0.18rem 0.55rem; border-radius: 3px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-dim); font-size: 0.72rem;
+      cursor: pointer; transition: all 0.15s; pointer-events: none;
+    }
+    .adapt-header.active       .toggle-btn { border-color: var(--gdv-q2); color: var(--gdv-q2); background: rgba(0,205,108,0.1); }
+    .adapt-header.active-minus .toggle-btn { border-color: var(--gdv-q1); color: var(--gdv-q1); background: rgba(255,31,91,0.1); }
+    .adapt-label {
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-dim); transition: color 0.15s;
+    }
+    .adapt-header.active       .adapt-label { color: var(--gdv-q2); }
+    .adapt-header.active-minus .adapt-label { color: var(--gdv-q1); }
+    .spark-group {
+      margin-left: auto; display: flex; align-items: center; gap: 0.4rem;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .adapt-header.active       .spark-group { opacity: 1; }
+    .adapt-header.active-minus .spark-group { opacity: 1; }
+    .adapt-sparkline { border-radius: 3px; display: block; width: 80px !important; height: 24px !important; background: transparent !important; }
+    .spark-mean { font-size: 0.68rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .adapt-header.active       .spark-mean { color: var(--gdv-q2); }
+    .adapt-header.active-minus .spark-mean { color: var(--gdv-q1); }
+    .adapt-sliders {
+      display: none; padding: 0.7rem 0.8rem 0.8rem;
+      gap: 0.8rem 1.2rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+    .adapt-sliders.open { display: grid; }
+    #phase3d { width: 100%; height: 360px; cursor: grab; }
+    #phase3d:active { cursor: grabbing; }
+
+    .win-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .win-label { font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.05em; }
+    .win-btn {
+      padding: 0.2rem 0.55rem; border-radius: 4px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-dim); font-size: 0.72rem;
+      cursor: pointer; transition: border-color 0.15s, color 0.15s; font-family: inherit;
+    }
+    .win-btn:hover, .win-btn.active { border-color: var(--gdv-q3); color: var(--gdv-q3); }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    .preset-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--gdv-q3);
+      color: var(--gdv-q3);
+    }
+
+    #phase-wrap { display: flex; gap: 1rem; }
+
+    #phase-wrap canvas { width: 160px; height: 160px; flex-shrink: 0; }
+
+    .legend {
+      display: flex;
+      flex-direction: row;
+      gap: 1.5rem;
+      align-items: flex-start;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .legend-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+
+    .legend-dot { width: 10px; height: 3px; border-radius: 2px; }
+
+    footer {
+      width: 100%;
+      max-width: 760px;
+      padding: 0 0 1rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 2.5rem;
+    }
+
+    .footer-ref {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+      padding: 0.75rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ref-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      opacity: 0.6;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--accent); }
+
+    .equations {
+      width: 100%;
+      max-width: 760px;
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .eq-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .eq-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eq-row, .eq-reset {
+      padding: 0.55rem 1rem;
+    }
+
+    .eq-row .katex { color: var(--text); font-size: 1rem; }
+
+    .eq-reset { color: #b0b0b0; }
+    .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Izhikevich <span style="color:var(--gdv-q1);">+u</span> Model</h1>
+  <a href="../index.html">← Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn active" data-preset="RS">Regular spiking</button>
+    <button class="preset-btn" data-preset="IB">Intrinsically bursting</button>
+    <button class="preset-btn" data-preset="CH">Chattering</button>
+    <button class="preset-btn" data-preset="FS">Fast spiking</button>
+    <button class="preset-btn" data-preset="LTS">Low-threshold spiking</button>
+    <button class="preset-btn" data-preset="RZ">Resonator</button>
+  </div>
+
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div id="win-btns">
+      <button class="win-btn"        data-win="10">10 ms</button>
+      <button class="win-btn"        data-win="200">200 ms</button>
+      <button class="win-btn"        data-win="500">500 ms</button>
+      <button class="win-btn active" data-win="1000">1 s</button>
+      <button class="win-btn"        data-win="2000">2 s</button>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="trace" height="200"></canvas>
+  </div>
+
+  <div class="win-row" style="margin-bottom:-0.2rem;">
+    <span class="win-label">Phase overlay</span>
+    <button class="win-btn active" id="tog-vnull">dv/dt = 0</button>
+    <button class="win-btn active" id="tog-unull">du⁺/dt = 0</button>
+    <button class="win-btn active" id="tog-unullm">du⁻/dt = 0</button>
+    <button class="win-btn active" id="tog-reset">reset lines</button>
+    <button class="win-btn active" id="tog-traj">trajectory</button>
+  </div>
+
+  <div id="phase-wrap">
+    <canvas id="phase" width="160" height="160"></canvas>
+    <div class="legend">
+      <div class="legend-col">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+          <span>phase trajectory</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q5); opacity:.6;"></div>
+          <span>dv/dt = 0 (v-nullcline)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q2); opacity:.6;"></div>
+          <span>du⁺/dt = 0</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1); opacity:.6;"></div>
+          <span>du⁻/dt = 0</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q4);"></div>
+          <span>c (v reset)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q6);"></div>
+          <span>u+d (recovery after spike)</span>
+        </div>
+      </div>
+      <div class="legend-col">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>v (membrane potential)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q2);"></div>
+          <span>u⁺ (excitatory)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+          <span>u⁻ (adaptation)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="phase3d" height="260"></canvas>
+
+  <div class="controls" id="controls">
+    <div class="control-group">
+      <label>c — reset value (mV) <span id="val-c">-65</span></label>
+      <input type="range" id="sl-c" min="-75" max="-40" step="1" value="-65" />
+    </div>
+    <div class="control-group">
+      <label>I — input current <span id="val-I">10.0</span></label>
+      <input type="range" id="sl-I" min="0" max="40" step="0.5" value="10" />
+    </div>
+    <div class="control-group">
+      <label>speed <span id="val-spd">1/50×</span></label>
+      <input type="range" id="sl-spd" min="0.01" max="0.05" step="0.001" value="0.02" />
+    </div>
+  </div>
+
+  <div class="adapt-section" id="section-plus">
+    <div class="adapt-header active" id="header-plus">
+      <button class="toggle-btn">u<sup>+</sup></button>
+      <span class="adapt-label">excitatory recovery variable</span>
+      <div class="spark-group">
+        <span class="spark-mean" id="mean-plus"></span>
+        <canvas class="adapt-sparkline" id="spark-plus" width="80" height="24"></canvas>
+      </div>
+    </div>
+    <div class="adapt-sliders open" id="sliders-plus">
+      <div class="control-group">
+        <label><span>a⁺ — timescale</span><span id="val-ap">0.020</span></label>
+        <input type="range" id="sl-ap" min="0.005" max="0.15" step="0.005" value="0.02" />
+      </div>
+      <div class="control-group">
+        <label><span>b⁺ — sensitivity</span><span id="val-bp">0.20</span></label>
+        <input type="range" id="sl-bp" min="0.1" max="0.3" step="0.01" value="0.20" />
+      </div>
+      <div class="control-group">
+        <label><span>d⁺ — spike incr.</span><span id="val-dp">8.00</span></label>
+        <input type="range" id="sl-dp" min="0" max="15" step="0.5" value="8" />
+      </div>
+    </div>
+  </div>
+
+  <div class="adapt-section" id="section-minus">
+    <div class="adapt-header" id="header-minus">
+      <button class="toggle-btn">u<sup>−</sup></button>
+      <span class="adapt-label">inhibitory adaptation variable</span>
+      <div class="spark-group">
+        <span class="spark-mean" id="mean-minus"></span>
+        <canvas class="adapt-sparkline" id="spark-minus" width="80" height="24"></canvas>
+      </div>
+    </div>
+    <div class="adapt-sliders" id="sliders-minus">
+      <div class="control-group">
+        <label><span>a⁻ — timescale</span><span id="val-am">0.020</span></label>
+        <input type="range" id="sl-am" min="0.005" max="0.15" step="0.005" value="0.02" />
+      </div>
+      <div class="control-group">
+        <label><span>b⁻ — sensitivity</span><span id="val-bm">0.20</span></label>
+        <input type="range" id="sl-bm" min="0.1" max="0.3" step="0.01" value="0.20" />
+      </div>
+      <div class="control-group">
+        <label><span>d⁻ — spike incr.</span><span id="val-dm">0.00</span></label>
+        <input type="range" id="sl-dm" min="0" max="15" step="0.5" value="0" />
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<div class="equations" id="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+    <div class="eq-row" id="eq3"></div>
+    <div class="eq-reset" id="eq4"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-ref">
+    <span class="ref-label">Reference</span>
+    Izhikevich, E. M. Simple model of spiking neurons. <em>IEEE Trans. Neural Netw.</em> <strong>14</strong>, 1569–1572 (2003).
+    <a href="https://doi.org/10.1109/TNN.2003.820440" target="_blank" rel="noopener">https://doi.org/10.1109/TNN.2003.820440</a>
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'];
+
+// ── Quaternion math (arcball rotation for 3D view) ───────────────────────────
+function qMul([aw,ax,ay,az],[bw,bx,by,bz]) {
+  return [aw*bw-ax*bx-ay*by-az*bz, aw*bx+ax*bw+ay*bz-az*by,
+          aw*by-ax*bz+ay*bw+az*bx, aw*bz+ax*by-ay*bx+az*bw];
+}
+function qNorm(q) { const l=Math.hypot(...q); return q.map(v=>v/l); }
+function qRotVec([w,x,y,z],[vx,vy,vz]) {
+  const [,rx,ry,rz]=qMul(qMul([w,x,y,z],[0,vx,vy,vz]),[w,-x,-y,-z]);
+  return [rx,ry,rz];
+}
+// Q[0]=red  Q[1]=green  Q[2]=blue  Q[3]=purple  Q[4]=yellow  Q[5]=orange
+
+const PRESETS = {
+  RS:  { am:0.02, bm:0.20, dm:8  },
+  IB:  { am:0.02, bm:0.20, dm:4  },
+  CH:  { am:0.02, bm:0.20, dm:2  },
+  FS:  { am:0.10, bm:0.20, dm:2  },
+  LTS: { am:0.02, bm:0.25, dm:2  },
+  RZ:  { am:0.10, bm:0.26, dm:2  },
+};
+
+let params = { ap:0.02, bp:0.20, dp:8, c:-65, I:10, ...PRESETS.RS };
+let v = -65, up = params.bp * v, um = params.bm * v;
+let lastSpikeUp = null;
+let lastSpikeUm = null;
+
+const DT        = 0.05;
+const TRACE_LEN = 40000;
+const vHistory  = new Float32Array(TRACE_LEN);
+const upHistory = new Float32Array(TRACE_LEN);
+const umHistory = new Float32Array(TRACE_LEN);
+let traceHead   = 0, traceFull = false;
+let windowMs    = 1000;
+let traceEff    = Math.round(1000 / DT);
+let lastFrameTime = null;
+
+const active = { up: true, um: false };
+
+let simStep = 0;
+const SPARK_LEN  = 120;
+const sparkPlus  = new Float32Array(SPARK_LEN);
+const sparkMinus = new Float32Array(SPARK_LEN);
+let sparkHead    = 0;
+
+const spkPlusCtx  = document.getElementById('spark-plus').getContext('2d');
+const spkMinusCtx = document.getElementById('spark-minus').getContext('2d');
+
+function drawSparkline(ctx, buf, color, meanEl) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  let mn = Infinity, mx = -Infinity, sum = 0;
+  for (let i = 0; i < SPARK_LEN; i++) {
+    if (buf[i] < mn) mn = buf[i];
+    if (buf[i] > mx) mx = buf[i];
+    sum += buf[i];
+  }
+  const mean  = sum / SPARK_LEN;
+  const range = mx - mn || 1;
+  const mapY  = v => H - 2 - ((v - mn) / range) * (H - 4);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < SPARK_LEN; i++) {
+    const idx = (sparkHead + i) % SPARK_LEN;
+    const x = (i / (SPARK_LEN - 1)) * W;
+    i === 0 ? ctx.moveTo(x, mapY(buf[idx])) : ctx.lineTo(x, mapY(buf[idx]));
+  }
+  ctx.stroke();
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  ctx.fillStyle = color + '22'; ctx.fill();
+  const yMean = mapY(mean);
+  ctx.strokeStyle = color + 'aa'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, yMean); ctx.lineTo(W, yMean); ctx.stroke();
+  ctx.setLineDash([]);
+  if (meanEl) meanEl.textContent = 'μ = ' + mean.toFixed(2);
+}
+
+document.getElementById('header-plus').addEventListener('click', () => {
+  active.up = !active.up;
+  document.getElementById('header-plus').classList.toggle('active', active.up);
+  document.getElementById('sliders-plus').classList.toggle('open',   active.up);
+  if (!active.up) { up = 0; sparkPlus.fill(0); spkPlusCtx.clearRect(0,0,80,24); document.getElementById('mean-plus').textContent = ''; }
+});
+
+document.getElementById('header-minus').addEventListener('click', () => {
+  active.um = !active.um;
+  document.getElementById('header-minus').classList.toggle('active-minus', active.um);
+  document.getElementById('sliders-minus').classList.toggle('open',        active.um);
+  if (!active.um) { um = 0; sparkMinus.fill(0); spkMinusCtx.clearRect(0,0,80,24); document.getElementById('mean-minus').textContent = ''; }
+});
+
+const show = { vnull: true, unull: true, unullm: true, reset: true, traj: true };
+['vnull','unull','unullm','reset','traj'].forEach(key => {
+  document.getElementById('tog-' + key).addEventListener('click', function() {
+    show[key] = !show[key];
+    this.classList.toggle('active', show[key]);
+  });
+});
+
+const PHASE_LEN  = 800;
+const phaseV     = new Float32Array(PHASE_LEN);
+const phaseU     = new Float32Array(PHASE_LEN);
+const phaseUp3   = new Float32Array(PHASE_LEN);
+const phaseUm3   = new Float32Array(PHASE_LEN);
+let phaseHead    = 0;
+
+const traceCanvas  = document.getElementById('trace');
+const tctx         = traceCanvas.getContext('2d');
+const phaseCanvas  = document.getElementById('phase');
+const pctx         = phaseCanvas.getContext('2d');
+const canvas3d     = document.getElementById('phase3d');
+const ctx3d        = canvas3d.getContext('2d');
+
+function resizeTrace() {
+  traceCanvas.width  = traceCanvas.offsetWidth;
+  traceCanvas.height = traceCanvas.offsetHeight;
+  canvas3d.width     = canvas3d.offsetWidth;
+  canvas3d.height    = canvas3d.offsetHeight;
+}
+window.addEventListener('resize', resizeTrace);
+resizeTrace();
+
+// ── 3D arcball interaction ────────────────────────────────────────────────────
+// Initial quaternion: azimuth -40° (Y) then elevation +25° (X)
+let qRot3d = qNorm([0.917, 0.203, -0.334, -0.074]);
+let drag3d = false, dragSphere3d = null;
+
+function screenToSphere3d(clientX, clientY) {
+  const r = canvas3d.getBoundingClientRect();
+  const x =  (clientX - r.left  - canvas3d.width  / 2) / (Math.min(canvas3d.width, canvas3d.height) * 0.5);
+  const y = -(clientY - r.top   - canvas3d.height / 2) / (Math.min(canvas3d.width, canvas3d.height) * 0.5);
+  const r2 = x*x + y*y, z = r2 <= 1 ? Math.sqrt(1-r2) : 0;
+  const l = Math.hypot(x, y, z);
+  return [x/l, y/l, z/l];
+}
+function arcball3d(p1, p2) {
+  const axis = [p1[1]*p2[2]-p1[2]*p2[1], p1[2]*p2[0]-p1[0]*p2[2], p1[0]*p2[1]-p1[1]*p2[0]];
+  const dot  = Math.max(-1, Math.min(1, p1[0]*p2[0]+p1[1]*p2[1]+p1[2]*p2[2]));
+  const angle = Math.acos(dot) * 2.2;
+  const s = Math.sin(angle/2), l = Math.hypot(...axis);
+  if (l < 1e-10) return [1,0,0,0];
+  return qNorm([Math.cos(angle/2), axis[0]/l*s, axis[1]/l*s, axis[2]/l*s]);
+}
+canvas3d.addEventListener('mousedown', e => {
+  drag3d = true; dragSphere3d = screenToSphere3d(e.clientX, e.clientY);
+});
+window.addEventListener('mousemove', e => {
+  if (!drag3d) return;
+  const p2 = screenToSphere3d(e.clientX, e.clientY);
+  qRot3d = qNorm(qMul(arcball3d(dragSphere3d, p2), qRot3d));
+  dragSphere3d = p2;
+});
+window.addEventListener('mouseup', () => { drag3d = false; dragSphere3d = null; });
+canvas3d.addEventListener('touchstart', e => {
+  e.preventDefault(); drag3d = true;
+  dragSphere3d = screenToSphere3d(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+canvas3d.addEventListener('touchmove', e => {
+  e.preventDefault(); if (!drag3d) return;
+  const p2 = screenToSphere3d(e.touches[0].clientX, e.touches[0].clientY);
+  qRot3d = qNorm(qMul(arcball3d(dragSphere3d, p2), qRot3d));
+  dragSphere3d = p2;
+}, { passive: false });
+canvas3d.addEventListener('touchend', () => { drag3d = false; });
+
+function step(I) {
+  simStep++;
+  const dv  = 0.04*v*v + 5*v + 140 + (active.up ? up : 0) - (active.um ? um : 0) + I;
+  const dup = params.ap * (params.bp * v - up);
+  const dum = params.am * (params.bm * v - um);
+  v  += dv  * DT;
+  up += dup * DT;
+  um += dum * DT;
+  if (v >= 30) { lastSpikeUp = up; lastSpikeUm = um; v = params.c; up += params.dp; um += params.dm; }
+  if (simStep % 40 === 0) {
+    sparkPlus[sparkHead]  = active.up ? up : 0;
+    sparkMinus[sparkHead] = active.um ? um : 0;
+    sparkHead = (sparkHead + 1) % SPARK_LEN;
+  }
+}
+
+function drawTrace() {
+  const W = traceCanvas.width, H = traceCanvas.height;
+  tctx.clearRect(0, 0, W, H);
+  const vMin = -90, vMax = 40;
+  const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
+
+  tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1;
+  [-65, -40, 0, 30].forEach(yv => {
+    const y = mapY(yv);
+    tctx.beginPath(); tctx.moveTo(0, y); tctx.lineTo(W, y); tctx.stroke();
+    tctx.fillStyle = '#555'; tctx.font = '10px monospace';
+    tctx.fillText(yv + ' mV', 4, y - 3);
+  });
+
+  const uScale  = (vMax - vMin) / 200;
+  const cursorX = Math.round((traceHead / traceEff) * W);
+
+  const drawSeg = (arr, from, to, color, lw, alpha, yFn) => {
+    if (to <= from) return;
+    tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (traceEff - 1)) * W;
+      i === from ? tctx.moveTo(x, yFn(arr[i])) : tctx.lineTo(x, yFn(arr[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  const yU = val => mapY(val * uScale - 65 + 5);
+  const yV = val => mapY(val);
+
+  if (traceFull) {
+    drawSeg(umHistory, traceHead, traceEff, Q[1], 1,   0.12, yU);
+    drawSeg(upHistory, traceHead, traceEff, Q[0], 1,   0.12, yU);
+    drawSeg(vHistory,  traceHead, traceEff, Q[2], 1.8, 0.12, yV);
+  }
+  drawSeg(umHistory, 0, traceHead, Q[1], 1,   0.5, yU);
+  drawSeg(upHistory, 0, traceHead, Q[0], 1,   0.5, yU);
+  drawSeg(vHistory,  0, traceHead, Q[2], 1.8, 1.0, yV);
+
+  tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
+}
+
+function drawPhase() {
+  const W = phaseCanvas.width, H = phaseCanvas.height;
+  pctx.clearRect(0, 0, W, H);
+  pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
+  const vMin=-90, vMax=40, uMin=-25, uMax=20;
+  const mx = vi => (vi - vMin)/(vMax - vMin) * W;
+  const mu = ui => H - (ui - uMin)/(uMax - uMin) * H;
+  // Determine phase plane mode
+  const onlyUp  =  active.up && !active.um;
+  const onlyUm  = !active.up &&  active.um;
+  const bothOn  =  active.up &&  active.um;
+  const yLabel  = onlyUm ? 'u⁻' : 'u⁺';
+
+  pctx.fillStyle = '#666'; pctx.font = '11px monospace';
+  pctx.fillText('v', W - 12, H - 6);
+  pctx.fillText(yLabel, 4, 13);
+
+  // v-nullcline: dv/dt = 0
+  if (show.vnull) {
+    const drawVnull = (getUm, dash) => {
+      pctx.strokeStyle = Q[4] + '88'; pctx.lineWidth = 1.5;
+      pctx.setLineDash(dash ? [4, 3] : []);
+      pctx.beginPath();
+      let started = false;
+      for (let vi = vMin; vi <= vMax; vi += 0.5) {
+        const base = -(0.04*vi*vi + 5*vi + 140 + params.I);
+        let ui;
+        if (onlyUp)      ui = base;
+        else if (onlyUm) ui = -base;
+        else if (bothOn) ui = base + getUm(vi);
+        else continue;
+        if (ui < uMin || ui > uMax) { started = false; continue; }
+        started ? pctx.lineTo(mx(vi), mu(ui)) : (pctx.moveTo(mx(vi), mu(ui)), started = true);
+      }
+      pctx.stroke();
+      pctx.setLineDash([]);
+    };
+
+    if (bothOn) {
+      // Yellow solid: reduced nullcline at u⁻ = b⁻·v (steady state)
+      drawVnull(vi => params.bm * vi, false);
+      // Yellow dashed: instantaneous at current u⁻
+      drawVnull(() => um, true);
+      // Green: static nullcline as if only u⁺ active — u⁺ = -(0.04v²+5v+140+I)
+      pctx.strokeStyle = Q[1] + '99'; pctx.lineWidth = 1.5; pctx.setLineDash([]);
+      pctx.beginPath();
+      let s1 = false;
+      for (let vi = vMin; vi <= vMax; vi += 0.5) {
+        const ui = -(0.04*vi*vi + 5*vi + 140 + params.I);
+        if (ui < uMin || ui > uMax) { s1 = false; continue; }
+        s1 ? pctx.lineTo(mx(vi), mu(ui)) : (pctx.moveTo(mx(vi), mu(ui)), s1 = true);
+      }
+      pctx.stroke();
+      // Red: static reference as if only u⁻ active — u⁻ = +(0.04v²+5v+140+I)
+      pctx.strokeStyle = Q[0] + '99'; pctx.lineWidth = 1.5; pctx.setLineDash([]);
+      pctx.beginPath();
+      let s2 = false;
+      for (let vi = vMin; vi <= vMax; vi += 0.5) {
+        const ui = 0.04*vi*vi + 5*vi + 140 + params.I;
+        if (ui < uMin || ui > uMax) { s2 = false; continue; }
+        s2 ? pctx.lineTo(mx(vi), mu(ui)) : (pctx.moveTo(mx(vi), mu(ui)), s2 = true);
+      }
+      pctx.stroke();
+
+      // Purple solid: dv/dt=0 solved for u⁻ at u⁺=b⁺v (steady state)
+      pctx.strokeStyle = Q[3] + '99'; pctx.lineWidth = 1.5; pctx.setLineDash([]);
+      pctx.beginPath();
+      let s3 = false;
+      for (let vi = vMin; vi <= vMax; vi += 0.5) {
+        const ui = 0.04*vi*vi + 5*vi + 140 + params.I + params.bp * vi;
+        if (ui < uMin || ui > uMax) { s3 = false; continue; }
+        s3 ? pctx.lineTo(mx(vi), mu(ui)) : (pctx.moveTo(mx(vi), mu(ui)), s3 = true);
+      }
+      pctx.stroke();
+      // Purple dashed: instantaneous at current u⁺
+      pctx.strokeStyle = Q[3] + '99'; pctx.lineWidth = 1.5; pctx.setLineDash([4, 3]);
+      pctx.beginPath();
+      let s4 = false;
+      for (let vi = vMin; vi <= vMax; vi += 0.5) {
+        const ui = 0.04*vi*vi + 5*vi + 140 + params.I + up;
+        if (ui < uMin || ui > uMax) { s4 = false; continue; }
+        s4 ? pctx.lineTo(mx(vi), mu(ui)) : (pctx.moveTo(mx(vi), mu(ui)), s4 = true);
+      }
+      pctx.stroke();
+      pctx.setLineDash([]);
+    } else {
+      drawVnull(() => 0, false);
+    }
+  }
+
+  // du⁺/dt = 0  →  u⁺ = b⁺·v
+  if (show.unull && (onlyUp || bothOn)) {
+    pctx.strokeStyle = Q[1] + '88'; pctx.lineWidth = 1.5;
+    pctx.beginPath();
+    for (let vi = vMin; vi <= vMax; vi += 2)
+      vi === vMin ? pctx.moveTo(mx(vi), mu(params.bp * vi)) : pctx.lineTo(mx(vi), mu(params.bp * vi));
+    pctx.stroke();
+  }
+
+  // du⁻/dt = 0  →  u⁻ = b⁻·v  (shown on appropriate y-axis)
+  if (show.unullm && (onlyUm || bothOn)) {
+    pctx.strokeStyle = Q[0] + '88'; pctx.lineWidth = 1.5;
+    pctx.beginPath();
+    for (let vi = vMin; vi <= vMax; vi += 2)
+      vi === vMin ? pctx.moveTo(mx(vi), mu(params.bm * vi)) : pctx.lineTo(mx(vi), mu(params.bm * vi));
+    pctx.stroke();
+  }
+
+
+  // Reset lines
+  if (show.reset) {
+    const spikeU  = onlyUm ? lastSpikeUm : lastSpikeUp;
+    const resetD  = onlyUm ? params.dm   : params.dp;
+    pctx.setLineDash([3, 3]); pctx.lineWidth = 1;
+    pctx.strokeStyle = Q[3] + 'aa';
+    pctx.beginPath(); pctx.moveTo(mx(params.c), 0); pctx.lineTo(mx(params.c), H); pctx.stroke();
+    if (spikeU !== null) {
+      pctx.strokeStyle = Q[5] + 'aa';
+      pctx.beginPath(); pctx.moveTo(0, mu(spikeU + resetD)); pctx.lineTo(W, mu(spikeU + resetD)); pctx.stroke();
+      pctx.strokeStyle = 'rgba(255,255,255,0.35)'; pctx.setLineDash([2, 2]);
+      pctx.beginPath();
+      pctx.moveTo(mx(30), mu(spikeU));
+      pctx.lineTo(mx(params.c), mu(spikeU));
+      pctx.lineTo(mx(params.c), mu(spikeU + resetD));
+      pctx.stroke();
+      pctx.fillStyle = 'rgba(255,255,255,0.5)';
+      pctx.beginPath(); pctx.arc(mx(params.c), mu(spikeU + resetD), 2, 0, Math.PI*2); pctx.fill();
+    }
+    pctx.setLineDash([]);
+  }
+
+  // Phase trajectory
+  if (show.traj) {
+    for (let i = 0; i < PHASE_LEN - 1; i++) {
+      const idx  = (phaseHead + i) % PHASE_LEN;
+      const idx1 = (phaseHead + i + 1) % PHASE_LEN;
+      pctx.strokeStyle = `rgba(255,197,30,${(i / PHASE_LEN) * 0.7})`;
+      pctx.lineWidth = 1;
+      pctx.beginPath();
+      pctx.moveTo(mx(phaseV[idx]), mu(phaseU[idx]));
+      pctx.lineTo(mx(phaseV[idx1]), mu(phaseU[idx1]));
+      pctx.stroke();
+    }
+  }
+  const curU = (!active.up && active.um) ? um : up;
+  pctx.beginPath(); pctx.arc(mx(v), mu(curU), 3, 0, Math.PI*2);
+  pctx.fillStyle = Q[2]; pctx.fill();
+}
+
+function draw3D() {
+  const W = canvas3d.width, H = canvas3d.height;
+  if (W < 10 || H < 10) return;
+  ctx3d.clearRect(0, 0, W, H);
+  ctx3d.fillStyle = '#1e1e1e'; ctx3d.fillRect(0, 0, W, H);
+
+  const vLo = -90, vHi = 40, vR = 130, vM = -25;
+  const uLo = -20, uHi = 20, uR = 40, uM = 0;
+  const scale = Math.min(W * 0.44, H * 0.44);
+  const cx = W * 0.5, cy = H * 0.5;
+
+  function proj(v, up, um) {
+    const nv = (v  - vM) / vR;
+    const nu = (up - uM) / uR;
+    const nw = (um - uM) / uR;
+    const [rx, ry] = qRotVec(qRot3d, [nv, nu, nw]);
+    return { x: cx + rx * scale, y: cy - ry * scale };
+  }
+
+  // Bounding box
+  const BB = [[vLo,uLo,uLo],[vHi,uLo,uLo],[vLo,uHi,uLo],[vHi,uHi,uLo],
+              [vLo,uLo,uHi],[vHi,uLo,uHi],[vLo,uHi,uHi],[vHi,uHi,uHi]];
+  ctx3d.strokeStyle = '#2a2a2a'; ctx3d.lineWidth = 0.5;
+  [[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]].forEach(([a,b]) => {
+    const pa = proj(BB[a][0],BB[a][1],BB[a][2]);
+    const pb = proj(BB[b][0],BB[b][1],BB[b][2]);
+    ctx3d.beginPath(); ctx3d.moveTo(pa.x, pa.y); ctx3d.lineTo(pb.x, pb.y); ctx3d.stroke();
+  });
+
+  // Drag hint
+  ctx3d.font = '9px monospace'; ctx3d.fillStyle = '#444';
+  ctx3d.fillText('drag to rotate', 6, H - 6);
+
+  // Axis labels
+  ctx3d.font = '10px monospace'; ctx3d.fillStyle = '#666';
+  const lv = proj(vHi, uM, uM); ctx3d.fillText('v', lv.x+3, lv.y+4);
+  const lu = proj(vM, uHi, uM); ctx3d.fillText('u⁺', lu.x-14, lu.y-3);
+  const lw = proj(vM, uM, uHi); ctx3d.fillText('u⁻', lw.x-20, lw.y+4);
+
+  // Wireframe surface helper
+  const NV = 14, NU = 10;
+  function drawSurf(getPoint, color, alpha) {
+    ctx3d.strokeStyle = color; ctx3d.lineWidth = 0.8; ctx3d.globalAlpha = alpha;
+    for (let pass = 0; pass < 2; pass++) {
+      const outer = pass === 0 ? NU : NV;
+      const inner = pass === 0 ? NV : NU;
+      for (let j = 0; j <= outer; j++) {
+        ctx3d.beginPath(); let st = false;
+        for (let i = 0; i <= inner; i++) {
+          const t = pass === 0 ? i/NV : j/NU;
+          const s = pass === 0 ? j/NU : i/NV;
+          const pt = getPoint(t, s);
+          if (!pt) { st = false; continue; }
+          const p = proj(pt.v, pt.up, pt.um);
+          st ? ctx3d.lineTo(p.x, p.y) : (ctx3d.moveTo(p.x, p.y), st = true);
+        }
+        ctx3d.stroke();
+      }
+    }
+    ctx3d.globalAlpha = 1;
+  }
+
+  // dv/dt = 0 surface: (v, u⁻) → u⁺ = u⁻ − (0.04v²+5v+140+I)
+  if (show.vnull) {
+    drawSurf((t, s) => {
+      const v = vLo + t*vR, um = uLo + s*uR;
+      const up = um - (0.04*v*v + 5*v + 140 + params.I);
+      if (up < uLo-10 || up > uHi+10) return null;
+      return { v, up: Math.max(uLo, Math.min(uHi, up)), um };
+    }, Q[4], 0.55);
+  }
+
+  // du⁺/dt = 0 plane: (v, u⁻) → u⁺ = b⁺v
+  if (show.unull && active.up) {
+    drawSurf((t, s) => {
+      const v = vLo + t*vR, um = uLo + s*uR;
+      return { v, up: params.bp * v, um };
+    }, Q[1], 0.4);
+  }
+
+  // du⁻/dt = 0 plane: (v, u⁺) → u⁻ = b⁻v
+  if (show.unullm && active.um) {
+    drawSurf((t, s) => {
+      const v = vLo + t*vR, up = uLo + s*uR;
+      return { v, up, um: params.bm * v };
+    }, Q[0], 0.4);
+  }
+
+  // Intersection curves (1D nullclines = intersections of pairs of surfaces)
+  ctx3d.lineWidth = 2;
+  // dv/dt=0 ∩ du⁺/dt=0: u⁺=b⁺v, u⁻=b⁺v+(0.04v²+5v+140+I)
+  if (show.vnull && show.unull && active.up) {
+    ctx3d.strokeStyle = Q[1]; ctx3d.globalAlpha = 0.9;
+    ctx3d.beginPath(); let st = false;
+    for (let i = 0; i <= 60; i++) {
+      const v = vLo + (vR * i/60);
+      const up = params.bp * v;
+      const um = up + (0.04*v*v + 5*v + 140 + params.I);
+      if (um < uLo || um > uHi) { st = false; continue; }
+      const p = proj(v, up, um);
+      st ? ctx3d.lineTo(p.x, p.y) : (ctx3d.moveTo(p.x, p.y), st = true);
+    }
+    ctx3d.stroke(); ctx3d.globalAlpha = 1;
+  }
+  // dv/dt=0 ∩ du⁻/dt=0: u⁻=b⁻v, u⁺=b⁻v−(0.04v²+5v+140+I)
+  if (show.vnull && show.unullm && active.um) {
+    ctx3d.strokeStyle = Q[0]; ctx3d.globalAlpha = 0.9;
+    ctx3d.beginPath(); let st = false;
+    for (let i = 0; i <= 60; i++) {
+      const v = vLo + (vR * i/60);
+      const um = params.bm * v;
+      const up = um - (0.04*v*v + 5*v + 140 + params.I);
+      if (up < uLo || up > uHi) { st = false; continue; }
+      const p = proj(v, up, um);
+      st ? ctx3d.lineTo(p.x, p.y) : (ctx3d.moveTo(p.x, p.y), st = true);
+    }
+    ctx3d.stroke(); ctx3d.globalAlpha = 1;
+  }
+  // du⁺/dt=0 ∩ du⁻/dt=0: u⁺=b⁺v, u⁻=b⁻v
+  if (show.unull && show.unullm && active.up && active.um) {
+    ctx3d.strokeStyle = Q[4]; ctx3d.globalAlpha = 0.9;
+    ctx3d.beginPath(); let st = false;
+    for (let i = 0; i <= 60; i++) {
+      const v = vLo + (vR * i/60);
+      const p = proj(v, params.bp * v, params.bm * v);
+      st ? ctx3d.lineTo(p.x, p.y) : (ctx3d.moveTo(p.x, p.y), st = true);
+    }
+    ctx3d.stroke(); ctx3d.globalAlpha = 1;
+  }
+
+  // 3D trajectory
+  if (show.traj) {
+    ctx3d.lineWidth = 1;
+    for (let i = 0; i < PHASE_LEN - 1; i++) {
+      const idx  = (phaseHead + i) % PHASE_LEN;
+      const idx1 = (phaseHead + i + 1) % PHASE_LEN;
+      ctx3d.strokeStyle = `rgba(255,197,30,${(i/PHASE_LEN)*0.75})`;
+      const p0 = proj(phaseV[idx],  phaseUp3[idx],  phaseUm3[idx]);
+      const p1 = proj(phaseV[idx1], phaseUp3[idx1], phaseUm3[idx1]);
+      ctx3d.beginPath(); ctx3d.moveTo(p0.x, p0.y); ctx3d.lineTo(p1.x, p1.y); ctx3d.stroke();
+    }
+    const pc = proj(v, up, um);
+    ctx3d.beginPath(); ctx3d.arc(pc.x, pc.y, 3, 0, Math.PI*2);
+    ctx3d.fillStyle = Q[2]; ctx3d.fill();
+  }
+}
+
+function setWindow(ms) {
+  windowMs = ms;
+  traceEff = Math.min(Math.round(ms / DT), TRACE_LEN);
+  vHistory.fill(-65); upHistory.fill(params.bp * -65); umHistory.fill(params.bm * -65);
+  traceHead = 0; traceFull = false;
+  document.querySelectorAll('#win-btns .win-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.win) === ms)
+  );
+}
+document.getElementById('win-btns').addEventListener('click', e => {
+  if (e.target.dataset.win) setWindow(parseInt(e.target.dataset.win));
+});
+
+const SPD_LABELS = { '0.01': '1/100×', '0.1': '⅒×', '0.25': '¼×', '0.5': '½×', '0.75': '¾×', '1': '1×' };
+
+function loop(ts) {
+  const speed  = parseFloat(document.getElementById('sl-spd').value);
+  const now    = ts ?? performance.now();
+  const dtWall = lastFrameTime ? Math.min(now - lastFrameTime, 50) : 16;
+  lastFrameTime = now;
+  const steps  = Math.max(1, Math.round(speed * dtWall / DT));
+  for (let s = 0; s < steps; s++) {
+    step(params.I);
+    vHistory[traceHead]  = v;
+    upHistory[traceHead] = up;
+    umHistory[traceHead] = um;
+    traceHead++;
+    if (traceHead >= traceEff) { traceHead = 0; traceFull = true; }
+    phaseV[phaseHead]   = v;
+    phaseU[phaseHead]   = (!active.up && active.um) ? um : up;
+    phaseUp3[phaseHead] = up;
+    phaseUm3[phaseHead] = um;
+    phaseHead = (phaseHead + 1) % PHASE_LEN;
+  }
+  drawTrace(); drawPhase(); draw3D();
+  if (active.up) drawSparkline(spkPlusCtx,  sparkPlus,  Q[1], document.getElementById('mean-plus'));
+  if (active.um) drawSparkline(spkMinusCtx, sparkMinus, Q[0], document.getElementById('mean-minus'));
+  requestAnimationFrame(loop);
+}
+
+[['ap','sl-ap','val-ap',3], ['bp','sl-bp','val-bp',2], ['dp','sl-dp','val-dp',2],
+ ['am','sl-am','val-am',3], ['bm','sl-bm','val-bm',2], ['dm','sl-dm','val-dm',2],
+ ['c', 'sl-c', 'val-c',  0], ['I', 'sl-I', 'val-I',  1]
+].forEach(([key, slId, valId, dec]) => {
+  const sl = document.getElementById(slId);
+  const vl = document.getElementById(valId);
+  sl.addEventListener('input', () => {
+    params[key] = parseFloat(sl.value);
+    vl.textContent = parseFloat(sl.value).toFixed(dec);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  });
+});
+
+document.getElementById('sl-spd').addEventListener('input', function() {
+  const sv = parseFloat(this.value);
+  document.getElementById('val-spd').textContent = SPD_LABELS[this.value] || (sv < 1 ? '1/' + Math.round(1/sv) + '×' : sv + '×');
+});
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  params.am = p.am; params.bm = p.bm; params.dm = p.dm;
+
+  [['sl-am','val-am', p.am, 3], ['sl-bm','val-bm', p.bm, 2], ['sl-dm','val-dm', p.dm, 2]
+  ].forEach(([slId, valId, val, dec]) => {
+    document.getElementById(slId).value = val;
+    document.getElementById(valId).textContent = val.toFixed(dec);
+  });
+  document.querySelectorAll('.preset-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.preset === name)
+  );
+}
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  katex.render(String.raw`\frac{dv}{dt} = 0.04v^2 + 5v + 140 + u^+ - u^- + I`,       document.getElementById('eq1'), { displayMode: false });
+  katex.render(String.raw`\frac{du^+}{dt} = a^+\bigl(b^+v - u^+\bigr)`,               document.getElementById('eq2'), { displayMode: false });
+  katex.render(String.raw`\frac{du^-}{dt} = a^-\bigl(b^-v - u^-\bigr)`,               document.getElementById('eq3'), { displayMode: false });
+  katex.render(String.raw`\text{if } v \geq 30 : v \leftarrow c,\; u^+ \leftarrow u^+ + d^+,\; u^- \leftarrow u^- + d^-`, document.getElementById('eq4'), { displayMode: false });
+});
+</script>
+
+</body>
+</html>
