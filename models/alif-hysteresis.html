@@ -177,36 +177,46 @@
   <div class="controls">
     <div class="control-group">
       <label><span>I<sub>eff</sub> — input current</span><span id="val-I">38.0 µA</span></label>
-      <input type="range" id="sl-I" min="0" max="300" step="0.5" value="38" />
+      <input type="range" autocomplete="off" id="sl-I" min="0" max="300" step="0.5" value="38" />
     </div>
     <div class="control-group">
       <label><span>C<sub>m</sub> — capacitance</span><span id="val-cm">0.100 µF</span></label>
-      <input type="range" id="sl-cm" min="0.005" max="0.5" step="0.005" value="0.1" />
+      <input type="range" autocomplete="off" id="sl-cm" min="0.005" max="0.5" step="0.005" value="0.1" />
     </div>
     <div class="control-group">
-      <label><span>R<sub>m</sub> — sub-thr. resistance</span><span id="val-rm">1.0 MΩ</span></label>
-      <input type="range" id="sl-rm" min="0.5" max="5" step="0.5" value="1" />
+      <label><span>R<sub>m</sub> — membrane resistance</span><span id="val-rm">0.680 MΩ</span></label>
+      <input type="range" autocomplete="off" id="sl-rm" min="0.1" max="2" step="0.01" value="0.680" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">42 mV</span></label>
-      <input type="range" id="sl-vsub" min="5" max="200" step="1" value="42" />
+      <label><span>g<sub>L</sub> — leak conductance</span><span id="val-gl">0.0 µS</span></label>
+      <input type="range" autocomplete="off" id="sl-gl" min="0" max="5" step="0.1" value="0" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>above</sub> — block threshold</span><span id="val-vabove">98 mV</span></label>
-      <input type="range" id="sl-vabove" min="15" max="300" step="1" value="98" />
+      <label><span>V<sub>sub</sub> — spike threshold</span><span id="val-vsub">29 mV</span></label>
+      <input type="range" autocomplete="off" id="sl-vsub" min="1" max="100" step="0.5" value="29" />
+    </div>
+    <div class="control-group">
+      <label><span>I<sub>hold</sub> — block threshold</span><span id="val-ihold">98 µA</span></label>
+      <input type="range" autocomplete="off" id="sl-ihold" min="10" max="300" step="1" value="98" />
     </div>
     <div class="control-group">
       <label><span>b<sup>+</sup> — spike increment</span><span id="val-bp">8.0</span></label>
-      <input type="range" id="sl-bp" min="0" max="25" step="0.5" value="8" />
+      <input type="range" autocomplete="off" id="sl-bp" min="0" max="25" step="0.5" value="8" />
     </div>
     <div class="control-group">
       <label><span>τ<sub>w</sub><sup>+</sup> — time constant</span><span id="val-tauwp">400 ms</span></label>
-      <input type="range" id="sl-tauwp" min="50" max="1000" step="10" value="400" />
+      <input type="range" autocomplete="off" id="sl-tauwp" min="50" max="1000" step="10" value="400" />
     </div>
     <div class="control-group">
       <label><span>speed</span><span id="val-spd">½×</span></label>
-      <input type="range" id="sl-spd" min="0.25" max="4" step="0.25" value="0.5" />
+      <input type="range" autocomplete="off" id="sl-spd" min="0.25" max="4" step="0.25" value="0.5" />
     </div>
+  </div>
+  <div style="font-size:0.72rem;color:var(--text-dim);padding:0.2rem 0 0.1rem;letter-spacing:0.04em;">
+    Fixed circuit parameters &mdash;
+    R<sub>a</sub> = 2.2 k&#8486; &nbsp;|&nbsp;
+    τ<sub>spike</sub> = C<sub>m</sub>·R<sub>a</sub> ≈ 0.22 ms &nbsp;|&nbsp;
+    g<sub>M</sub>(spike) → +∞ &nbsp;(effective discharge: 1/R<sub>a</sub>)
   </div>
 
   <div class="hint-box">
@@ -283,10 +293,13 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 // Q[0]=red  Q[1]=green  Q[2]=blue  Q[3]=purple  Q[4]=yellow  Q[5]=orange  Q[6]=gray
 
 // ── Model parameters (all adjustable via sliders) ──────────────────────────────
-let Cm    = 0.1;  // µF  — membrane capacitance  (τm = Cm·Rm)
-let Rm    = 1.0;  // MΩ  — membrane resistance   (I_on = Vsub/Rm, I_blk = Vblk/Rm)
-let V_sub = 42;   // mV  — spike threshold  →  I_on  = 42 µA  = 0.6·I₀  with Rm=1
-let V_blk = 98;   // mV  — block threshold  →  I_blk = 98 µA  = 1.4·I₀  with Rm=1
+let Cm    = 0.1;   // µF  — membrane capacitance  (τeff = Cm/(gM+gL))
+let Rm    = 0.680; // MΩ  — membrane resistance  (680 kΩ, circuit value)
+let gL    = 0;     // µS  — constant leak conductance (parallel to gM)
+let V_sub = 29;    // mV  — spike threshold → I_on = V_sub·(1/Rm+gL) ≈ 42 µA with Rm=0.680, gL=0
+// No depolarisation block: gM = {1/Rm (sub) | +∞ (spike, reset to 0)}
+// Va = V* · Ra/(Ra+Rm) — voltage offset from series resistor Ra
+const Ra  = 0.0022; // MΩ  — series resistor (2.2 kΩ, emitter/source resistance, fixed)
 
 // ── User / network parameters ──────────────────────────────────────────────────
 let I_eff  = 38;  // µA  — baseline drive (below I_on=42: silent without Iw+)
@@ -300,6 +313,7 @@ let Iw = 0;   // self-excitatory adaptation current (µA)
 const DT        = 0.1;    // ms — Euler integration step
 const TRACE_LEN = 20000;  // ring-buffer length (= 2000 ms at DT=0.1 ms)
 const vHistory      = new Float32Array(TRACE_LEN); // V(t) oscilloscope buffer
+const vaHistory     = new Float32Array(TRACE_LEN); // Va(t) — discharge target voltage
 const iHistoryPulse = new Float32Array(TRACE_LEN); // I_pulse(t) buffer
 const iHistoryIw    = new Float32Array(TRACE_LEN); // Iw+(t) buffer
 let windowMs  = 500;                        // oscilloscope window (ms)
@@ -309,6 +323,11 @@ let traceFull = false;                      // true once buffer has wrapped
 let simStep   = 0;
 let lastSpikeStep = null;
 let simISI        = null;   // last inter-spike interval (steps)
+let spikePhase = false;  // true while transistor is ON (gM = 1/Ra)
+// I_hold: holding current threshold (µA).
+// Transistor turns OFF only when V < Vsub AND I_inst = (V-Va)·(gM+gL) < I_hold.
+// Block occurs when Inet > I_hold — instantaneous current never drops below threshold.
+let I_hold = 98;   // µA — corresponds to Imax = 1.4·I₀ = 98 µA
 let lastFrameTime = null;
 
 // ── Rectangular pulse injection ────────────────────────────────────────────────
@@ -342,36 +361,36 @@ let I_scan_lo, I_scan_hi;
 const K = () => b_plus * tau_wp / 1000; // µA / Hz
 
 // ── Steady-state & regime helpers ─────────────────────────────────────────────
-// Sub-threshold: Cm dV/dt = -V/Rm + I  →  V* = I·Rm  (gM = 1/Rm)
-function Vstar(I)        { return I * Rm; }
-function I_for_Vstar(Vs) { return Vs / Rm; }
+// Total sub-threshold conductance: gM + gL  (both in µS)
+const gTot = () => 1/Rm + gL;
 
-// Regime: compare V* to voltage thresholds
+// Steady-state: Cm dV/dt = -(gM+gL)·(V-Va) + I  →  V* = I/(gM+gL) + Va ≈ I/gTot
+// Va is tiny (Ra << Rm), so V* ≈ I / gTot
+function Vstar(I)        { return I / gTot(); }
+function I_for_Vstar(Vs) { return Vs * gTot(); }
+
+// Regime: sub / spike / block  (block via I_hold, not voltage threshold)
 function getRegime(I_net) {
-  const Vs = Vstar(I_net);
-  if (Vs < V_sub)  return 'sub';    // silent
-  if (Vs < V_blk)  return 'spike';  // repetitive firing
-  return 'block';                    // depolarisation block
+  if (I_net > I_hold) return 'block';        // transistor locked ON: I_inst never drops below I_hold
+  if (Vstar(I_net) < V_sub) return 'sub';
+  return 'spike';
 }
 function regimeColor(I_net) {
   const r = getRegime(I_net);
-  if (r === 'sub')   return Q[2];  // blue
-  if (r === 'spike') return Q[1];  // green
-  return Q[0];                     // red
+  if (r === 'sub')   return Q[2];   // blue
+  if (r === 'spike') return Q[1];   // green
+  return Q[0];                      // red — block
 }
 
-// ── Analytical f-I curve (no adaptation) ──────────────────────────────────────
-// Period of repetitive firing: V integrates from 0 to Vsub against (V* - V).
-//   T = τm · ln( V* / (V* - Vsub) )   [ms]
-//   f = 1000 / T                        [Hz]
-// Type-I bifurcation: f → 0 as I → I_on+  (logarithmic onset).
-// Circuit note: electronic oscillator shows steeper (type-II-like) onset;
-//   model underestimates f near I_on and overestimates f near I_blk (1.64 vs 1.3·f₀).
+// ── Analytical f-I curve ──────────────────────────────────────────────────────
+// Spiking only for I ∈ (I_on, I_hold]:  I_on = Vsub·gTot,  I_hold = holding current
+// Block above I_hold — transistor stays permanently ON, no oscillation.
 function fiFreq(I) {
-  const Vs    = Vstar(I);
-  if (Vs <= V_sub || Vs >= V_blk) return 0;
-  const tau_m = Cm * Rm * 1000;              // ms — membrane time constant
-  const T     = tau_m * Math.log(Vs / (Vs - V_sub));
+  if (I > I_hold) return 0;                  // depolarisation block
+  const Vs     = Vstar(I);
+  if (Vs <= V_sub) return 0;
+  const tau_eff = Cm / gTot() * 1000;
+  const T       = tau_eff * Math.log(Vs / (Vs - V_sub));
   return T > 0 ? 1000 / T : 0;
 }
 
@@ -383,12 +402,12 @@ function fiFreq(I) {
 //   h: − → +  ⟹ unstable FP (load line crosses f-I from below)
 
 // Returns the last stable FP (highest f), or null if none exists.
+// No block → no upper I bound; scan up to F_SCAN_MAX Hz on the load line.
 function findStableFP(Ie) {
-  const k = K();
+  const k    = K();
   if (k <= 0) return null;
-  const I_blk = I_for_Vstar(V_blk);
-  const I_on  = I_for_Vstar(V_sub);
-  const f_max = (I_blk - Ie) / k;
+  const I_on = I_for_Vstar(V_sub);
+  const f_max = (I_hold - Ie) / k;  // load line hits I_hold at this f
   if (f_max <= 0.5) return null;
 
   let last_h = null, last_f = null, found = null;
@@ -396,29 +415,27 @@ function findStableFP(Ie) {
   for (let i = 1; i <= N; i++) {
     const f    = f_max * i / N;
     const Inet = Ie + k * f;
-    if (Inet >= I_blk || Inet <= I_on) { last_h = null; continue; }
+    if (Inet <= I_on || Inet > I_hold) { last_h = null; continue; }
     const h = fiFreq(Inet) - f;
     if (last_h !== null && last_h > 0 && h <= 0) {
-      // Stable FP: g crosses from above to below identity. Bisect.
       let fa = last_f, fb = f;
       for (let it = 0; it < 35; it++) {
         const fm = (fa + fb) / 2;
         (fiFreq(Ie + k * fm) - fm > 0) ? fa = fm : fb = fm;
       }
-      found = (fa + fb) / 2; // keep searching for the last crossing
+      found = (fa + fb) / 2;
     }
     last_h = h; last_f = f;
   }
   return found;
 }
 
-// Returns unstable FP (g crosses from below to above identity), or null.
+// Returns unstable FP or null.
 function findUnstableFP(Ie) {
-  const k = K();
+  const k    = K();
   if (k <= 0) return null;
-  const I_blk = I_for_Vstar(V_blk);
-  const I_on  = I_for_Vstar(V_sub);
-  const f_max = (I_blk - Ie) / k;
+  const I_on = I_for_Vstar(V_sub);
+  const f_max = (I_hold - Ie) / k;
   if (f_max <= 0.5) return null;
 
   let last_h = null, last_f = null;
@@ -426,7 +443,7 @@ function findUnstableFP(Ie) {
   for (let i = 1; i <= N; i++) {
     const f    = f_max * i / N;
     const Inet = Ie + k * f;
-    if (Inet >= I_blk || Inet <= I_on) { last_h = null; continue; }
+    if (Inet <= I_on || Inet > I_hold) { last_h = null; continue; }
     const h = fiFreq(Inet) - f;
     if (last_h !== null && last_h < 0 && h >= 0) {
       let fa = last_f, fb = f;
@@ -434,7 +451,7 @@ function findUnstableFP(Ie) {
         const fm = (fa + fb) / 2;
         (fiFreq(Ie + k * fm) - fm < 0) ? fa = fm : fb = fm;
       }
-      return (fa + fb) / 2; // first crossing only
+      return (fa + fb) / 2;
     }
     last_h = h; last_f = f;
   }
@@ -459,12 +476,13 @@ let branchCache = null;
 let cacheKey    = '';
 
 function getBranches() {
-  const key = b_plus + ',' + tau_wp + ',' + Rm;
+  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + gL + ',' + I_hold;
   if (branchCache && key === cacheKey) return branchCache;
   cacheKey = key;
 
   const I_off = findIoff();
-  const I_MAX = I_for_Vstar(V_blk) * 1.1;
+  const I_on  = I_for_Vstar(V_sub);
+  const I_MAX = I_hold * 1.2; // block at I_hold → scan up to 20% beyond
   const N_I   = 80;
   const stable   = [];
   const unstable = [];
@@ -473,7 +491,7 @@ function getBranches() {
     const Ie = I_MAX * i / N_I;
     const fs = findStableFP(Ie);
     if (fs !== null) stable.push({ I: Ie, f: fs });
-    if (Ie < I_for_Vstar(V_sub)) { // unstable branch only below I_on
+    if (Ie < I_on) { // unstable branch only below I_on
       const fu = findUnstableFP(Ie);
       if (fu !== null) unstable.push({ I: Ie, f: fu });
     }
@@ -485,24 +503,45 @@ function getBranches() {
 // ── Euler integration step (DT = 0.1 ms) ──────────────────────────────────────
 function step(Ie) {
   simStep++;
-  const Inet = Ie + Iw + I_pulse;   // total input current (µA)
-  const Vs   = Vstar(Inet);         // steady-state V* = Inet·Rm
+  const Inet  = Ie + Iw + I_pulse;        // total input current (µA)
 
-  // Single-equation integration: Cm dV/dt = -V/Rm + Inet
-  // (gM = 1/Rm in all non-spiking regimes; block detected via V* ≥ Vblk)
-  V += (-V / Rm + Inet) / (Cm * 1000) * DT;
+  // Physical gM:  sub-threshold = 1/Rm  |  spike (thyristor ON) = +∞
+  // When gM → ∞ and Ra is in series, the effective conductance seen by Cm is:
+  //   g_eff = gM / (1 + Ra·gM)  →  1/Ra  (as gM→∞)
+  // So Cm discharges through Ra with τ_spike = Cm·Ra ≈ 0.22 ms.
+  // We use g_eff = 1/Ra to integrate V during the spike phase.
+  const gM    = spikePhase ? (1 / Ra) : (1 / Rm);  // effective: 1/Ra when thyristor ON
+  const gt    = gM + gL;
+  const Veq   = Inet / gt;                              // steady-state target (V→Veq+Va at t→∞)
+  // Va instantaneous = V · Ra·gM/(1+Ra·gM)  — emitter voltage, voltage divider on actual V
+  // BUT for integration we need Va = Veq·Ra·gM/(1+Ra·gM) (steady-state Va, determines Vstar)
+  const Va    = Veq * Ra * gM / (1 + Ra * gM);
+  const Vstar = Va + Veq;                               // = Veq·(1 + Ra·gM)/(1+Ra·gM) + Veq·... simplified:
+  const decay = Math.exp(-gt * DT / (Cm * 1000));      // exact decay (stable for any DT/τ)
+  V = Vstar + (V - Vstar) * decay;                     // V(t+DT) = V* + (V-V*)·e^{-gt·DT/Cm}
 
-  // Spike condition: V crosses Vsub AND V* < Vblk (not in block)
-  if (V >= V_sub && Vs < V_blk) {
+  // ── Spike detection: upward crossing of Vsub ──────────────────────────────
+  if (!spikePhase && V >= V_sub) {
+    // Upward crossing: fire once, enter spike phase
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
-    V = 0;
-    Iw += b_plus;
+    Iw  += b_plus;   // only Iw incremented — V not forced to 0
+    spikePhase  = true;
+    spikeSteps  = 0;
     return true;
   }
+  if (spikePhase) {
+    // Compute instantaneous current through the parallel conductance (gM+gL)
+    // I_inst → Inet at equilibrium → block if Inet > I_hold (transistor stays ON forever)
+    const I_inst = (V - Va) * gt;
+    if (V < V_sub && I_inst < I_hold) {
+      spikePhase = false;  // transistor turns OFF: V below threshold AND current below I_hold
+    }
+  }
+
+  // Iw+ decays continuously (during AND between spikes)
   if (tau_wp > 0) Iw *= Math.exp(-DT / tau_wp);
 
-  // Rectangular pulse timer
   if (pulseTimer > 0) {
     pulseTimer -= DT;
     if (pulseTimer <= 0) { pulseTimer = 0; I_pulse = 0; }
@@ -531,7 +570,7 @@ resizeCanvases();
 function setWindow(ms) {
   windowMs = ms;
   traceEff = Math.min(Math.round(ms / DT), TRACE_LEN);
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   document.querySelectorAll('.win-btn').forEach(b =>
     b.classList.toggle('active', parseInt(b.dataset.win) === ms)
@@ -548,12 +587,13 @@ function drawTrace() {
   tctx.font = '10px monospace';
 
   // ── Layout geometry ─────────────────────────────────────────────────────────
-  const vH    = Math.round(H * 0.50);   // voltage panel height
-  const GAP1  = 10;                      // larger gap between V and currents
-  const GAP   = 4;                       // gap between current sub-panels
-  const cH    = Math.round((H - vH - GAP1 - 2 * GAP) / 3); // each current panel
+  const vH    = Math.round(H * 0.46);   // voltage panel height
+  const GAP1  = 8;                       // gap between V and sub-panels
+  const GAP   = 3;                       // gap between sub-panels
+  const cH    = Math.round((H - vH - GAP1 - 3 * GAP) / 4); // 4 sub-panels: Va, Ipulse, Iw, Ieff
   const y_v   = 0;
-  const y_p   = vH + GAP1;              // I_pulse panel top
+  const y_va  = vH + GAP1;              // Va panel top
+  const y_p   = y_va + cH + GAP;       // I_pulse panel top
   const y_iw  = y_p  + cH + GAP;       // Iw+ panel top
   const y_ie  = y_iw + cH + GAP;       // Ieff panel top
 
@@ -598,7 +638,7 @@ function drawTrace() {
 
   // ── 1. VOLTAGE PANEL ───────────────────────────────────────────────────────
   const vMin = -V_sub * 0.08;
-  const vMax = V_blk * 1.1;
+  const vMax = V_sub * 1.8;   // spike stays near Vsub (gM=1/Ra pulls V back fast)
   const mapVY = v => vH * (1 - (v - vMin) / (vMax - vMin));
 
   // V=0 ref
@@ -615,14 +655,7 @@ function drawTrace() {
   tctx.fillStyle = Q[4] + 'bb';
   tctx.fillText('Vₛᵤᵦ ' + V_sub + ' mV', 4, mapVY(V_sub) - 3);
 
-  // V_above threshold (red — depolarisation block)
-  if (mapVY(V_blk) > 2) {
-    tctx.strokeStyle = Q[0] + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
-    tctx.beginPath(); tctx.moveTo(0, mapVY(V_blk)); tctx.lineTo(W, mapVY(V_blk)); tctx.stroke();
-    tctx.setLineDash([]);
-    tctx.fillStyle = Q[0] + 'cc';
-    tctx.fillText('Vₐ ' + V_blk + ' mV', 4, mapVY(V_blk) - 3);
-  }
+  // (no block threshold — block removed from model)
 
   // Cursor
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
@@ -644,7 +677,44 @@ function drawTrace() {
 
   sep(vH + Math.round(GAP1 / 2));
 
-  // ── 2. I_PULSE PANEL (yellow) ──────────────────────────────────────────────
+  // ── 2. Va PANEL (purple) — Va = V·Ra·gM/(1+Ra·gM): ≈0 sub-thr, V/2 during spike ──
+  panelBg(y_va, cH, 'rgba(175,88,186,0.04)');
+
+  // Va own Y scale: max = V_sub/2 (spike peak), min = 0
+  const vaMax = Math.max(V_sub * 0.6, 1);  // headroom above V/2 at spike
+  const mapVaY = v => y_va + cH - Math.min(Math.max(v, 0) / vaMax, 1) * cH;
+
+  // baseline
+  tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
+  tctx.beginPath(); tctx.moveTo(0, y_va + cH - 1); tctx.lineTo(W, y_va + cH - 1); tctx.stroke();
+  tctx.setLineDash([]);
+
+  tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, y_va); tctx.lineTo(cursorX, y_va + cH); tctx.stroke();
+
+  // Va trace
+  const drawVa = (from, to, alpha) => {
+    if (to <= from) return;
+    tctx.strokeStyle = Q[3]; tctx.lineWidth = 1.5; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (traceEff - 1)) * W;
+      i === from ? tctx.moveTo(x, mapVaY(vaHistory[i])) : tctx.lineTo(x, mapVaY(vaHistory[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+  if (traceFull) drawVa(traceHead, traceEff, 0.12);
+  drawVa(0, traceHead, 1.0);
+
+  // Y-axis label for Va (right side)
+  tctx.fillStyle = Q[3] + 'cc'; tctx.font = '9px monospace';
+  tctx.fillText('Va', 4, y_va + 11);
+  tctx.fillStyle = Q[3] + '88';
+  tctx.fillText(vaMax.toFixed(1) + ' mV', W - 42, y_va + 10);
+
+  sep(y_va + cH);
+
+  // ── 3. I_PULSE PANEL (yellow) — uses y_p ─────────────────────────────────
   panelBg(y_p, cH, 'rgba(255,198,30,0.03)');
 
   // zero baseline
@@ -717,9 +787,9 @@ function drawFI() {
   fctx.clearRect(0, 0, W, H);
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
-  const I_blk = I_for_Vstar(V_blk);
-  const I_MAX = Math.max(100, I_blk * 1.15);
-  const f_pk  = fiFreq(I_blk - 0.5);
+  const I_sub = I_for_Vstar(V_sub);
+  const I_MAX = Math.max(I_hold * 1.3, 200);   // block at I_hold
+  const f_pk  = fiFreq(I_hold * 0.98);          // peak just below block
   const F_MAX = Math.max(f_pk * 1.5, 0.5);
   const xi = I => ml + (I / I_MAX) * cW;
   const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
@@ -739,24 +809,21 @@ function drawFI() {
   fctx.fillText('f (Hz)', ml + 2, mt + 9);
   fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 42, mt + cH + 20);
 
-  // Threshold markers in current units
-  const I_sub = I_for_Vstar(V_sub);
+  // Threshold markers: I_sub (yellow) + I_hold/block (red)
   fctx.setLineDash([3, 3]);
   fctx.strokeStyle = Q[4] + '77'; fctx.lineWidth = 1;
   fctx.beginPath(); fctx.moveTo(xi(I_sub), mt); fctx.lineTo(xi(I_sub), mt + cH); fctx.stroke();
-  fctx.strokeStyle = Q[0] + '55'; fctx.lineWidth = 1;
-  if (xi(I_blk) <= ml + cW) {
-    fctx.beginPath(); fctx.moveTo(xi(I_blk), mt); fctx.lineTo(xi(I_blk), mt + cH); fctx.stroke();
-  }
+  fctx.strokeStyle = Q[0] + '66'; fctx.lineWidth = 1;
+  fctx.beginPath(); fctx.moveTo(xi(I_hold), mt); fctx.lineTo(xi(I_hold), mt + cH); fctx.stroke();
   fctx.setLineDash([]);
 
-  // f-I curve
+  // f-I curve: rises from I_sub, drops to 0 at I_hold (block)
   fctx.strokeStyle = Q[2]; fctx.lineWidth = 1.5;
   fctx.beginPath(); fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(I_sub), yf(0)); fctx.stroke();
   fctx.beginPath();
   let started = false;
   for (let s = 0; s <= 400; s++) {
-    const I = I_sub + (I_blk - I_sub - 0.1) * s / 400;
+    const I = I_sub + (I_hold - I_sub - 0.1) * s / 400;
     const f = fiFreq(I);
     if (f <= 0) { started = false; continue; }
     started ? fctx.lineTo(xi(I), yf(f)) : (fctx.moveTo(xi(I), yf(f)), started = true);
@@ -844,7 +911,7 @@ function drawHyst() {
 
   const { stable, unstable, I_off } = getBranches();
   const I_on  = I_for_Vstar(V_sub);
-  const I_MAX = Math.max(I_on * 1.5, 65);
+  const I_MAX = Math.max(I_hold * 1.3, 200); // block at I_hold
   const allF  = stable.map(p => p.f).concat([1]);
   const F_MAX = Math.max(Math.max(...allF) * 1.5, 0.5);
 
@@ -1026,8 +1093,12 @@ function loop() {
   for (let s = 0; s < steps; s++) {
     const spiked = step(currentI);
     vHistory[traceHead]      = V;
-    iHistoryPulse[traceHead] = I_pulse;  // current pulse amplitude (0 when no pulse)
-    iHistoryIw[traceHead]    = Iw;       // adaptation current (post-spike, shows jump)
+    // Va = V · Ra·gM/(1+Ra·gM)  — instantaneous emitter voltage (voltage divider on actual V)
+    // Sub-threshold (gM=1/Rm): Va ≈ 0.003·V ≈ 0   |   Spike (gM→∞): Va = V/2
+    const _gM_log = spikePhase ? (1/Ra) : (1/Rm);
+    vaHistory[traceHead]     = V * Ra * _gM_log / (1 + Ra * _gM_log);
+    iHistoryPulse[traceHead] = I_pulse;
+    iHistoryIw[traceHead]    = Iw;
     traceHead++;
     if (traceHead >= traceEff) { traceHead = 0; traceFull = true; }
 
@@ -1078,8 +1149,8 @@ function loop() {
 
 // ── Controls ───────────────────────────────────────────────────────────────────
 function resetSim() {
-  V = 0; Iw = 0;
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  V = 0; Iw = 0; spikePhase = false;
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   lastSpikeStep = null; simISI = null; simStep = 0;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
@@ -1089,16 +1160,25 @@ document.getElementById('sl-cm').addEventListener('input', function () {
   Cm = parseFloat(this.value);
   document.getElementById('val-cm').textContent = Cm.toFixed(3) + ' µF';
   branchCache = null; scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 });
 
 document.getElementById('sl-rm').addEventListener('input', function () {
   Rm = parseFloat(this.value);
-  document.getElementById('val-rm').textContent = Rm.toFixed(1) + ' MΩ';
+  document.getElementById('val-rm').textContent = Rm.toFixed(3) + ' MΩ';
   branchCache = null; scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  traceHead = 0; traceFull = false;
+  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
+});
+
+document.getElementById('sl-gl').addEventListener('input', function () {
+  gL = parseFloat(this.value);
+  document.getElementById('val-gl').textContent = gL.toFixed(1) + ' µS';
+  branchCache = null; scanData = { up: [], down: [] };
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 });
@@ -1109,24 +1189,17 @@ document.getElementById('sl-I').addEventListener('input', function () {
 });
 
 
-document.getElementById('sl-vsub').addEventListener('input', function () {
-  let val = parseFloat(this.value);
-  if (val >= V_blk - 5) { val = V_blk - 5; this.value = val; }
-  V_sub = val;
-  document.getElementById('val-vsub').textContent = val + ' mV';
+document.getElementById('sl-ihold').addEventListener('input', function () {
+  I_hold = parseFloat(this.value);
+  document.getElementById('val-ihold').textContent = I_hold + ' µA';
   branchCache = null; scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
-  traceHead = 0; traceFull = false;
-  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 });
 
-document.getElementById('sl-vabove').addEventListener('input', function () {
-  let val = parseFloat(this.value);
-  if (val <= V_sub + 5) { val = V_sub + 5; this.value = val; }
-  V_blk = val;
-  document.getElementById('val-vabove').textContent = val + ' mV';
+document.getElementById('sl-vsub').addEventListener('input', function () {
+  V_sub = parseFloat(this.value);
+  document.getElementById('val-vsub').textContent = V_sub + ' mV';
   branchCache = null; scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 });
@@ -1136,7 +1209,7 @@ document.getElementById('sl-bp').addEventListener('input', function () {
   document.getElementById('val-bp').textContent = b_plus.toFixed(1);
   branchCache = null;
   scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
 });
 
@@ -1146,7 +1219,7 @@ document.getElementById('sl-tauwp').addEventListener('input', function () {
   document.getElementById('val-tauwp').textContent = tau_wp + ' ms';
   branchCache = null;
   scanData = { up: [], down: [] };
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(0); vaHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
 });
 
@@ -1201,15 +1274,15 @@ document.getElementById('btn-scan').addEventListener('click', () => {
 // ── KaTeX ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`C_m \frac{dV}{dt} = -\bigl(g_M(V) + g_L\bigr)\,V + I_{\text{eff}} + I_w^{+}`,
+    String.raw`C_m \frac{dV}{dt} = -\bigl(g_M(V)+g_L\bigr)(V - V_a) + I_{\text{eff}} + I_w^{+}`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`g_M(V) = \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V_{\text{sub}} \leq V < V_{\text{above}} \\ 0 & V \geq V_{\text{above}} \end{cases}`,
+    String.raw`g_M \to \begin{cases} 1/R_m & V < V_{\text{sub}} \\ +\infty & V \geq V_{\text{sub}} \end{cases}\;g_{\text{eff}}=\tfrac{g_M}{1+R_a g_M}\xrightarrow{g_M\to\infty}\tfrac{1}{R_a}\;\text{(discharge via }R_a\text{)}`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_m = C_m R_m \quad (\text{membrane time constant})`,
+    String.raw`V_a = V^* \frac{R_a}{R_a + 1/g_M},\quad V^* = \frac{I_{\text{net}}}{g_M+g_L},\quad \tau_{\text{eff}} = \frac{C_m}{g_M+g_L}`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
@@ -1217,10 +1290,31 @@ window.addEventListener('load', () => {
     document.getElementById('eq4'), { displayMode: false }
   );
   katex.render(
-    String.raw`\text{on spike: } V \leftarrow 0,\quad I_w^{+} \leftarrow I_w^{+} + b^{+}`,
+    String.raw`I_{\text{inst}} = (V - V_a)(g_M\!+\!g_L)\;\xrightarrow{t\to\infty}\; I_{\text{net}} \quad\Rightarrow\quad \text{block if } I_{\text{net}} > I_{\text{hold}}`,
     document.getElementById('eq5'), { displayMode: false }
   );
 });
+
+// ── Force slider UI to match JS defaults (overrides browser form-restore) ──────
+function initSliders() {
+  [
+    ['sl-I',     I_eff,   'val-I',     v => v.toFixed(1) + ' µA'],
+    ['sl-cm',    Cm,      'val-cm',    v => v.toFixed(3) + ' µF'],
+    ['sl-rm',    Rm,      'val-rm',    v => v.toFixed(3) + ' MΩ'],
+    ['sl-gl',    gL,      'val-gl',    v => v.toFixed(1) + ' µS'],
+    ['sl-vsub',  V_sub,   'val-vsub',  v => v + ' mV'],
+    ['sl-ihold', I_hold,  'val-ihold', v => v + ' µA'],
+    ['sl-bp',    b_plus,  'val-bp',    v => v.toFixed(1)],
+    ['sl-tauwp', tau_wp,  'val-tauwp', v => v + ' ms'],
+    ['sl-spd',   speed,   'val-spd',   v => v === 0.5 ? '½×' : v + '×'],
+  ].forEach(([sid, val, vid, fmt]) => {
+    const s = document.getElementById(sid); if (s) s.value = val;
+    const v = document.getElementById(vid); if (v) v.textContent = fmt(val);
+  });
+}
+// Run immediately + after browser form-restore (which fires after load in some browsers)
+initSliders();
+window.addEventListener('load', () => { initSliders(); setTimeout(initSliders, 200); });
 
 requestAnimationFrame(loop);
 </script>
