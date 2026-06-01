@@ -1010,7 +1010,7 @@ function drawFI() {
   fctx.beginPath(); fctx.moveTo(ml, mt); fctx.lineTo(ml, mt + cH); fctx.lineTo(ml + cW, mt + cH); fctx.stroke();
   fctx.fillStyle = '#666'; fctx.font = '9px monospace';
   fctx.fillText('f (Hz)', ml + 2, mt + 9);
-  fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 42, mt + cH + 20);
+  fctx.fillText('Iᵉᶠᶠ (µA)', ml + cW - 42, mt + cH + 20);
 
   // Threshold markers: I_sub (yellow) + I_hold/block (red)
   fctx.setLineDash([3, 3]);
@@ -1138,7 +1138,7 @@ function drawHyst() {
   hctx.beginPath(); hctx.moveTo(ml, mt); hctx.lineTo(ml, mt + cH); hctx.lineTo(ml + cW, mt + cH); hctx.stroke();
   hctx.fillStyle = '#666'; hctx.font = '9px monospace';
   hctx.fillText('f (Hz)', ml + 2, mt + 9);
-  hctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 42, mt + cH + 20);
+  hctx.fillText('Iᵉᶠᶠ (µA)', ml + cW - 42, mt + cH + 20);
 
   // Bistable region shading
   if (I_off < I_on && I_on <= I_MAX) {
