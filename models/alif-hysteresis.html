@@ -187,12 +187,16 @@
     </div>
     <div class="stim-params">
       <div class="control-group">
-        <label><span>Amplitude</span><span id="val-stim-amp">8.0 µA</span></label>
-        <input type="range" autocomplete="off" id="sl-stim-amp" min="0" max="100" step="0.5" value="8" />
+        <label><span id="stim-amp-label">Amplitude</span><span id="val-stim-amp">8.0 µA</span></label>
+        <input type="range" autocomplete="off" id="sl-stim-amp" min="-100" max="100" step="0.5" value="8" />
       </div>
       <div class="control-group">
         <label><span id="stim-dur-label">Duration</span><span id="val-stim-dur">300 ms</span></label>
         <input type="range" autocomplete="off" id="sl-stim-dur" min="10" max="2000" step="10" value="300" />
+      </div>
+      <div class="control-group" id="stim-low-group" style="display:none;">
+        <label><span>Low</span><span id="val-stim-low">-8.0 µA</span></label>
+        <input type="range" autocomplete="off" id="sl-stim-low" min="-100" max="100" step="0.5" value="-8" />
       </div>
     </div>
   </div>
@@ -201,8 +205,8 @@
     <span class="win-label">Window</span>
     <div id="win-btns">
       <button class="win-btn"        data-win="200">200 ms</button>
-      <button class="win-btn active" data-win="500">500 ms</button>
-      <button class="win-btn"        data-win="1000">1 s</button>
+      <button class="win-btn"        data-win="500">500 ms</button>
+      <button class="win-btn active" data-win="1000">1 s</button>
       <button class="win-btn"        data-win="2000">2 s</button>
     </div>
     <span class="win-label" style="margin-left:auto;">Phase diagrams</span>
@@ -223,7 +227,7 @@
     </div>
     <div class="control-group">
       <label><span>C<sub>m</sub> — capacitance</span><span id="val-cm">0.100 µF</span></label>
-      <input type="range" autocomplete="off" id="sl-cm" min="0.005" max="0.5" step="0.005" value="0.1" />
+      <input type="range" autocomplete="off" id="sl-cm" min="0.005" max="0.5" step="0.005" value="0.3" />
     </div>
     <div class="control-group">
       <label><span>R<sub>m</sub> — membrane resistance</span><span id="val-rm">0.680 MΩ</span></label>
@@ -243,7 +247,7 @@
     </div>
     <div class="control-group">
       <label><span>b<sup>+</sup> — spike increment</span><span id="val-bp">8.0</span></label>
-      <input type="range" autocomplete="off" id="sl-bp" min="0" max="25" step="0.5" value="8" />
+      <input type="range" autocomplete="off" id="sl-bp" min="0" max="25" step="0.5" value="15" />
     </div>
     <div class="control-group">
       <label><span>τ<sub>w</sub><sup>+</sup> — time constant</span><span id="val-tauwp">400 ms</span></label>
@@ -335,7 +339,7 @@ const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA'
 // Q[0]=red  Q[1]=green  Q[2]=blue  Q[3]=purple  Q[4]=yellow  Q[5]=orange  Q[6]=gray
 
 // ── Model parameters (all adjustable via sliders) ──────────────────────────────
-let Cm    = 0.1;   // µF  — membrane capacitance  (τeff = Cm/(gM+gL))
+let Cm    = 0.3;   // µF  — membrane capacitance  (τeff = Cm/(gM+gL))
 let Rm    = 0.680; // MΩ  — membrane resistance  (680 kΩ, circuit value)
 let gL    = 0;     // µS  — constant leak conductance (parallel to gM)
 let V_sub = 29;    // mV  — spike threshold → I_on = V_sub·(1/Rm+gL) ≈ 42 µA with Rm=0.680, gL=0
@@ -345,7 +349,7 @@ const Ra  = 0.0022; // MΩ  — series resistor (2.2 kΩ, emitter/source resista
 
 // ── User / network parameters ──────────────────────────────────────────────────
 let I_eff  = 38;  // µA  — baseline drive (below I_on=42: silent without Iw+)
-let b_plus = 8;   // µA  — Iw+ increment per spike
+let b_plus = 15;  // µA  — Iw+ increment per spike
 let tau_wp = 400; // ms  — Iw+ decay time constant
 let speed  = 0.5; // ×   — simulation speed multiplier
 
@@ -358,8 +362,8 @@ const vHistory      = new Float32Array(TRACE_LEN); // V(t) oscilloscope buffer
 const vaHistory     = new Float32Array(TRACE_LEN); // Va(t) — discharge target voltage
 const iHistoryPulse = new Float32Array(TRACE_LEN); // I_pulse(t) buffer
 const iHistoryIw    = new Float32Array(TRACE_LEN); // Iw+(t) buffer
-let windowMs  = 500;                        // oscilloscope window (ms)
-let traceEff  = Math.round(500 / DT);       // active ring-buffer slots
+let windowMs  = 1000;                        // oscilloscope window (ms)
+let traceEff  = Math.round(1000 / DT);      // active ring-buffer slots
 let traceHead = 0;                          // write pointer
 let traceFull = false;                      // true once buffer has wrapped
 let simStep   = 0;
@@ -378,7 +382,8 @@ let hystZoom = false;  // zoom hysteresis x-axis to bistable region
 let I_pulse   = 0;        // injected current this step (µA, on I_pulse channel)
 let ieffMod   = 0;        // additive modulation to Ieff (for Ieff ∿ type)
 let stimType  = 'rect+';  // 'rect+' | 'rect-' | 'ramp' | 'noise' | 'sine' | 'ieff-sine'
-let stimAmp   = 8;        // µA — amplitude (σ for noise)
+let stimAmp   = 8;        // µA — amplitude / high value (σ for noise)
+let stimLow   = -8;       // µA — low value (ramp only)
 let stimDur   = 300;      // ms — duration (one-shots) or period (continuous)
 let stimOn    = false;    // stim currently running?
 let stimT     = 0;        // simulated time elapsed in current stim (ms)
@@ -568,9 +573,10 @@ function stepStim() {
       if (stimT >= stimDur) stopStim();
       break;
     case 'ramp': {
-      // triangle: 0 → +amp (first half) → 0 (second half)
+      // triangle: low → high (first half) → low (second half)
       const ph = Math.min(stimT / stimDur, 1);
-      I_pulse = stimAmp * (1 - 2 * Math.abs(ph - 0.5));
+      const t  = 1 - 2 * Math.abs(ph - 0.5);   // 0→1→0 over duration
+      I_pulse = stimLow + (stimAmp - stimLow) * t;
       if (stimT >= stimDur) stopStim();
       break;
     }
@@ -1457,9 +1463,12 @@ document.getElementById('stim-type-btns').addEventListener('click', e => {
   if (!btn) return;
   stimType = btn.dataset.stim;
   document.querySelectorAll('.stim-btn').forEach(b => b.classList.toggle('active', b === btn));
-  // Update duration label
+  // Update labels and show/hide ramp-specific Low control
   const isOneShot = stimType === 'rect+' || stimType === 'rect-' || stimType === 'ramp';
-  document.getElementById('stim-dur-label').textContent = isOneShot ? 'Duration' : 'Period';
+  const isRamp    = stimType === 'ramp';
+  document.getElementById('stim-dur-label').textContent  = isOneShot ? 'Duration' : 'Period';
+  document.getElementById('stim-amp-label').textContent  = isRamp ? 'High' : 'Amplitude';
+  document.getElementById('stim-low-group').style.display = isRamp ? '' : 'none';
   // Stop any running stim when switching type
   if (stimOn) stopStim();
 });
@@ -1472,6 +1481,11 @@ document.getElementById('sl-stim-amp').addEventListener('input', function () {
 document.getElementById('sl-stim-dur').addEventListener('input', function () {
   stimDur = parseFloat(this.value);
   document.getElementById('val-stim-dur').textContent = stimDur + ' ms';
+});
+
+document.getElementById('sl-stim-low').addEventListener('input', function () {
+  stimLow = parseFloat(this.value);
+  document.getElementById('val-stim-low').textContent = stimLow.toFixed(1) + ' µA';
 });
 
 document.getElementById('btn-fire').addEventListener('click', () => {
@@ -1567,6 +1581,7 @@ function initSliders() {
     ['sl-spd',      speed,    'val-spd',      v => v === 0.5 ? '½×' : v + '×'],
     ['sl-stim-amp', stimAmp,  'val-stim-amp', v => v.toFixed(1) + ' µA'],
     ['sl-stim-dur', stimDur,  'val-stim-dur', v => v + ' ms'],
+    ['sl-stim-low', stimLow,  'val-stim-low', v => v.toFixed(1) + ' µA'],
   ].forEach(([sid, val, vid, fmt]) => {
     const s = document.getElementById(sid); if (s) s.value = val;
     const v = document.getElementById(vid); if (v) v.textContent = fmt(val);
