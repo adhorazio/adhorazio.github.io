@@ -165,6 +165,8 @@
       <button class="win-btn"        data-win="1000">1 s</button>
       <button class="win-btn"        data-win="2000">2 s</button>
     </div>
+    <span class="win-label" style="margin-left:auto;">Phase diagrams</span>
+    <button class="win-btn" id="btn-zoom">zoom bistable ⊕</button>
   </div>
 
   <canvas id="trace"></canvas>
@@ -237,7 +239,7 @@
     <div class="eq-row" id="eq2"></div>
     <div class="eq-row" id="eq3"></div>
     <div class="eq-row" id="eq4"></div>
-    <div class="eq-reset" id="eq5"></div>
+    <div class="eq-row" id="eq5"></div>
   </div>
 </div>
 
@@ -329,6 +331,7 @@ let spikePhase = false;  // true while transistor is ON (gM = 1/Ra)
 // Block occurs when Inet > I_hold — instantaneous current never drops below threshold.
 let I_hold = 98;   // µA — corresponds to Imax = 1.4·I₀ = 98 µA
 let lastFrameTime = null;
+let hystZoom = false;  // zoom hysteresis x-axis to bistable region
 
 // ── Rectangular pulse injection ────────────────────────────────────────────────
 // Clicking "Trigger pulse" pushes I_net above I_on for PULSE_DUR ms,
@@ -510,15 +513,18 @@ function step(Ie) {
   //   g_eff = gM / (1 + Ra·gM)  →  1/Ra  (as gM→∞)
   // So Cm discharges through Ra with τ_spike = Cm·Ra ≈ 0.22 ms.
   // We use g_eff = 1/Ra to integrate V during the spike phase.
-  const gM    = spikePhase ? (1 / Ra) : (1 / Rm);  // effective: 1/Ra when thyristor ON
+  const gM    = spikePhase ? (1 / Ra) : (1 / Rm);  // effective gM (→1/Ra as thyristor turns fully ON)
   const gt    = gM + gL;
-  const Veq   = Inet / gt;                              // steady-state target (V→Veq+Va at t→∞)
-  // Va instantaneous = V · Ra·gM/(1+Ra·gM)  — emitter voltage, voltage divider on actual V
-  // BUT for integration we need Va = Veq·Ra·gM/(1+Ra·gM) (steady-state Va, determines Vstar)
-  const Va    = Veq * Ra * gM / (1 + Ra * gM);
-  const Vstar = Va + Veq;                               // = Veq·(1 + Ra·gM)/(1+Ra·gM) + Veq·... simplified:
-  const decay = Math.exp(-gt * DT / (Cm * 1000));      // exact decay (stable for any DT/τ)
-  V = Vstar + (V - Vstar) * decay;                     // V(t+DT) = V* + (V-V*)·e^{-gt·DT/Cm}
+  // Va = V·Ra·gM/(1+Ra·gM) is the instantaneous emitter voltage (voltage divider on actual V).
+  // Substituting into Cm·dV/dt = -(gM+gL)(V-Va)+Inet gives:
+  //   Cm·dV/dt = -g_eff·V + Inet,  with  g_eff = (gM+gL)/(1+Ra·gM)
+  // τ_eff = Cm/g_eff;  V* = Inet/g_eff  (V* kept for analytical f-I, not for Va)
+  const RagM  = Ra * gM;
+  const g_eff = gt / (1 + RagM);                    // effective conductance to ground
+  const Vstar = Inet / g_eff;                        // V→Vstar as t→∞
+  const decay = Math.exp(-g_eff * DT / (Cm * 1000));
+  V = Vstar + (V - Vstar) * decay;
+  const Va    = V * RagM / (1 + RagM);              // instantaneous emitter voltage (uses updated V)
 
   // ── Spike detection: upward crossing of Vsub ──────────────────────────────
   if (!spikePhase && V >= V_sub) {
@@ -597,16 +603,28 @@ function drawTrace() {
   const y_iw  = y_p  + cH + GAP;       // Iw+ panel top
   const y_ie  = y_iw + cH + GAP;       // Ieff panel top
 
-  // ── Shared current Y scale (all 3 panels same axis) ────────────────────────
+  // ── Shared Y scale for I_pulse and I_eff panels ───────────────────────────
   const scanEnd = traceFull ? traceEff : traceHead;
   let iMax = Math.max(I_for_Vstar(V_sub) * 1.25, I_eff * 1.4);
   for (let i = 0; i < scanEnd; i++) {
-    if (iHistoryIw[i]    > iMax) iMax = iHistoryIw[i];
     if (iHistoryPulse[i] > iMax) iMax = iHistoryPulse[i];
   }
   iMax = Math.ceil(iMax * 1.05);
   const mapCY = (iv, top, h) =>
     top + h - Math.min(Math.max(iv, 0) / iMax, 1) * h;
+
+  // ── Iw+ own adaptive Y scale ───────────────────────────────────────────────
+  let iwMax = Math.max(b_plus * 2, 0.5);
+  for (let i = 0; i < scanEnd; i++) {
+    if (iHistoryIw[i] > iwMax) iwMax = iHistoryIw[i];
+  }
+  iwMax = iwMax * 1.15;
+  const mapIwY = v => y_iw + cH - Math.min(Math.max(v, 0) / iwMax, 1) * cH;
+
+  // ── Mean of Iw+ over visible window ───────────────────────────────────────
+  let iwSum = 0;
+  for (let i = 0; i < scanEnd; i++) iwSum += iHistoryIw[i];
+  const iwMean = scanEnd > 0 ? iwSum / scanEnd : 0;
 
   // Helper: draw separator line
   const sep = y => {
@@ -692,10 +710,21 @@ function drawTrace() {
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_va); tctx.lineTo(cursorX, y_va + cH); tctx.stroke();
 
-  // Va trace
-  const drawVa = (from, to, alpha) => {
+  // Va fill + trace
+  const drawVaArea = (from, to, alpha) => {
     if (to <= from) return;
-    tctx.strokeStyle = Q[3]; tctx.lineWidth = 1.5; tctx.globalAlpha = alpha;
+    const baseline = y_va + cH;
+    tctx.globalAlpha = alpha * 0.25;
+    tctx.fillStyle = Q[3];
+    tctx.beginPath();
+    tctx.moveTo((from / (traceEff - 1)) * W, baseline);
+    for (let i = from; i < to; i++) {
+      tctx.lineTo((i / (traceEff - 1)) * W, mapVaY(vaHistory[i]));
+    }
+    tctx.lineTo(((to - 1) / (traceEff - 1)) * W, baseline);
+    tctx.closePath(); tctx.fill();
+    tctx.globalAlpha = alpha;
+    tctx.strokeStyle = Q[3]; tctx.lineWidth = 1.5;
     tctx.beginPath();
     for (let i = from; i < to; i++) {
       const x = (i / (traceEff - 1)) * W;
@@ -703,8 +732,8 @@ function drawTrace() {
     }
     tctx.stroke(); tctx.globalAlpha = 1;
   };
-  if (traceFull) drawVa(traceHead, traceEff, 0.12);
-  drawVa(0, traceHead, 1.0);
+  if (traceFull) drawVaArea(traceHead, traceEff, 0.12);
+  drawVaArea(0, traceHead, 1.0);
 
   // Y-axis label for Va (right side)
   tctx.fillStyle = Q[3] + 'cc'; tctx.font = '9px monospace';
@@ -733,7 +762,7 @@ function drawTrace() {
 
   sep(y_p + cH);
 
-  // ── 3. Iw+ PANEL (green) ──────────────────────────────────────────────────
+  // ── 3. Iw+ PANEL (green) — adaptive scale, fill + mean ───────────────────
   panelBg(y_iw, cH, 'rgba(0,205,108,0.03)');
 
   tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
@@ -743,11 +772,46 @@ function drawTrace() {
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_iw); tctx.lineTo(cursorX, y_iw + cH); tctx.stroke();
 
-  if (traceFull) drawLine(iHistoryIw, Q[1], 1.5, y_iw, cH, traceHead, traceEff, 0.12);
-  drawLine(iHistoryIw, Q[1], 1.5, y_iw, cH, 0, traceHead, 1.0);
+  // Fill + trace (two-pass for ring buffer)
+  const drawIwArea = (from, to, alpha) => {
+    if (to <= from) return;
+    const baseline = y_iw + cH;
+    tctx.globalAlpha = alpha * 0.25;
+    tctx.fillStyle = Q[1];
+    tctx.beginPath();
+    tctx.moveTo((from / (traceEff - 1)) * W, baseline);
+    for (let i = from; i < to; i++) {
+      tctx.lineTo((i / (traceEff - 1)) * W, mapIwY(iHistoryIw[i]));
+    }
+    tctx.lineTo(((to - 1) / (traceEff - 1)) * W, baseline);
+    tctx.closePath(); tctx.fill();
+    tctx.globalAlpha = alpha;
+    tctx.strokeStyle = Q[1]; tctx.lineWidth = 1.5;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (traceEff - 1)) * W;
+      i === from ? tctx.moveTo(x, mapIwY(iHistoryIw[i])) : tctx.lineTo(x, mapIwY(iHistoryIw[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+  if (traceFull) drawIwArea(traceHead, traceEff, 0.12);
+  drawIwArea(0, traceHead, 1.0);
 
-  tctx.fillStyle = Q[1] + 'cc'; tctx.font = '9px monospace';
+  // Mean line (moves) + fixed labels
+  const iwMeanY = mapIwY(iwMean);
+  if (iwMeanY > y_iw + 1 && iwMeanY < y_iw + cH - 1) {
+    tctx.strokeStyle = Q[1] + 'aa'; tctx.lineWidth = 1; tctx.setLineDash([3, 3]);
+    tctx.beginPath(); tctx.moveTo(0, iwMeanY); tctx.lineTo(W, iwMeanY); tctx.stroke();
+    tctx.setLineDash([]);
+  }
+
+  tctx.font = '9px monospace'; tctx.textAlign = 'left';
+  tctx.fillStyle = Q[1] + 'cc';
   tctx.fillText('Iw⁺', 4, y_iw + 11);
+  tctx.textAlign = 'right';
+  tctx.fillStyle = Q[1] + 'aa';
+  tctx.fillText('⟨Iw⁺⟩ ' + iwMean.toFixed(1) + ' µA', W - 2, y_iw + cH - 3);
+  tctx.textAlign = 'left';
 
   sep(y_iw + cH);
 
@@ -757,25 +821,24 @@ function drawTrace() {
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_ie); tctx.lineTo(cursorX, H); tctx.stroke();
 
-  // Draw I_eff as a filled step from 0 to I_eff
-  const ieY = mapCY(I_eff, y_ie, H - y_ie);
+  // Ieff Y scale: fixed at I_hold so the line moves dynamically
+  // and always has ample headroom above the label
+  const ieH   = H - y_ie;
+  const ieMax = Math.max(I_hold * 1.05, I_eff * 1.1);
+  const ieY   = y_ie + ieH - (I_eff / ieMax) * ieH;
   tctx.fillStyle = Q[5] + '22';
   tctx.fillRect(0, ieY, W, H - ieY);
   tctx.strokeStyle = Q[5]; tctx.lineWidth = 1.5; tctx.setLineDash([]);
   tctx.beginPath(); tctx.moveTo(0, ieY); tctx.lineTo(W, ieY); tctx.stroke();
 
-  tctx.fillStyle = Q[5] + 'dd'; tctx.font = '9px monospace';
-  tctx.fillText('Ieff  ' + I_eff.toFixed(1) + ' mV', 4, y_ie + 11);
+  tctx.font = '9px monospace'; tctx.textAlign = 'left';
+  tctx.fillStyle = Q[5] + 'cc';
+  tctx.fillText('Ieff', 4, y_ie + 11);
+  tctx.textAlign = 'right';
+  tctx.fillStyle = Q[5] + 'aa';
+  tctx.fillText(I_eff.toFixed(1) + ' µA', W - 2, y_ie + (H - y_ie) - 3);
+  tctx.textAlign = 'left';
 
-  // shared threshold marker on Ieff panel (I_on)
-  const thY = mapCY(I_for_Vstar(V_sub), y_ie, H - y_ie);
-  if (thY > y_ie + 2 && thY < H - 2) {
-    tctx.strokeStyle = Q[4] + '44'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
-    tctx.beginPath(); tctx.moveTo(0, thY); tctx.lineTo(W, thY); tctx.stroke();
-    tctx.setLineDash([]);
-    tctx.fillStyle = Q[4] + '66';
-    tctx.fillText('Vₛᵤᵦ ' + V_sub, W - 56, thY - 2);
-  }
 }
 
 // ── Draw f-I curve ─────────────────────────────────────────────────────────────
@@ -788,7 +851,7 @@ function drawFI() {
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
   const I_sub = I_for_Vstar(V_sub);
-  const I_MAX = Math.max(I_hold * 1.3, 200);   // block at I_hold
+  const I_MAX = I_hold * 1.15;  // always show up to block threshold
   const f_pk  = fiFreq(I_hold * 0.98);          // peak just below block
   const F_MAX = Math.max(f_pk * 1.5, 0.5);
   const xi = I => ml + (I / I_MAX) * cW;
@@ -813,8 +876,10 @@ function drawFI() {
   fctx.setLineDash([3, 3]);
   fctx.strokeStyle = Q[4] + '77'; fctx.lineWidth = 1;
   fctx.beginPath(); fctx.moveTo(xi(I_sub), mt); fctx.lineTo(xi(I_sub), mt + cH); fctx.stroke();
-  fctx.strokeStyle = Q[0] + '66'; fctx.lineWidth = 1;
-  fctx.beginPath(); fctx.moveTo(xi(I_hold), mt); fctx.lineTo(xi(I_hold), mt + cH); fctx.stroke();
+  if (xi(I_hold) < ml + cW) {
+    fctx.strokeStyle = Q[0] + '66'; fctx.lineWidth = 1;
+    fctx.beginPath(); fctx.moveTo(xi(I_hold), mt); fctx.lineTo(xi(I_hold), mt + cH); fctx.stroke();
+  }
   fctx.setLineDash([]);
 
   // f-I curve: rises from I_sub, drops to 0 at I_hold (block)
@@ -911,7 +976,10 @@ function drawHyst() {
 
   const { stable, unstable, I_off } = getBranches();
   const I_on  = I_for_Vstar(V_sub);
-  const I_MAX = Math.max(I_hold * 1.3, 200); // block at I_hold
+  // Zoomed: focus on the bistable window [0, I_on + margin]; Full: show up to block threshold
+  const I_MAX = hystZoom
+    ? Math.max(I_on * 1.6, I_off + 20)
+    : Math.max(I_hold * 1.1, 80);
   const allF  = stable.map(p => p.f).concat([1]);
   const F_MAX = Math.max(Math.max(...allF) * 1.5, 0.5);
 
@@ -934,11 +1002,28 @@ function drawHyst() {
 
   // Bistable region shading
   if (I_off < I_on && I_on <= I_MAX) {
-    const x0 = xi(I_off), x1 = xi(I_on);
-    hctx.fillStyle = 'rgba(255,198,30,0.05)';
+    const x0 = xi(Math.max(I_off, 0)), x1 = xi(I_on);
+    // Solid fill
+    hctx.fillStyle = 'rgba(255,198,30,0.12)';
     hctx.fillRect(x0, mt, x1 - x0, cH);
+    // Hatching stripes
+    hctx.save();
+    hctx.beginPath(); hctx.rect(x0, mt, x1 - x0, cH); hctx.clip();
+    hctx.strokeStyle = 'rgba(255,198,30,0.18)'; hctx.lineWidth = 1;
+    const stride = 6;
+    for (let d = -(cH + x1 - x0); d < (x1 - x0) + cH; d += stride) {
+      hctx.beginPath();
+      hctx.moveTo(x0 + d, mt);
+      hctx.lineTo(x0 + d + cH, mt + cH);
+      hctx.stroke();
+    }
+    hctx.restore();
+    // Border lines
+    hctx.strokeStyle = Q[4] + '55'; hctx.lineWidth = 1; hctx.setLineDash([]);
+    hctx.beginPath(); hctx.moveTo(x0, mt); hctx.lineTo(x0, mt + cH); hctx.stroke();
+    hctx.beginPath(); hctx.moveTo(x1, mt); hctx.lineTo(x1, mt + cH); hctx.stroke();
     // Label
-    hctx.font = '8px monospace'; hctx.fillStyle = Q[4] + '55';
+    hctx.font = '8px monospace'; hctx.fillStyle = Q[4] + '99';
     hctx.textAlign = 'center';
     hctx.fillText('bistable', (x0 + x1) / 2, mt + cH - 4);
     hctx.textAlign = 'left';
@@ -1271,6 +1356,13 @@ document.getElementById('btn-scan').addEventListener('click', () => {
   document.getElementById('btn-scan').textContent = 'Stop scan ■';
 });
 
+document.getElementById('btn-zoom').addEventListener('click', () => {
+  hystZoom = !hystZoom;
+  const btn = document.getElementById('btn-zoom');
+  btn.textContent = hystZoom ? 'full range ⊖' : 'zoom bistable ⊕';
+  btn.classList.toggle('active', hystZoom);
+});
+
 // ── KaTeX ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
@@ -1282,15 +1374,15 @@ window.addEventListener('load', () => {
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`V_a = V^* \frac{R_a}{R_a + 1/g_M},\quad V^* = \frac{I_{\text{net}}}{g_M+g_L},\quad \tau_{\text{eff}} = \frac{C_m}{g_M+g_L}`,
+    String.raw`V_a = V\cdot\frac{R_a g_M}{1+R_a g_M},\quad g_{\text{eff}}=\frac{g_M+g_L}{1+R_a g_M},\quad V^{*}=\frac{I_{\text{net}}}{g_{\text{eff}}},\quad \tau_{\text{eff}}=\frac{C_m}{g_{\text{eff}}}`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+}`,
+    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+}\,,\quad \text{on spike: } I_w^{+} \leftarrow I_w^{+} + b^{+}`,
     document.getElementById('eq4'), { displayMode: false }
   );
   katex.render(
-    String.raw`I_{\text{inst}} = (V - V_a)(g_M\!+\!g_L)\;\xrightarrow{t\to\infty}\; I_{\text{net}} \quad\Rightarrow\quad \text{block if } I_{\text{net}} > I_{\text{hold}}`,
+    String.raw`\text{spike if } V \geq V_{\text{sub}}\,;\quad\text{transistor OFF if } V < V_{\text{sub}} \text{ and } I_{\text{inst}} < I_{\text{hold}}\,;\quad\text{block if } I_{\text{net}} > I_{\text{hold}}`,
     document.getElementById('eq5'), { displayMode: false }
   );
 });
