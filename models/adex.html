@@ -315,6 +315,16 @@
     }
 
     .fixed-params span .katex { font-size: 0.80rem; color: var(--text-dim); }
+
+    /* ── Mobile ── */
+    @media (max-width: 600px) {
+      body { padding: 0 1rem 1.5rem; }
+      header h1 { font-size: 1.6rem; }
+      .widget { padding: 1.25rem 1rem 1.5rem; }
+      #phase-wrap { flex-direction: column; }
+      #phase { width: 100%; max-width: 100%; height: auto; }
+      .legend { flex-direction: column; }
+    }
   </style>
 </head>
 <body>

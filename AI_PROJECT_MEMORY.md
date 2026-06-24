@@ -111,6 +111,12 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
 - Content column: `max-width: 760px`, centered, `body { padding: 0 2rem 2rem }`.
 - Rounded corners: cards `10px`, widgets `12px`, canvases/inner boxes `6px`.
 - Card/widget grids: `repeat(auto-fill, minmax(…, 1fr))`, gaps ~0.75–1.2rem.
+- **Mobile:** every standard page ends its `<style>` with a `@media (max-width: 600px)`
+  block that trims `body`/`.widget` padding, shrinks the `h1`, and **stacks the
+  side-by-side canvas+legend rows** (`#fi-wrap` / `#phase-wrap` / `#gates-wrap` /
+  `#liss-wrap` → `flex-direction: column`, inner canvas → `width:100%`). When you add a
+  page with a fixed-width canvas beside a legend, add the same block or it will overflow
+  the viewport on phones. Clione carries its own (different) breakpoints at 900/1100px.
 
 ### Components (recurring)
 - **Header:** `h1` title + a dim back-link `← Spiking Neuromorphics` to `../index.html`

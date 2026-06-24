@@ -268,6 +268,16 @@
     .eq-row { padding: 0.55rem 1rem; }
     .eq-row:not(:last-child) { border-bottom: 1px solid var(--border); }
     .eq-row .katex { color: var(--text); font-size: 1rem; }
+
+    /* ── Mobile ── */
+    @media (max-width: 600px) {
+      body { padding: 0 1rem 1.5rem; }
+      header h1 { font-size: 1.6rem; }
+      .widget { padding: 1.25rem 1rem 1.5rem; }
+      #phase-wrap, #gates-wrap { flex-direction: column; }
+      #phase { width: 100%; max-width: 100%; height: auto; }
+      .legend { flex-direction: column; }
+    }
   </style>
 </head>
 <body>

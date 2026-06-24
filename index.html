@@ -148,6 +148,16 @@
     }
 
     footer a:hover { color: var(--accent); }
+
+    /* ── Mobile ── */
+    @media (max-width: 600px) {
+      body { padding: 0 1rem 1.5rem; }
+      header { padding: 16px 0 1.25rem; margin-bottom: 1.5rem; }
+      header h1 { font-size: 1.55rem; }
+      .header-title { gap: 0.6rem; flex-wrap: wrap; }
+      .header-title img { height: 2.5rem; }
+      .card-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
