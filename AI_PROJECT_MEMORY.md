@@ -139,7 +139,11 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   controls.
 - **Controls:** range `input[type=range]` with custom blue thumb; label row shows name on
   the left and a tabular-nums value (yellow) on the right.
-- **Preset buttons:** pill outline buttons; `.active`/`:hover` turn accent.
+- **Preset buttons (`.preset-btn`):** rounded (8px) `--surface`-filled buttons, dim text;
+  hover lifts 1px with a shadow and an accent border (echoes the index cards), press
+  scales to 0.97, and the selected `.active` state gets an accent-tinted fill
+  (`rgba(0,154,222,0.14)`) + accent text + 600 weight. Keep this style identical across
+  pages. Clione uses its own `.case-btn` family instead.
 - **Equations block:** `.equations` → `.eq-box` with KaTeX rows.
 - **Footer:** a `.footer-ref` citation block (uppercase `.ref-label` "Reference(s)" + the
   paper) on top of a `.footer-bottom` row: `© 2026 Adrien d'Hollande. All rights
