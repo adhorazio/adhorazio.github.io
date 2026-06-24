@@ -1107,7 +1107,7 @@ function resetSim() {
     params[key] = val;
     document.getElementById(valId).textContent = fmt(val.toFixed(dec));
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    resetSim();
+    lastSpikeStep = null; simISI = null; // keep the sim running (like the other models); just refresh the rate readout
   });
 });
 
