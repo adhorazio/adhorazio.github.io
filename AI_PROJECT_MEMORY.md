@@ -125,10 +125,12 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   canvas to `width:100%`; and (d) `.eq-row { overflow-x:auto }` so long KaTeX equations
   scroll instead of cropping. When you add a page, replicate this block (mind selector
   specificity — for HH's `#gates` keep `flex:0 0 auto` so it doesn't collapse in the
-  column). Clione carries its own (different) breakpoints at 900/1100px, and on phones
-  (`max-width:600px`) it stacks the trajectory panel **above** the network instead of
-  overlaying it (starting collapsed so the simplex is fully visible); its `draw()` loop
-  re-fits the canvas to its container each frame.
+  column). Clione carries its own (different) breakpoints at 900/1100px. On phones it
+  keeps the floating **overlay** trajectory bubble (the owner prefers it — stacking it
+  made the canvas shrink when expanded), starts it collapsed, and instead offsets the
+  simplex **projection** downward so the network clears the bubble without shrinking
+  (`proj()`'s `view`: a `topReserve` on `W<=600` lowers `cy`/`side`). Its `draw()` loop
+  also re-fits the canvas to its container each frame.
 - **Canvas crispness (HiDPI):** every page defines `const DPR = Math.min(devicePixelRatio,
   2.5)` and a `fitCanvas(c, ctx)` helper that sets the backing store to `clientW*DPR ×
   clientH*DPR`, applies `ctx.setTransform(DPR,0,0,DPR,0,0)`, and caches the logical CSS-px

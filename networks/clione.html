@@ -848,45 +848,6 @@
     overflow: hidden;
   }
 
-  /* ── Mobile: stack the trajectory panel ABOVE the network instead of
-       overlaying it, so the simplex gets its own space and is fully visible ── */
-  @media (max-width: 600px) {
-    .main-area {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .trajectory-sidebar {
-      position: static;
-      width: 100%;
-      max-width: 100%;
-      max-height: 32vh;
-      margin: 0;
-      border: none;
-      border-bottom: 1px solid var(--border);
-      border-radius: 0;
-      background: var(--surface);
-      backdrop-filter: none;
-      box-shadow: none;
-      flex: 0 0 auto;
-    }
-
-    .trajectory-sidebar .case-selector {
-      max-height: 24vh;
-    }
-    .trajectory-sidebar.collapsed .case-selector {
-      max-height: 0;
-    }
-
-    .canvas-wrap {
-      position: relative;
-      inset: auto;
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-  }
-
 </style>
 </head>
 <body>
@@ -1565,8 +1526,8 @@ const trajSidebar = document.querySelector('.trajectory-sidebar');
 document.getElementById('btnCollapseSidebar').addEventListener('click', () => {
   trajSidebar.classList.toggle('collapsed');
 });
-// On phones the panel stacks above the network; start it collapsed so the
-// simplex gets the full height, and let the user expand it on demand.
+// On phones, start the floating trajectory bubble collapsed so it's a small
+// pill over the corner; the simplex (pushed down in proj) stays fully visible.
 // Collapse instantly on load (no animation), then re-enable transitions.
 if (window.matchMedia('(max-width: 600px)').matches) {
   const sel = document.getElementById('caseSelector');
@@ -1575,7 +1536,6 @@ if (window.matchMedia('(max-width: 600px)').matches) {
   trajSidebar.classList.add('collapsed');
   void sel.offsetHeight; // force reflow so the collapsed state applies without animating
   sel.style.transition = prevTransition;
-  resize(); // re-fit the canvas to the space freed up by the collapsed panel
 }
 
 // ── CONTROLS ──────────────────────────────────────────────────────────────
@@ -1808,7 +1768,11 @@ function draw() {
       }
     }
 
-    const view = { side: Math.min(W, H), cx: W/2, cy: H/2 };
+    // On phones, reserve space at the top for the floating trajectory bubble and
+    // push the simplex down so it stays fully visible (no overlap) without shrinking it.
+    const topReserve = W <= 600 ? Math.min(H * 0.18, 120) : 0;
+    const usableH = H - topReserve;
+    const view = { side: Math.min(W, usableH), cx: W / 2, cy: topReserve + usableH / 2 };
     const rv = VERTS.map(v => rot3(v));
     const pv = rv.map(v => proj(v, view));
     const zd = rv.map(v => v[2]);
