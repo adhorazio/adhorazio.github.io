@@ -16,6 +16,21 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://adhorazio.github.io/models/hodgkin-huxley.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://adhorazio.github.io/models/alif.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://adhorazio.github.io/models/adex.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://adhorazio.github.io/networks/clione.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
