@@ -848,6 +848,25 @@
     overflow: hidden;
   }
 
+  /* ── Mobile: let the page scroll so the network can be much taller; the
+       controls/reference live below the fold (scroll down to reach them) ── */
+  @media (max-width: 600px) {
+    html, body {
+      height: auto;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .shell {
+      height: auto;
+      min-height: 100vh;
+      grid-template-rows: auto 68vh auto; /* header · big network · footer */
+    }
+    /* drags on the canvas rotate (not scroll); scroll the page from the
+       header / controls areas instead */
+    canvas#cv { touch-action: none; }
+  }
+
 </style>
 </head>
 <body>

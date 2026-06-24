@@ -130,7 +130,11 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   made the canvas shrink when expanded), starts it collapsed, and instead offsets the
   simplex **projection** downward so the network clears the bubble without shrinking
   (`proj()`'s `view`: a `topReserve` on `W<=600` lowers `cy`/`side`). Its `draw()` loop
-  also re-fits the canvas to its container each frame.
+  also re-fits the canvas to its container each frame. On phones the page is also made
+  **scrollable** (the rest of the site is a fixed full-viewport `overflow:hidden` grid):
+  the shell's middle row is set to `68vh` so the network is tall, with the controls and
+  the citation flowing below the fold; the canvas gets `touch-action:none` so drags
+  rotate (scroll the page from the header/controls instead).
 - **Canvas crispness (HiDPI):** every page defines `const DPR = Math.min(devicePixelRatio,
   2.5)` and a `fitCanvas(c, ctx)` helper that sets the backing store to `clientW*DPR ×
   clientH*DPR`, applies `ctx.setTransform(DPR,0,0,DPR,0,0)`, and caches the logical CSS-px
