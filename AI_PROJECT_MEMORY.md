@@ -44,7 +44,7 @@ some pages).
 │   ├── lif.html              Leaky integrate-and-fire
 │   ├── izhikevich.html       Izhikevich simple model
 │   ├── hodgkin-huxley.html   Conductance-based HH
-│   ├── alif.html             Adaptive LIF w/ depolarization block
+│   ├── alif.html             Analogue LIF — adaptation (Iw±) + self-excitation
 │   └── adex.html             Adaptive exponential I&F
 ├── networks/          Network-level demos
 │   ├── clione.html           Barycentric firing-rate dynamics (DIFFERENT design — see §3)
@@ -161,6 +161,12 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   scales to 0.97, and the selected `.active` state gets an accent-tinted fill
   (`rgba(0,154,222,0.14)`) + accent text + 600 weight. Keep this style identical across
   pages. Clione uses its own `.case-btn` family instead.
+- **Live parameter changes:** moving a control updates the simulation **in place** — it
+  keeps running so the user can feel the change. Do **not** reset V / the trace history on
+  slider input; only clear the spike-timing trackers (e.g. `lastSpikeStep`/`simISI`) so
+  the rate readout refreshes. **Presets** do a full reset. This is consistent across all
+  model pages (aLIF was the odd one out and was fixed to match — it used to call
+  `resetSim()` on every slider move).
 - **Equations block:** `.equations` → `.eq-box` with KaTeX rows.
 - **Footer:** a `.footer-ref` citation block (uppercase `.ref-label` "Reference(s)" + the
   paper) on top of a `.footer-bottom` row: `© 2026 Adrien d'Hollande. All rights
@@ -170,7 +176,7 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
 ### Rules / things NOT to change casually
 - Don't alter the core token values (`--bg/--surface/--border/--text/--accent`) or the
   GDV palette — they define the brand. Changing one page means changing all standard pages.
-- Don't change the 760px column width, the footer format, or the back-link pattern
+- Don't change the 900px column width, the footer format, or the back-link pattern
   without doing it site-wide.
 - Don't introduce heavy frameworks (React/Vue/bundlers) or CSS libraries — the site's
   value is being dependency-free and instantly loadable.
@@ -233,15 +239,22 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   ```
   `PORT` env var overrides the port. `.claude/launch.json` runs the same via the debugger.
   Any static server works too (`python -m http.server`, etc.) — just serve the repo root.
-- **Deployment:** GitHub Pages serving the repo root of `adhorazio.github.io` on the
-  default branch. Pushing to the deploy branch publishes the site; there is no CI build.
-  (**To confirm:** exact branch GitHub Pages publishes from — `main` is the integration
-  branch in this repo.)
+- **Deployment:** GitHub Pages serves the repo root from **`main`** (confirmed — pushing
+  to `main` publishes in ~1 min, no CI build). `main` is a **protected branch** (changes
+  "must be made through a pull request"); the owner's account can bypass it, so direct
+  pushes succeed with a `remote: Bypassed rule violations` notice — that warning is
+  expected, not an error. Pages sends `Cache-Control: max-age=600`, so a **real phone can
+  show a stale page for up to ~10 min** after a deploy; when the owner reports a mobile
+  view as "still broken," suspect cache first — verify the live URL with `curl`, and have
+  him append a `?v=N` query (or use a private tab) to bust it.
 - **Fragile parts / gotchas:**
   - Styles are **duplicated per page** — a "global" design change is a multi-file edit;
     keep the `:root` block identical across standard pages.
-  - Canvas code reads `offsetWidth/offsetHeight` and re-sizes on `resize`; preserve the
-    `resize` handlers when refactoring or traces break.
+  - Canvases are **HiDPI** (see §3): `fitCanvas()` sets the backing store to
+    `clientSize × DPR` and draw code reads the cached **logical** size `canvas._lw/_lh` —
+    never `canvas.width/height` (the DPR-scaled backing size). Preserve the
+    `resizeCanvases`/`fitCanvas` handlers and the `_lw/_lh` reads when refactoring, or
+    traces blur or mis-scale.
   - Relative paths matter: subpages link assets/LICENSE/index with `../`. Don't break them.
   - KaTeX renders on `window.load`; equation `String.raw` strings must stay valid LaTeX.
   - `sitemap.xml` is maintained by hand — keep it in sync when you add or remove pages
@@ -289,13 +302,48 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
 
 ## 8. Open questions / to confirm
 
-- Exact GitHub Pages source branch and whether a custom domain is configured.
+- Whether a custom domain is configured for Pages (source branch is `main`, confirmed).
 - Origin/name of the **GDV** palette (used as `--gdv-q*`) — documented here only by its
   hex values; the acronym's meaning is unconfirmed.
 - Intended scope/roadmap: more network demos? a publications/CV page? an about page?
 - Preferred citation style if the owner wants a stricter standard than the current ad-hoc
   footer format.
 - Whether any page should be excluded from indexing or kept "draft".
+
+---
+
+## 9. Recent evolution (mobile + UI pass, June 2026)
+
+Context for future edits — a large "make it good on phones, then polish" session reshaped
+the site. What changed and *why* (so you don't undo it):
+
+- **Docs born here:** this file + `CLAUDE.md` were created, and `sitemap.xml` completed
+  (it was missing `hodgkin-huxley`, `alif`, `adex`).
+- **Mobile, from zero:** the standard pages had **no** responsive CSS. Added the
+  `@media (max-width:600px)` blocks (overflow fixes, plots→controls→legend reorder via
+  `display:contents`+`order`, equation scroll). See §3.
+- **HiDPI everywhere:** canvases used to render at CSS-pixel resolution (blurry on zoom).
+  Introduced `DPR`/`fitCanvas`/`_lw`-`_lh`. See §3 + §6.
+- **UI polish:** `.preset-btn` made larger/more engaging; range thumbs made larger and
+  flat solid-blue (the owner explicitly asked to drop the dark contour ring).
+- **Spike color bug:** `AP_HH.svg` looked pink on desktop but wrong on the owner's phone —
+  it was recolored via a CSS `filter` chain. Fixed by baking `stroke:#FF1F5B` into the
+  SVG and deleting the filter. (General lesson in §2.)
+- **aLIF behaviour:** now keeps running on parameter change like the other models
+  (§3 "Live parameter changes"); its index subtitle was iterated to
+  *"Analogue LIF with adaptation and self-excitation"*.
+- **Wider desktop:** column `760px → 900px`.
+- **Clione mobile:** the owner **prefers the floating overlay "bubble"** trajectory panel;
+  an attempt to stack it (which shrank the network when expanded) was reverted. Final
+  approach: keep the bubble (collapsed by default), push the simplex **projection** down
+  to avoid overlap, and make the page **scrollable** with a `68vh` network (controls +
+  citation below the fold). See §3 and the persistent feedback memory `[[feedback-clione-bubble]]`.
+
+**Owner's workflow (important):** iterative and visual; he tests on a **real phone over
+cellular** (no LAN control), so work is deployed to `main` and checked there. He gives
+short, incremental UI directions and reacts to what he sees. Branches per feature; terse
+commits. When a mobile report seems wrong, re-check against §6's cache note before
+re-coding.
 
 ---
 
