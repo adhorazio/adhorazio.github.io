@@ -67,8 +67,11 @@ some pages).
 - **Scripts / interactivity:** Inline `<script>` per page (except `clione.js`). Pages run
   real-time `<canvas>` simulations driven by `requestAnimationFrame`. Equations rendered
   with **KaTeX** loaded from jsDelivr CDN.
-- **Assets:** SVGs under `assets/img/`. Header logos are recolored with CSS `filter`
-  (see the `filter:` on `.header-title img` in `index.html`).
+- **Assets:** SVGs under `assets/img/`. The index header spike (`AP_HH.svg`) carries its
+  geoviz-red color **in the SVG itself** (`stroke:#FF1F5B` = `--gdv-q1`). Don't recolor
+  SVGs loaded via `<img>` with a CSS `filter:` hack — the multi-step sepia/hue-rotate
+  approximation renders a different color on mobile browsers than on desktop. Set the
+  SVG's own `fill`/`stroke` instead (or inline the `<svg>`).
 
 ---
 
@@ -137,10 +140,11 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   accent, faint accent background, soft shadow.
 - **Widget** (model/tool pages): bordered surface panel containing presets, canvas(es),
   controls.
-- **Controls:** range `input[type=range]` — 6px rounded `--border` track, 19px accent
-  thumb (3px `--bg` ring + shadow) that grows on hover/drag with an accent glow; styled
-  for both WebKit (`::-webkit-slider-thumb`) and Firefox (`::-moz-range-track/-thumb`).
-  Label row shows the name on the left and a tabular-nums value (yellow) on the right.
+- **Controls:** range `input[type=range]` — 6px rounded `--border` track, 17px borderless
+  solid-accent circular thumb that grows on hover/drag with an accent glow (no dark ring
+  or drop shadow — kept flat on purpose); styled for both WebKit
+  (`::-webkit-slider-thumb`) and Firefox (`::-moz-range-track/-thumb`). Label row shows
+  the name on the left and a tabular-nums value (yellow) on the right.
 - **Preset buttons (`.preset-btn`):** rounded (8px) `--surface`-filled buttons, dim text;
   hover lifts 1px with a shadow and an accent border (echoes the index cards), press
   scales to 0.97, and the selected `.active` state gets an accent-tinted fill
