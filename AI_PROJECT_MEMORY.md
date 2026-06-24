@@ -112,11 +112,23 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
 - Rounded corners: cards `10px`, widgets `12px`, canvases/inner boxes `6px`.
 - Card/widget grids: `repeat(auto-fill, minmax(…, 1fr))`, gaps ~0.75–1.2rem.
 - **Mobile:** every standard page ends its `<style>` with a `@media (max-width: 600px)`
-  block that trims `body`/`.widget` padding, shrinks the `h1`, and **stacks the
-  side-by-side canvas+legend rows** (`#fi-wrap` / `#phase-wrap` / `#gates-wrap` /
-  `#liss-wrap` → `flex-direction: column`, inner canvas → `width:100%`). When you add a
-  page with a fixed-width canvas beside a legend, add the same block or it will overflow
-  the viewport on phones. Clione carries its own (different) breakpoints at 900/1100px.
+  block that (a) trims `body`/`.widget` padding and shrinks the `h1`; (b) **dissolves the
+  canvas+legend wrapper** (`#fi-wrap` / `#phase-wrap` / `#gates-wrap` / `#liss-wrap` →
+  `display: contents`) and assigns explicit `order:` to the widget's flex children so the
+  layout becomes *plots → controls → legend last* (the explanatory legend follows the
+  sliders so you can read what a control does while dragging it); (c) sets the detail
+  canvas to `width:100%`; and (d) `.eq-row { overflow-x:auto }` so long KaTeX equations
+  scroll instead of cropping. When you add a page, replicate this block (mind selector
+  specificity — for HH's `#gates` keep `flex:0 0 auto` so it doesn't collapse in the
+  column). Clione carries its own (different) breakpoints at 900/1100px.
+- **Canvas crispness (HiDPI):** every page defines `const DPR = Math.min(devicePixelRatio,
+  2.5)` and a `fitCanvas(c, ctx)` helper that sets the backing store to `clientW*DPR ×
+  clientH*DPR`, applies `ctx.setTransform(DPR,0,0,DPR,0,0)`, and caches the logical CSS-px
+  size on the element as `c._lw` / `c._lh`. **All draw functions read `canvas._lw/_lh`
+  (logical px), never `canvas.width/height` (now the DPR-scaled backing size).** A
+  `resizeCanvases()` calls `fitCanvas` for each canvas and runs on `resize` + `load` +
+  once at start. If you add a canvas or a draw routine, follow this pattern or it will be
+  blurry (and using `.width` for coordinates would be wrong by a factor of DPR).
 
 ### Components (recurring)
 - **Header:** `h1` title + a dim back-link `← Spiking Neuromorphics` to `../index.html`

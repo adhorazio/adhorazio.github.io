@@ -265,9 +265,19 @@
       body { padding: 0 1rem 1.5rem; }
       header h1 { font-size: 1.6rem; }
       .widget { padding: 1.25rem 1rem 1.5rem; }
-      #phase-wrap { flex-direction: column; }
-      #phase-wrap canvas { width: 100%; max-width: 100%; height: auto; }
-      .legend { flex-wrap: wrap; }
+
+      /* Dissolve the canvas+legend wrapper so its children join the widget's
+         flex column, then reorder so the explanatory legend sits AFTER the
+         controls — you can read what each control changes while dragging it. */
+      #phase-wrap  { display: contents; }
+      .widget-title{ order: 0; }
+      .presets     { order: 1; }
+      #canvas-wrap { order: 2; }
+      #phase-wrap canvas { order: 3; width: 100%; max-width: 100%; height: auto; }
+      .controls    { order: 4; }
+      .legend      { order: 5; flex-wrap: wrap; }
+
+      .eq-row { overflow-x: auto; }
     }
   </style>
 </head>
@@ -418,12 +428,21 @@ const tctx = traceCanvas.getContext('2d');
 const phaseCanvas = document.getElementById('phase');
 const pctx = phaseCanvas.getContext('2d');
 
-function resizeTrace() {
-  traceCanvas.width  = traceCanvas.offsetWidth;
-  traceCanvas.height = traceCanvas.offsetHeight;
+// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
+const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+function fitCanvas(c, ctx) {
+  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
+  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
 }
-window.addEventListener('resize', resizeTrace);
-resizeTrace();
+function resizeCanvases() {
+  fitCanvas(traceCanvas, tctx);
+  fitCanvas(phaseCanvas, pctx);
+}
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', resizeCanvases);
+resizeCanvases();
 
 function step(I) {
   for (let s = 0; s < 2; s++) {
@@ -436,7 +455,7 @@ function step(I) {
 }
 
 function drawTrace() {
-  const W = traceCanvas.width, H = traceCanvas.height;
+  const W = traceCanvas._lw, H = traceCanvas._lh;
   tctx.clearRect(0, 0, W, H);
   const vMin = -90, vMax = 40;
   const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
@@ -478,7 +497,7 @@ function drawTrace() {
 }
 
 function drawPhase() {
-  const W = phaseCanvas.width, H = phaseCanvas.height;
+  const W = phaseCanvas._lw, H = phaseCanvas._lh;
   pctx.clearRect(0, 0, W, H);
   pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
   const vMin=-90, vMax=40, uMin=-25, uMax=20;

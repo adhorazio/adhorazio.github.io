@@ -281,9 +281,19 @@
       body { padding: 0 1rem 1.5rem; }
       header h1 { font-size: 1.6rem; }
       .widget { padding: 1.25rem 1rem 1.5rem; }
-      #liss-wrap { flex-direction: column; }
-      #lissajous { width: 100%; max-width: 100%; height: auto; }
-      .legend { flex-direction: column; }
+
+      /* Dissolve the figure+legend wrapper so its children join the widget's
+         flex column, then reorder so the explanatory legend sits AFTER the
+         controls — you can read what each control changes while dragging it. */
+      #liss-wrap   { display: contents; }
+      .widget-title{ order: 0; }
+      .presets     { order: 1; }
+      #lissajous   { order: 2; width: 100%; max-width: 100%; height: auto; }
+      #canvas-wrap { order: 3; }
+      .controls    { order: 4; }
+      .legend      { order: 5; flex-direction: column; }
+
+      .eq-row { overflow-x: auto; }
     }
   </style>
 </head>
@@ -409,12 +419,21 @@ const lctx            = lissajousCanvas.getContext('2d');
 const traceCanvas     = document.getElementById('trace');
 const tctx            = traceCanvas.getContext('2d');
 
-function resizeTrace() {
-  traceCanvas.width  = traceCanvas.offsetWidth;
-  traceCanvas.height = traceCanvas.offsetHeight;
+// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
+const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+function fitCanvas(c, ctx) {
+  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
+  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
 }
-window.addEventListener('resize', resizeTrace);
-resizeTrace();
+function resizeCanvases() {
+  fitCanvas(lissajousCanvas, lctx);
+  fitCanvas(traceCanvas, tctx);
+}
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', resizeCanvases);
+resizeCanvases();
 
 // ── Signals ───────────────────────────────────────────────────────────────────
 function x1(t) { return Math.sin(2 * Math.PI * t); }
@@ -446,7 +465,7 @@ const TRAIL_DUR = 0.3; // signal-seconds
 function drawLissajous() {
   if (ghostDirty) recomputeGhost();
 
-  const W = lissajousCanvas.width, H = lissajousCanvas.height;
+  const W = lissajousCanvas._lw, H = lissajousCanvas._lh;
   lctx.clearRect(0, 0, W, H);
 
   const margin = 12;
@@ -506,7 +525,7 @@ const TRACE_DUR  = 4;
 const TRACE_SAMP = 500;
 
 function drawTrace() {
-  const W = traceCanvas.width, H = traceCanvas.height;
+  const W = traceCanvas._lw, H = traceCanvas._lh;
   tctx.clearRect(0, 0, W, H);
 
   const maxA = Math.max(1, params.A2) * 1.15;
@@ -639,7 +658,7 @@ requestAnimationFrame(loop);
 
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`X_1(t) = A_1\,\sin(2\pi f_1\,t + \varphi_1) \qquad [A_1{=}1,\; f_1{=}1\,\text{Hz},\; \varphi_1{=}0\text{ — fixed}]`,
+    String.raw`X_1(t) = A_1\,\sin(2\pi f_1\,t + \varphi_1)`,
     document.getElementById('eq1'), { displayMode: false, throwOnError: false }
   );
   katex.render(
