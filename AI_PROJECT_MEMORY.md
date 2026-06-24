@@ -137,8 +137,10 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   accent, faint accent background, soft shadow.
 - **Widget** (model/tool pages): bordered surface panel containing presets, canvas(es),
   controls.
-- **Controls:** range `input[type=range]` with custom blue thumb; label row shows name on
-  the left and a tabular-nums value (yellow) on the right.
+- **Controls:** range `input[type=range]` — 6px rounded `--border` track, 19px accent
+  thumb (3px `--bg` ring + shadow) that grows on hover/drag with an accent glow; styled
+  for both WebKit (`::-webkit-slider-thumb`) and Firefox (`::-moz-range-track/-thumb`).
+  Label row shows the name on the left and a tabular-nums value (yellow) on the right.
 - **Preset buttons (`.preset-btn`):** rounded (8px) `--surface`-filled buttons, dim text;
   hover lifts 1px with a shadow and an accent border (echoes the index cards), press
   scales to 0.97, and the selected `.active` state gets an accent-tinted fill
