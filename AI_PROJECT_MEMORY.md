@@ -111,7 +111,9 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   small, **UPPERCASE**, `letter-spacing` ~0.1em, dim or accent colored.
 
 ### Layout & spacing
-- Content column: `max-width: 760px`, centered, `body { padding: 0 2rem 2rem }`.
+- Content column: `max-width: 900px`, centered, `body { padding: 0 2rem 2rem }`. (The
+  column width is duplicated across every standard page — header/main/widget/footer/
+  equations all share the same `max-width`; change them together.)
 - Rounded corners: cards `10px`, widgets `12px`, canvases/inner boxes `6px`.
 - Card/widget grids: `repeat(auto-fill, minmax(…, 1fr))`, gaps ~0.75–1.2rem.
 - **Mobile:** every standard page ends its `<style>` with a `@media (max-width: 600px)`
@@ -123,7 +125,10 @@ mappings for consistency. In JS they're mirrored as `const GDV = { q: [...] }`.
   canvas to `width:100%`; and (d) `.eq-row { overflow-x:auto }` so long KaTeX equations
   scroll instead of cropping. When you add a page, replicate this block (mind selector
   specificity — for HH's `#gates` keep `flex:0 0 auto` so it doesn't collapse in the
-  column). Clione carries its own (different) breakpoints at 900/1100px.
+  column). Clione carries its own (different) breakpoints at 900/1100px, and on phones
+  (`max-width:600px`) it stacks the trajectory panel **above** the network instead of
+  overlaying it (starting collapsed so the simplex is fully visible); its `draw()` loop
+  re-fits the canvas to its container each frame.
 - **Canvas crispness (HiDPI):** every page defines `const DPR = Math.min(devicePixelRatio,
   2.5)` and a `fitCanvas(c, ctx)` helper that sets the backing store to `clientW*DPR ×
   clientH*DPR`, applies `ctx.setTransform(DPR,0,0,DPR,0,0)`, and caches the logical CSS-px

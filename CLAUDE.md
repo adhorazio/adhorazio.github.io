@@ -10,7 +10,7 @@ the quick orientation; the memory file has the detail.
 - Each page is a **single self-contained `.html`** with inline `<style>` + `<script>`
   (exception: `networks/clione.js`). Real-time `<canvas>` + `requestAnimationFrame`
   simulations; equations via KaTeX.
-- **Two design families:** the standard dark centered-760px-column template
+- **Two design families:** the standard dark centered-900px-column template
   (`index.html`, `models/*`, `tools/*`) and the intentionally different full-viewport
   `networks/clione.html`. New custom designs are allowed — keep the dark, minimal,
   scientific feel and shared color tokens unless a page genuinely needs otherwise.

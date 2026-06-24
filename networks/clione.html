@@ -848,6 +848,45 @@
     overflow: hidden;
   }
 
+  /* ── Mobile: stack the trajectory panel ABOVE the network instead of
+       overlaying it, so the simplex gets its own space and is fully visible ── */
+  @media (max-width: 600px) {
+    .main-area {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .trajectory-sidebar {
+      position: static;
+      width: 100%;
+      max-width: 100%;
+      max-height: 32vh;
+      margin: 0;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      background: var(--surface);
+      backdrop-filter: none;
+      box-shadow: none;
+      flex: 0 0 auto;
+    }
+
+    .trajectory-sidebar .case-selector {
+      max-height: 24vh;
+    }
+    .trajectory-sidebar.collapsed .case-selector {
+      max-height: 0;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      inset: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -1198,6 +1237,9 @@ function resize() {
 resize();
 requestAnimationFrame(resize);
 window.addEventListener('resize', resize);
+// Re-fit the canvas whenever its area changes (panel populating/collapsing,
+// orientation change, mobile<->desktop layout switch) so the network stays centered.
+if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(canvas.parentElement);
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 // ── QUATERNION TRACKBALL ──────────────────────────────────────────────────
@@ -1523,6 +1565,18 @@ const trajSidebar = document.querySelector('.trajectory-sidebar');
 document.getElementById('btnCollapseSidebar').addEventListener('click', () => {
   trajSidebar.classList.toggle('collapsed');
 });
+// On phones the panel stacks above the network; start it collapsed so the
+// simplex gets the full height, and let the user expand it on demand.
+// Collapse instantly on load (no animation), then re-enable transitions.
+if (window.matchMedia('(max-width: 600px)').matches) {
+  const sel = document.getElementById('caseSelector');
+  const prevTransition = sel.style.transition;
+  sel.style.transition = 'none';
+  trajSidebar.classList.add('collapsed');
+  void sel.offsetHeight; // force reflow so the collapsed state applies without animating
+  sel.style.transition = prevTransition;
+  resize(); // re-fit the canvas to the space freed up by the collapsed panel
+}
 
 // ── CONTROLS ──────────────────────────────────────────────────────────────
 const clearTrajBtn = document.getElementById('btnClearTrajectories');
@@ -1697,6 +1751,13 @@ function getTrajectoryColorTrace(caseIndex) {
 // ── DRAW ──────────────────────────────────────────────────────────────────
 function draw() {
   try {
+    // keep the canvas matched to its container (handles late layout shifts:
+    // footer settling, sidebar collapse/expand, orientation change)
+    const _wrap = canvas.parentElement;
+    if (parseInt(canvas.style.width) !== _wrap.offsetWidth ||
+        parseInt(canvas.style.height) !== _wrap.offsetHeight) {
+      resize();
+    }
     const W = canvas.width  / dpr;
     const H = canvas.height / dpr;
     ctx.clearRect(0, 0, W, H);
