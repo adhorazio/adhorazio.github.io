@@ -22,7 +22,7 @@
       align-items: center; padding: 0 2rem 2rem;
     }
     header {
-      width: 100%; max-width: 760px; padding: 16px 0 2rem;
+      width: 100%; max-width: 900px; padding: 16px 0 2rem;
       display: flex; flex-direction: column; gap: 0.05rem;
     }
     header h1 { font-size: 2rem; font-weight: 700; letter-spacing: 0.04em; }
@@ -33,7 +33,7 @@
     .widget {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 12px; padding: 1.5rem 2rem 2rem;
-      width: 100%; max-width: 760px;
+      width: 100%; max-width: 900px;
       display: flex; flex-direction: column; gap: 1.2rem;
     }
     .widget-title {
@@ -82,12 +82,24 @@
     .control-group label { font-size: 0.75rem; color: var(--text-dim); display: flex; justify-content: space-between; }
     .control-group label span[id] { color: var(--gdv-q5); font-variant-numeric: tabular-nums; }
     input[type="range"] {
-      -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px;
+      -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px;
       background: var(--border); outline: none; cursor: pointer;
     }
     input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
-      background: var(--gdv-q3); border: 2px solid var(--bg);
+      -webkit-appearance: none; appearance: none; width: 17px; height: 17px; border-radius: 50%;
+      background: var(--gdv-q3); border: none;
+      transition: transform 0.12s ease, box-shadow 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+    input[type="range"]:active::-webkit-slider-thumb {
+      transform: scale(1.12); box-shadow: 0 0 0 6px rgba(0, 154, 222, 0.18);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px; border-radius: 3px; background: var(--border);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 17px; height: 17px; border-radius: 50%;
+      background: var(--gdv-q3); border: none;
     }
 
     /* ── stimulus panel ── */
@@ -120,7 +132,7 @@
 
     /* ── equations ── */
     .equations {
-      width: 100%; max-width: 760px; margin-top: 1.5rem;
+      width: 100%; max-width: 900px; margin-top: 1.5rem;
       display: flex; flex-direction: column; gap: 0.6rem;
     }
     .eq-label {
@@ -136,7 +148,7 @@
 
     /* ── footer ── */
     footer {
-      width: 100%; max-width: 760px; padding: 0 0 1rem;
+      width: 100%; max-width: 900px; padding: 0 0 1rem;
       font-size: 0.72rem; color: var(--text-dim);
       display: flex; flex-direction: column; gap: 0.75rem; margin-top: 2.5rem;
     }
@@ -151,6 +163,18 @@
     .footer-bottom { display: flex; justify-content: space-between; align-items: center; }
     footer a { color: var(--text-dim); text-decoration: none; transition: color 0.15s; }
     footer a:hover { color: var(--accent); }
+
+    /* ── mobile ── */
+    @media (max-width: 600px) {
+      body { padding: 0 1rem 1.5rem; }
+      header h1 { font-size: 1.6rem; }
+      .widget { padding: 1.25rem 1rem 1.5rem; }
+      /* stack the two phase diagrams so neither gets squeezed */
+      .plots-row { flex-direction: column; }
+      #fi   { width: 100%; flex-shrink: 1; height: 200px; }
+      #hyst { width: 100%; height: 200px; }
+      .eq-row { overflow-x: auto; }
+    }
   </style>
 </head>
 <body>
@@ -554,13 +578,21 @@ const fctx        = fiCanvas.getContext('2d');
 const hystCanvas  = document.getElementById('hyst');
 const hctx        = hystCanvas.getContext('2d');
 
+// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
+const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+function fitCanvas(c, ctx) {
+  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
+  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
+}
 function resizeCanvases() {
-  traceCanvas.width  = traceCanvas.offsetWidth;
-  traceCanvas.height = traceCanvas.offsetHeight;
-  hystCanvas.width   = hystCanvas.offsetWidth;
-  hystCanvas.height  = hystCanvas.offsetHeight;
+  fitCanvas(traceCanvas, tctx);
+  fitCanvas(fiCanvas, fctx);
+  fitCanvas(hystCanvas, hctx);
 }
 window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', resizeCanvases);
 resizeCanvases();
 
 // ── Window selector ────────────────────────────────────────────────────────────
@@ -579,7 +611,7 @@ document.getElementById('win-btns').addEventListener('click', e => {
 
 // ── Draw oscilloscope: V panel + 3 sub-panels ─────────────────────────────────
 function drawTrace() {
-  const W = traceCanvas.width, H = traceCanvas.height;
+  const W = traceCanvas._lw, H = traceCanvas._lh;
   tctx.clearRect(0, 0, W, H);
   tctx.font = '10px monospace';
 
@@ -804,7 +836,7 @@ function drawTrace() {
 
 // ── Draw f-I curve ─────────────────────────────────────────────────────────────
 function drawFI() {
-  const W = fiCanvas.width, H = fiCanvas.height;
+  const W = fiCanvas._lw, H = fiCanvas._lh;
   const ml = 28, mt = 10, mr = 6, mb = 26;
   const cW = W - ml - mr, cH = H - mt - mb;
 
@@ -923,7 +955,7 @@ function drawFI() {
 
 // ── Draw hysteresis diagram ────────────────────────────────────────────────────
 function drawHyst() {
-  const W = hystCanvas.width, H = hystCanvas.height;
+  const W = hystCanvas._lw, H = hystCanvas._lh;
   if (W < 10) return;
   const ml = 28, mt = 14, mr = 8, mb = 26;
   const cW = W - ml - mr, cH = H - mt - mb;
