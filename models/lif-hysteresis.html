@@ -49,8 +49,6 @@
       cursor: pointer; transition: all 0.15s; font-family: inherit;
     }
     .act-btn:hover { border-color: var(--accent); color: var(--accent); }
-    #btn-scan { border-color: var(--gdv-q6); color: var(--gdv-q6); }
-    #btn-scan:hover, #btn-scan.active { background: rgba(242,133,34,0.15); border-color: var(--gdv-q6); color: var(--gdv-q6); }
     #state-badge {
       margin-left: auto; font-size: 0.7rem; padding: 0.12rem 0.5rem;
       border-radius: 3px; font-variant-numeric: tabular-nums;
@@ -77,7 +75,7 @@
     #hyst { display: block; flex: 1; min-width: 0; height: 200px; border-radius: 6px; background: #1e1e1e; }
 
     /* ── controls ── */
-    .controls { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.8rem 1.2rem; }
+    .controls { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.8rem 1.2rem; }
     .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
     .control-group label { font-size: 0.75rem; color: var(--text-dim); display: flex; justify-content: space-between; }
     .control-group label span[id] { color: var(--gdv-q5); font-variant-numeric: tabular-nums; }
@@ -101,6 +99,34 @@
       width: 17px; height: 17px; border-radius: 50%;
       background: var(--gdv-q3); border: none;
     }
+
+    /* ── Iw+ toggle section (self-excitation → hysteresis) ── */
+    .adapt-section { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .adapt-header {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding: 0.5rem 0.8rem; background: rgba(255,255,255,0.03);
+      cursor: pointer; user-select: none;
+    }
+    .adapt-header:hover { background: rgba(255,255,255,0.06); }
+    .toggle-btn {
+      padding: 0.18rem 0.55rem; border-radius: 3px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-dim); font-size: 0.72rem;
+      cursor: pointer; transition: all 0.15s; pointer-events: none;
+    }
+    .adapt-header.active .toggle-btn {
+      border-color: var(--gdv-q2); color: var(--gdv-q2); background: rgba(0,205,108,0.1);
+    }
+    .adapt-label { font-size: 0.72rem; color: var(--text-dim); }
+    .adapt-mean {
+      margin-left: auto; font-size: 0.68rem; font-variant-numeric: tabular-nums;
+      white-space: nowrap; opacity: 0; transition: opacity 0.3s; color: var(--gdv-q2);
+    }
+    .adapt-header.active .adapt-mean { opacity: 1; }
+    .adapt-sliders {
+      display: none; padding: 0.7rem 0.8rem 0.8rem; gap: 0.8rem 1.2rem;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .adapt-sliders.open { display: grid; }
 
     /* ── stimulus panel ── */
     .stim-panel { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -186,12 +212,11 @@
 
 <main>
 <div class="widget">
-  <div class="widget-title">Self-excitatory I<sub>w</sub><sup>+</sup> &mdash; LIF bistability</div>
+  <div class="widget-title">LIF with self-excitatory I<sub>w</sub><sup>+</sup> &mdash; bistability</div>
 
   <div class="action-row">
     <button class="act-btn" id="btn-reset">Reset to silence</button>
-    <button class="act-btn" id="btn-scan">Auto-scan &#x21D4;</button>
-    <span id="state-badge" style="margin-left:auto;">&mdash; Hz &middot; Iw&#x207A; =&nbsp; 0</span>
+    <span id="state-badge">&mdash; Hz &middot; Iw&#x207A; =&nbsp; 0</span>
   </div>
 
   <div class="stim-panel">
@@ -209,16 +234,16 @@
     </div>
     <div class="stim-params">
       <div class="control-group">
-        <label><span id="stim-amp-label">Amplitude</span><span id="val-stim-amp">8.0 &micro;A</span></label>
-        <input type="range" autocomplete="off" id="sl-stim-amp" min="-100" max="100" step="0.5" value="8" />
+        <label><span id="stim-amp-label">Amplitude</span><span id="val-stim-amp">8.0 mV</span></label>
+        <input type="range" autocomplete="off" id="sl-stim-amp" min="-60" max="60" step="0.5" value="8" />
       </div>
       <div class="control-group">
         <label><span id="stim-dur-label">Duration</span><span id="val-stim-dur">300 ms</span></label>
         <input type="range" autocomplete="off" id="sl-stim-dur" min="10" max="2000" step="10" value="300" />
       </div>
       <div class="control-group" id="stim-low-group" style="display:none;">
-        <label><span>Low</span><span id="val-stim-low">-8.0 &micro;A</span></label>
-        <input type="range" autocomplete="off" id="sl-stim-low" min="-100" max="100" step="0.5" value="-8" />
+        <label><span>Low</span><span id="val-stim-low">-8.0 mV</span></label>
+        <input type="range" autocomplete="off" id="sl-stim-low" min="-60" max="60" step="0.5" value="-8" />
       </div>
     </div>
   </div>
@@ -244,32 +269,20 @@
 
   <div class="controls">
     <div class="control-group">
-      <label><span>I<sub>eff</sub> &mdash; input current</span><span id="val-I">50.0 &micro;A</span></label>
-      <input type="range" autocomplete="off" id="sl-I" min="0" max="150" step="0.5" value="50" />
+      <label><span>&tau;<sub>m</sub> &mdash; membrane time constant</span><span id="val-tau">100 ms</span></label>
+      <input type="range" autocomplete="off" id="sl-tau" min="5" max="500" step="5" value="100" />
     </div>
     <div class="control-group">
-      <label><span>C<sub>m</sub> &mdash; capacitance</span><span id="val-cm">0.300 &micro;F</span></label>
-      <input type="range" autocomplete="off" id="sl-cm" min="0.005" max="10" step="0.005" value="0.3" />
+      <label><span>V<sub>rest</sub> &mdash; resting potential</span><span id="val-vrest">-70 mV</span></label>
+      <input type="range" autocomplete="off" id="sl-vrest" min="-85" max="-55" step="1" value="-70" />
     </div>
     <div class="control-group">
-      <label><span>R<sub>m</sub> &mdash; membrane resistance</span><span id="val-rm">680 k&Omega;</span></label>
-      <input type="range" autocomplete="off" id="sl-rm" min="100" max="2000" step="10" value="680" />
+      <label><span>V<sub>&theta;</sub> &mdash; spike threshold</span><span id="val-vtheta">-50 mV</span></label>
+      <input type="range" autocomplete="off" id="sl-vtheta" min="-65" max="-30" step="1" value="-50" />
     </div>
     <div class="control-group">
-      <label><span>g<sub>L</sub> &mdash; leak conductance</span><span id="val-gl">14.0 &micro;S</span></label>
-      <input type="range" autocomplete="off" id="sl-gl" min="0" max="200" step="0.5" value="14" />
-    </div>
-    <div class="control-group">
-      <label><span>I<sub>sub</sub> &mdash; spike threshold</span><span id="val-vsub">5.0 &micro;A</span></label>
-      <input type="range" autocomplete="off" id="sl-vsub" min="0.5" max="10" step="0.1" value="5.0" />
-    </div>
-    <div class="control-group">
-      <label><span>b<sup>+</sup> &mdash; spike increment</span><span id="val-bp">5.0</span></label>
-      <input type="range" autocomplete="off" id="sl-bp" min="0" max="20" step="0.5" value="5" />
-    </div>
-    <div class="control-group">
-      <label><span>&tau;<sub>w</sub><sup>+</sup> &mdash; time constant</span><span id="val-tauwp">100 ms</span></label>
-      <input type="range" autocomplete="off" id="sl-tauwp" min="50" max="2000" step="10" value="100" />
+      <label><span>I<sub>eff</sub> &mdash; effective input</span><span id="val-I">18.0 mV</span></label>
+      <input type="range" autocomplete="off" id="sl-I" min="0" max="60" step="0.5" value="18" />
     </div>
     <div class="control-group">
       <label><span>speed</span><span id="val-spd">&frac12;&times;</span></label>
@@ -277,19 +290,37 @@
     </div>
   </div>
 
+  <div class="adapt-section" id="section-plus">
+    <div class="adapt-header active" id="header-plus">
+      <button class="toggle-btn">I<sub>w</sub><sup>+</sup></button>
+      <span class="adapt-label">self-excitatory intrinsic current &mdash; enables hysteresis</span>
+      <span class="adapt-mean" id="mean-plus"></span>
+    </div>
+    <div class="adapt-sliders open" id="sliders-plus">
+      <div class="control-group">
+        <label><span>&tau;<sub>w</sub><sup>+</sup> &mdash; time constant</span><span id="val-tauwp">200 ms</span></label>
+        <input type="range" autocomplete="off" id="sl-tauwp" min="10" max="1000" step="10" value="200" />
+      </div>
+      <div class="control-group">
+        <label><span>b<sup>+</sup> &mdash; spike increment</span><span id="val-bp">7.5 mV</span></label>
+        <input type="range" autocomplete="off" id="sl-bp" min="0" max="30" step="0.5" value="7.5" />
+      </div>
+    </div>
+  </div>
+
   <div class="hint-box">
     <div class="hint-title">How to see hysteresis</div>
-    <div class="hint-step"><span class="n">1.</span><span>At I<sub>eff</sub>&nbsp;=&nbsp;50&nbsp;&micro;A the system is <em>silent</em> &mdash; below I<sub>on</sub>&nbsp;&asymp;&nbsp;52.6&nbsp;&micro;A without I<sub>w</sub><sup>+</sup>. Operating point on the lower (blue) branch.</span></div>
-    <div class="hint-step"><span class="n">2.</span><span>Select <strong>+rect</strong> stimulus and click <strong>Fire</strong> &mdash; I<sub>w</sub><sup>+</sup> pushes I<sub>net</sub> above I<sub>on</sub>. Persistent spiking builds to the upper (green) branch.</span></div>
-    <div class="hint-step"><span class="n">3.</span><span>Slowly drag I<sub>eff</sub> down &mdash; spiking persists below I<sub>on</sub>, all the way to I<sub>off</sub> (orange). Then it collapses.</span></div>
-    <div class="hint-step"><span class="n">4.</span><span>Raise I<sub>eff</sub> &mdash; stays silent until I<sub>on</sub> (yellow). Same current, different state: hysteresis.</span></div>
-    <div class="hint-step"><span class="n">&#x2605;</span><span>Pure LIF: f&nbsp;&rarr;&nbsp;0 at I<sub>on</sub> (type-I onset). K&nbsp;=&nbsp;b<sup>+</sup>&middot;&tau;<sub>w</sub><sup>+</sup>/1000&nbsp;&micro;A/Hz. Click <strong>Auto-scan</strong> to trace the hysteresis loop.</span></div>
+    <div class="hint-step"><span class="n">1.</span><span>I<sub>w</sub><sup>+</sup> is <strong>on</strong> (green). At I<sub>eff</sub>&nbsp;=&nbsp;18&nbsp;mV the cell is <em>silent</em> &mdash; below rheobase I<sub>on</sub>&nbsp;=&nbsp;V<sub>&theta;</sub>&minus;V<sub>rest</sub>&nbsp;=&nbsp;20&nbsp;mV. Operating point on the lower branch.</span></div>
+    <div class="hint-step"><span class="n">2.</span><span>Select <strong>+rect</strong> and click <strong>Fire</strong> &mdash; the pulse pushes V over V<sub>&theta;</sub>; each spike adds b<sup>+</sup> to I<sub>w</sub><sup>+</sup>, which sustains firing. The state jumps to the upper branch.</span></div>
+    <div class="hint-step"><span class="n">3.</span><span>Slowly drag I<sub>eff</sub> down &mdash; spiking persists below I<sub>on</sub>, all the way to I<sub>off</sub>. Then it collapses.</span></div>
+    <div class="hint-step"><span class="n">4.</span><span>Raise I<sub>eff</sub> &mdash; stays silent until I<sub>on</sub>. Same input, two states: hysteresis.</span></div>
+    <div class="hint-step"><span class="n">&#x2605;</span><span>Toggle <strong>I<sub>w</sub><sup>+</sup></strong> off to recover the plain LIF (no bistability). K&nbsp;=&nbsp;b<sup>+</sup>&middot;&tau;<sub>w</sub><sup>+</sup>/1000&nbsp;mV/Hz sets the load-line slope.</span></div>
   </div>
 </div>
 </main>
 
 <div class="equations">
-  <div class="eq-label">Self-excitatory LIF &mdash; governing equations</div>
+  <div class="eq-label">LIF with I<sub>w</sub><sup>+</sup> &mdash; governing equations</div>
   <div class="eq-box">
     <div class="eq-row" id="eq1"></div>
     <div class="eq-row" id="eq2"></div>
@@ -315,48 +346,46 @@
 <script>
 // ════════════════════════════════════════════════════════════════════════════════
 //  LIF — Persistent Activity & Hysteresis
-//  Self-excitatory Iw+ only: bistability via load-line / f-I intersection
+//  Standard leaky integrate-and-fire (same parameters as models/lif.html) plus an
+//  optional self-excitatory current Iw+ (toggle, like aLIF). Iw+ creates a load line
+//  that meets the f-I curve in two stable states → bistability / hysteresis.
 //
-//  MEMBRANE EQUATION (simple LIF, constant gM = 1/Rm)
-//    Cm dV/dt = -(gM + gL)·V + Inet     with  Inet = Ieff + Iw+ + I_pulse
-//    V* = Inet / gTot,  τeff = Cm / gTot,  gTot = 1/Rm + gL
+//  MEMBRANE EQUATION (voltage form, mV)
+//    τ_m dV/dt = -(V − V_rest) + I_net,   I_net = I_eff + Iw+ + I_pulse
 //
 //  SPIKE RULE
-//    V ≥ Vsub  →  spike detected, V reset to 0,  Iw+ ← Iw+ + b+
-//    Vsub = I_sub × Rm   (voltage threshold derived from current threshold)
+//    V ≥ V_θ  →  spike,  V ← V_rest,  Iw+ ← Iw+ + b+
 //
 //  ANALYTICAL f-I CURVE (type-I, continuous onset)
-//    T  = τeff · ln(V* / (V* − Vsub))
-//    f  = 1000/T   for  I > I_on = Vsub · gTot,   f = 0 otherwise
+//    ΔV_θ = V_θ − V_rest      (rheobase I_on)
+//    T = τ_m · ln(I / (I − ΔV_θ)),   f = 1000/T for I > ΔV_θ, else 0
 //
 //  SELF-EXCITATION (load-line bistability)
-//    τw+ · dIw+/dt = −Iw+
-//    on spike: Iw+ ← Iw+ + b+
-//    K = b+ · τw+ / 1000   [µA/Hz]
-//    bistability when K < Cm·Vsub/1000 and I_eff in [I_off, I_on)
+//    τw+ dIw+/dt = −Iw+ ;  on spike Iw+ ← Iw+ + b+
+//    mean ⟨Iw+⟩ = K·f  with  K = b+·τw+/1000  [mV/Hz]
+//    fixed points solve  f = fiFreq(I_eff + K·f)
 // ════════════════════════════════════════════════════════════════════════════════
 
 const Q = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'];
 
-// ── Model parameters ───────────────────────────────────────────────────────────
-let Cm    = 0.3;    // µF
-let Rm    = 680;    // kΩ
-let gL    = 14;     // µS
-let I_sub = 5.0;    // µA  — current threshold
-let V_sub = I_sub * Rm;  // mV — voltage threshold (= 3400 mV)
+// ── Model parameters (LIF, mV / ms) ─────────────────────────────────────────────
+let tau_m   = 100;   // ms — membrane time constant
+let V_rest  = -70;   // mV — resting potential
+let V_theta = -50;   // mV — spike threshold
 
 // ── User / network parameters ──────────────────────────────────────────────────
-let I_eff  = 50;    // µA  — baseline drive (just below I_on ≈ 52.6 µA)
-let b_plus = 5;     // µA  — Iw+ increment per spike
-let tau_wp = 100;   // ms  — Iw+ decay time constant (K = 0.5 µA/Hz)
+let I_eff  = 18;     // mV — baseline drive (below I_on = 20 mV)
+let b_plus = 7.5;    // mV — Iw+ increment per spike
+let tau_wp = 200;    // ms — Iw+ decay time constant (K = 1.5 mV/Hz)
+let enable_plus = true;
 let speed  = 0.5;
 
 // ── Simulation state ───────────────────────────────────────────────────────────
-let V  = 0;   // mV
-let Iw = 0;   // µA
+let V  = V_rest;  // mV
+let Iw = 0;       // mV
 const DT        = 0.1;    // ms
 const TRACE_LEN = 20000;
-const vHistory      = new Float32Array(TRACE_LEN);
+const vHistory      = new Float32Array(TRACE_LEN).fill(V_rest);
 const iHistoryPulse = new Float32Array(TRACE_LEN);
 const iHistoryIw    = new Float32Array(TRACE_LEN);
 let windowMs  = 1000;
@@ -386,35 +415,18 @@ const trailI    = new Float32Array(TRAIL_LEN).fill(NaN);
 const trailF    = new Float32Array(TRAIL_LEN).fill(NaN);
 let trailHead   = 0;
 
-// ── Auto-scan state ────────────────────────────────────────────────────────────
-let scanMode  = false;
-let scanDir   = +1;
-let scanI     = 0;
-let scanSteps = 0;
-let scanSpikes = 0;
-const SCAN_DWELL = 1000;
-const SCAN_N     = 24;
-let scanData  = { up: [], down: [] };
-let I_scan_lo, I_scan_hi;
-
 // ── Load-line slope ────────────────────────────────────────────────────────────
-const K = () => b_plus * tau_wp / 1000;  // µA/Hz
+const K = () => enable_plus ? b_plus * tau_wp / 1000 : 0;  // mV/Hz
 
-// ── Conductance & steady-state helpers ────────────────────────────────────────
-const gTot = () => 1/Rm + gL/1000;   // mS  (1/kΩ + µS/1000)
-function Vstar(I)        { return I / gTot(); }
-function I_for_Vstar(Vs) { return Vs * gTot(); }
+// ── Rheobase / threshold helpers ───────────────────────────────────────────────
+const dVth = () => V_theta - V_rest;   // mV — drive needed to spike (I_on)
+const I_on = () => dVth();
 
-// ── Analytical LIF f-I (type-I, logarithmic) ──────────────────────────────────
+// ── Analytical LIF f-I (type-I, logarithmic). I is the total drive above rest ───
 function fiFreq(I) {
-  const I_on = I_for_Vstar(V_sub);
-  if (I <= I_on) return 0;
-  const Vs = Vstar(I);
-  if (Vs <= V_sub) return 0;
-  const tau_eff = Cm / gTot();   // ms
-  const lnArg = Vs / (Vs - V_sub);
-  if (lnArg <= 1) return 0;
-  const T = tau_eff * Math.log(lnArg);
+  const dV = dVth();
+  if (dV <= 0 || I <= dV) return 0;
+  const T = tau_m * Math.log(I / (I - dV));
   return T > 0 ? 1000 / T : 0;
 }
 
@@ -423,9 +435,9 @@ const F_SCAN_MAX = 500;  // Hz — upper bound for load-line scan
 
 function findStableFP(Ie) {
   const k = K();
-  if (k <= 0) return null;
+  if (k <= 0) { const f = fiFreq(Ie); return f > 0 ? f : null; }  // plain LIF
   let last_h = null, last_f = null, found = null;
-  const N = 200;
+  const N = 600;
   for (let i = 1; i <= N; i++) {
     const f  = F_SCAN_MAX * i / N;
     const Il = Ie + k * f;
@@ -447,7 +459,7 @@ function findUnstableFP(Ie) {
   const k = K();
   if (k <= 0) return null;
   let last_h = null, last_f = null;
-  const N = 200;
+  const N = 600;
   for (let i = 1; i <= N; i++) {
     const f  = F_SCAN_MAX * i / N;
     const Il = Ie + k * f;
@@ -466,8 +478,8 @@ function findUnstableFP(Ie) {
 }
 
 function findIoff() {
-  const I_on = I_for_Vstar(V_sub);
-  let lo = 0, hi = I_on;
+  const on = I_on();
+  let lo = 0, hi = on;
   for (let it = 0; it < 55; it++) {
     const mid = (lo + hi) / 2;
     (findStableFP(mid) !== null) ? hi = mid : lo = mid;
@@ -480,14 +492,14 @@ let branchCache = null;
 let cacheKey    = '';
 
 function getBranches() {
-  const key = b_plus + ',' + tau_wp + ',' + Rm + ',' + gL + ',' + V_sub;
+  const key = [enable_plus, b_plus, tau_wp, tau_m, V_rest, V_theta].join(',');
   if (branchCache && key === cacheKey) return branchCache;
   cacheKey = key;
 
   const I_off = findIoff();
-  const I_on  = I_for_Vstar(V_sub);
-  const I_MAX = Math.max(I_on * 2.5, I_on + 50);
-  const N_I   = 80;
+  const on    = I_on();
+  const I_MAX = Math.max(on * 2.5, on + 50);
+  const N_I   = 160;
   const stable   = [];
   const unstable = [];
 
@@ -495,7 +507,7 @@ function getBranches() {
     const Ie = I_MAX * i / N_I;
     const fs = findStableFP(Ie);
     if (fs !== null) stable.push({ I: Ie, f: fs });
-    if (Ie < I_on) {
+    if (Ie < on) {
       const fu = findUnstableFP(Ie);
       if (fu !== null) unstable.push({ I: Ie, f: fu });
     }
@@ -545,29 +557,26 @@ function stepStim() {
   }
 }
 
-// ── Euler integration step (pure LIF, no thyristor) ───────────────────────────
+// ── Euler integration step (LIF + optional Iw+) ────────────────────────────────
 function step(Ie) {
   simStep++;
   stepStim();
-  const Inet  = Ie + ieffMod + Iw + I_pulse;
-  const gt    = gTot();
-  const Vs    = Inet / gt;
-  const decay = Math.exp(-gt * DT / Cm);   // gt [mS] × DT [ms] / Cm [µF] dimensionless ✓
-  V = Vs + (V - Vs) * decay;
+  const Inet = Ie + ieffMod + (enable_plus ? Iw : 0) + I_pulse;
+  V += (-(V - V_rest) + Inet) / tau_m * DT;
 
-  if (V >= V_sub) {
+  let spiked = false;
+  if (V >= V_theta) {
     if (lastSpikeStep !== null) {
       simISI    = simStep - lastSpikeStep;
       smoothISI = smoothISI === null ? simISI : 0.25 * simISI + 0.75 * smoothISI;
     }
     lastSpikeStep = simStep;
-    Iw += b_plus;
-    V   = 0;   // instantaneous reset
-    if (tau_wp > 0) Iw *= Math.exp(-DT / tau_wp);
-    return true;
+    if (enable_plus) Iw += b_plus;
+    V = V_rest;   // reset to rest
+    spiked = true;
   }
-  if (tau_wp > 0) Iw *= Math.exp(-DT / tau_wp);
-  return false;
+  if (enable_plus && tau_wp > 0) Iw *= Math.exp(-DT / tau_wp);
+  return spiked;
 }
 
 // ── Canvas handles & resize ────────────────────────────────────────────────────
@@ -599,11 +608,11 @@ resizeCanvases();
 function setWindow(ms) {
   windowMs = ms;
   traceEff = Math.min(Math.round(ms / DT), TRACE_LEN);
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(V_rest); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
-  document.querySelectorAll('.win-btn').forEach(b =>
-    b.classList.toggle('active', parseInt(b.dataset.win) === ms)
-  );
+  document.querySelectorAll('.win-btn').forEach(b => {
+    if (b.dataset.win) b.classList.toggle('active', parseInt(b.dataset.win) === ms);
+  });
 }
 document.getElementById('win-btns').addEventListener('click', e => {
   if (e.target.dataset.win) setWindow(parseInt(e.target.dataset.win));
@@ -653,23 +662,24 @@ function drawTrace() {
   const cursorX = Math.round((traceHead / traceEff) * W);
 
   // ── 1. VOLTAGE PANEL ─────────────────────────────────────────────────────────
-  const vMin = -V_sub * 0.05;
-  const vMax = V_sub * 1.35;
+  const dV   = dVth();
+  const vMin = V_rest  - dV * 0.20;
+  const vMax = V_theta + dV * 0.35;
   const mapVY = v => vH * (1 - (v - vMin) / (vMax - vMin));
 
-  // 0 mV reference
+  // V_rest reference
   tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
-  tctx.beginPath(); tctx.moveTo(0, mapVY(0)); tctx.lineTo(W, mapVY(0)); tctx.stroke();
+  tctx.beginPath(); tctx.moveTo(0, mapVY(V_rest)); tctx.lineTo(W, mapVY(V_rest)); tctx.stroke();
   tctx.setLineDash([]);
   tctx.fillStyle = '#555'; tctx.font = '10px monospace';
-  tctx.fillText('0 mV', 4, mapVY(0) - 3);
+  tctx.fillText('V_rest ' + V_rest.toFixed(0) + ' mV', 4, mapVY(V_rest) - 3);
 
-  // V_sub threshold
-  tctx.strokeStyle = Q[4] + '55'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
-  tctx.beginPath(); tctx.moveTo(0, mapVY(V_sub)); tctx.lineTo(W, mapVY(V_sub)); tctx.stroke();
+  // V_θ threshold
+  tctx.strokeStyle = Q[0] + '55'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
+  tctx.beginPath(); tctx.moveTo(0, mapVY(V_theta)); tctx.lineTo(W, mapVY(V_theta)); tctx.stroke();
   tctx.setLineDash([]);
-  tctx.fillStyle = Q[4] + 'bb';
-  tctx.fillText('Vₛᵤᵇ ' + V_sub.toFixed(0) + ' mV  (Iₛᵤᵇ=' + I_sub.toFixed(1) + ' µA)', 4, mapVY(V_sub) - 3);
+  tctx.fillStyle = Q[0] + 'bb';
+  tctx.fillText('Vθ ' + V_theta.toFixed(0) + ' mV', 4, mapVY(V_theta) - 3);
 
   // Cursor
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
@@ -691,7 +701,7 @@ function drawTrace() {
 
   sep(vH + Math.round(GAP1 / 2));
 
-  // ── 2. I_PULSE PANEL (yellow) ─────────────────────────────────────────────────
+  // ── 2. I_PULSE PANEL ──────────────────────────────────────────────────────────
   panelBg(y_p, cH, 'rgba(255,198,30,0.03)');
 
   let ipAbsMax = 1;
@@ -738,18 +748,18 @@ function drawTrace() {
   tctx.fillText('I pulse', 4, y_p + 11);
   tctx.textAlign = 'right';
   tctx.fillStyle = Q[4] + 'aa';
-  tctx.fillText(ipObsMax.toFixed(1) + ' µA', W - 2, y_p + cH - 3);
+  tctx.fillText(ipObsMax.toFixed(1) + ' mV', W - 2, y_p + cH - 3);
   let ipObsMin = 0;
   for (let i = 0; i < scanEnd; i++) { if (iHistoryPulse[i] < ipObsMin) ipObsMin = iHistoryPulse[i]; }
   if (ipObsMin < -0.1) {
     tctx.fillStyle = Q[4] + '88';
-    tctx.fillText(ipObsMin.toFixed(1) + ' µA', W - 2, y_p + 11);
+    tctx.fillText(ipObsMin.toFixed(1) + ' mV', W - 2, y_p + 11);
   }
   tctx.textAlign = 'left';
 
   sep(y_p + cH);
 
-  // ── 3. Iw+ PANEL (green) ──────────────────────────────────────────────────────
+  // ── 3. Iw+ PANEL ──────────────────────────────────────────────────────────────
   panelBg(y_iw, cH, 'rgba(0,205,108,0.03)');
 
   tctx.strokeStyle = '#333'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
@@ -791,29 +801,29 @@ function drawTrace() {
   }
 
   tctx.font = '9px monospace'; tctx.textAlign = 'left';
-  tctx.fillStyle = Q[1] + 'cc';
-  tctx.fillText('Iw⁺', 4, y_iw + 11);
+  tctx.fillStyle = enable_plus ? Q[1] + 'cc' : Q[6] + '88';
+  tctx.fillText(enable_plus ? 'Iw⁺' : 'Iw⁺ off', 4, y_iw + 11);
   tctx.textAlign = 'right';
   tctx.fillStyle = Q[1] + 'aa';
-  tctx.fillText('⟨Iw⁺⟩ ' + iwMean.toFixed(1) + ' µA', W - 2, y_iw + cH - 3);
+  tctx.fillText('⟨Iw⁺⟩ ' + iwMean.toFixed(1) + ' mV', W - 2, y_iw + cH - 3);
   tctx.textAlign = 'left';
 
   sep(y_iw + cH);
 
-  // ── 4. I_eff PANEL (orange) ───────────────────────────────────────────────────
+  // ── 4. I_eff PANEL ────────────────────────────────────────────────────────────
   panelBg(y_ie, H - y_ie, 'rgba(242,133,34,0.04)');
 
   tctx.strokeStyle = 'rgba(255,255,255,0.07)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, y_ie); tctx.lineTo(cursorX, H); tctx.stroke();
 
   const ieffEff = I_eff + ieffMod;
-  const I_on_tr = I_for_Vstar(V_sub);
+  const I_on_tr = I_on();
   const ieH     = H - y_ie;
   const ieMax   = Math.max(I_on_tr * 1.5, ieffEff * 1.2, 10);
 
-  // I_on reference line (yellow dashed)
+  // I_on reference line
   const ionY = y_ie + ieH - Math.min(1, I_on_tr / ieMax) * ieH;
-  tctx.strokeStyle = Q[4] + '44'; tctx.lineWidth = 1; tctx.setLineDash([3, 4]);
+  tctx.strokeStyle = Q[0] + '44'; tctx.lineWidth = 1; tctx.setLineDash([3, 4]);
   tctx.beginPath(); tctx.moveTo(0, ionY); tctx.lineTo(W, ionY); tctx.stroke();
   tctx.setLineDash([]);
 
@@ -828,8 +838,8 @@ function drawTrace() {
   tctx.fillText('Ieff', 4, y_ie + 11);
   tctx.textAlign = 'right';
   tctx.fillStyle = Q[5] + 'aa';
-  tctx.fillText(ieffEff.toFixed(1) + ' µA', W - 2, y_ie + ieH - 3);
-  tctx.fillStyle = Q[4] + '88';
+  tctx.fillText(ieffEff.toFixed(1) + ' mV', W - 2, y_ie + ieH - 3);
+  tctx.fillStyle = Q[0] + '88';
   tctx.fillText('Iₒₙ ' + I_on_tr.toFixed(1), W - 2, ionY - 3);
   tctx.textAlign = 'left';
 }
@@ -843,9 +853,9 @@ function drawFI() {
   fctx.clearRect(0, 0, W, H);
   fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
 
-  const I_on  = I_for_Vstar(V_sub);
-  const I_MAX = Math.max(I_on * 2.5, I_on + 50);
-  const f_ref = fiFreq(I_on * 2.0);
+  const on    = I_on();
+  const I_MAX = Math.max(on * 2.5, on + 50);
+  const f_ref = fiFreq(on * 2.0);
   const F_MAX = Math.max(f_ref * 1.6, 20);
 
   const xi = I => ml + (Math.min(Math.max(I, 0), I_MAX) / I_MAX) * cW;
@@ -863,24 +873,24 @@ function drawFI() {
   fctx.beginPath(); fctx.moveTo(ml, mt); fctx.lineTo(ml, mt + cH); fctx.lineTo(ml + cW, mt + cH); fctx.stroke();
   fctx.fillStyle = '#666'; fctx.font = '9px monospace';
   fctx.fillText('f (Hz)', ml + 2, mt + 9);
-  fctx.fillText('Iᵉᶠᶠ (µA)', ml + cW - 42, mt + cH + 20);
+  fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 44, mt + cH + 20);
 
-  // I_on threshold (yellow dashed)
+  // I_on threshold (red dashed)
   fctx.setLineDash([3, 3]);
-  fctx.strokeStyle = Q[4] + '77'; fctx.lineWidth = 1;
-  fctx.beginPath(); fctx.moveTo(xi(I_on), mt); fctx.lineTo(xi(I_on), mt + cH); fctx.stroke();
+  fctx.strokeStyle = Q[0] + '77'; fctx.lineWidth = 1;
+  fctx.beginPath(); fctx.moveTo(xi(on), mt); fctx.lineTo(xi(on), mt + cH); fctx.stroke();
   fctx.setLineDash([]);
-  fctx.font = '8px monospace'; fctx.fillStyle = Q[4] + 'aa';
-  fctx.fillText('Iₒₙ', xi(I_on) + 2, mt + 9);
+  fctx.font = '8px monospace'; fctx.fillStyle = Q[0] + 'aa';
+  fctx.fillText('Iₒₙ', xi(on) + 2, mt + 9);
 
   // f-I curve: silent branch then continuous spiking branch (type-I, no jump)
   fctx.strokeStyle = Q[2]; fctx.lineWidth = 1.5;
-  fctx.beginPath(); fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(I_on), yf(0)); fctx.stroke();
+  fctx.beginPath(); fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(on), yf(0)); fctx.stroke();
 
   fctx.beginPath();
   let started = false;
   for (let s = 0; s <= 400; s++) {
-    const I = I_on + (I_MAX - I_on) * s / 400;
+    const I = on + (I_MAX - on) * s / 400;
     const f = fiFreq(I);
     if (f <= 0) { started = false; continue; }
     started ? fctx.lineTo(xi(I), yf(f)) : (fctx.moveTo(xi(I), yf(f)), started = true);
@@ -944,12 +954,12 @@ function drawFI() {
   }
 
   // Operating point
-  const Inet_now = I_eff + Iw;
+  const Inet_now = I_eff + (enable_plus ? Iw : 0);
   const op_f = fiFreq(Inet_now);
   const op_x = Math.max(ml, Math.min(ml + cW, xi(Math.min(Inet_now, I_MAX))));
   fctx.beginPath();
   fctx.arc(op_x, yf(op_f), 4, 0, Math.PI * 2);
-  fctx.fillStyle = Iw > 1 ? Q[1] : Q[3];
+  fctx.fillStyle = (enable_plus && Iw > 1) ? Q[1] : Q[3];
   fctx.fill();
 }
 
@@ -964,10 +974,10 @@ function drawHyst() {
   hctx.fillStyle = '#1e1e1e'; hctx.fillRect(0, 0, W, H);
 
   const { stable, unstable, I_off } = getBranches();
-  const I_on  = I_for_Vstar(V_sub);
+  const on    = I_on();
   const I_MAX = hystZoom
-    ? Math.max(I_on * 1.6, I_off + 20)
-    : Math.max(I_on * 2.5, I_on + 50);
+    ? Math.max(on * 1.6, I_off + 20)
+    : Math.max(on * 2.5, on + 50);
   const allF  = stable.map(p => p.f).concat([1]);
   const F_MAX = Math.max(Math.max(...allF) * 1.5, 20);
 
@@ -986,11 +996,11 @@ function drawHyst() {
   hctx.beginPath(); hctx.moveTo(ml, mt); hctx.lineTo(ml, mt + cH); hctx.lineTo(ml + cW, mt + cH); hctx.stroke();
   hctx.fillStyle = '#666'; hctx.font = '9px monospace';
   hctx.fillText('f (Hz)', ml + 2, mt + 9);
-  hctx.fillText('Iᵉᶠᶠ (µA)', ml + cW - 42, mt + cH + 20);
+  hctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 44, mt + cH + 20);
 
   // Bistable region shading
-  if (I_off < I_on && I_on <= I_MAX) {
-    const x0 = xi(Math.max(I_off, 0)), x1 = xi(I_on);
+  if (I_off < on && on <= I_MAX) {
+    const x0 = xi(Math.max(I_off, 0)), x1 = xi(on);
     hctx.fillStyle = 'rgba(255,198,30,0.12)';
     hctx.fillRect(x0, mt, x1 - x0, cH);
     hctx.save();
@@ -1013,15 +1023,15 @@ function drawHyst() {
     hctx.textAlign = 'left';
   }
 
-  // I_on marker (yellow)
-  hctx.setLineDash([3, 3]); hctx.strokeStyle = Q[4] + '88'; hctx.lineWidth = 1;
-  hctx.beginPath(); hctx.moveTo(xi(I_on), mt); hctx.lineTo(xi(I_on), mt + cH); hctx.stroke();
+  // I_on marker (red)
+  hctx.setLineDash([3, 3]); hctx.strokeStyle = Q[0] + '88'; hctx.lineWidth = 1;
+  hctx.beginPath(); hctx.moveTo(xi(on), mt); hctx.lineTo(xi(on), mt + cH); hctx.stroke();
   hctx.setLineDash([]);
-  hctx.font = '8px monospace'; hctx.fillStyle = Q[4] + 'aa';
-  hctx.fillText('Iₒₙ', xi(I_on) + 2, mt + 9);
+  hctx.font = '8px monospace'; hctx.fillStyle = Q[0] + 'aa';
+  hctx.fillText('Iₒₙ', xi(on) + 2, mt + 9);
 
   // I_off marker (orange)
-  if (I_off > 0 && I_off < I_MAX) {
+  if (I_off > 0 && I_off < I_MAX && I_off < on - 0.05) {
     hctx.setLineDash([3, 3]); hctx.strokeStyle = Q[5] + '88'; hctx.lineWidth = 1;
     hctx.beginPath(); hctx.moveTo(xi(I_off), mt); hctx.lineTo(xi(I_off), mt + cH); hctx.stroke();
     hctx.setLineDash([]);
@@ -1031,11 +1041,11 @@ function drawHyst() {
 
   // Silent branch (f = 0, I ∈ [0, I_on])
   hctx.strokeStyle = Q[2] + 'cc'; hctx.lineWidth = 2;
-  hctx.beginPath(); hctx.moveTo(xi(0), yf(0)); hctx.lineTo(xi(Math.min(I_on, I_MAX) - 0.5), yf(0)); hctx.stroke();
+  hctx.beginPath(); hctx.moveTo(xi(0), yf(0)); hctx.lineTo(xi(Math.min(on, I_MAX) - 0.5), yf(0)); hctx.stroke();
   hctx.fillStyle = Q[2] + '88'; hctx.font = '8px monospace';
-  hctx.fillText('silent', xi(5), yf(0) - 4);
+  hctx.fillText('silent', xi(on * 0.25), yf(0) - 4);
 
-  // Unstable branch (dashed gray)
+  // Unstable branch (dashed)
   if (unstable.length > 1) {
     hctx.strokeStyle = Q[6] + '66'; hctx.lineWidth = 1.5; hctx.setLineDash([3, 3]);
     hctx.beginPath();
@@ -1055,12 +1065,10 @@ function drawHyst() {
       i === 0 ? hctx.moveTo(x, y) : hctx.lineTo(x, y);
     });
     hctx.stroke();
-    if (stable.length > 0) {
-      hctx.fillStyle = Q[1] + '88'; hctx.font = '8px monospace';
-      const lx = xi(Math.min(stable[stable.length - 1].I, I_MAX) * 0.5);
-      const ly = yf(stable[Math.floor(stable.length / 2)].f);
-      hctx.fillText('spiking', lx, ly - 5);
-    }
+    hctx.fillStyle = Q[1] + '88'; hctx.font = '8px monospace';
+    const lx = xi(Math.min(stable[stable.length - 1].I, I_MAX) * 0.5);
+    const ly = yf(stable[Math.floor(stable.length / 2)].f);
+    hctx.fillText('spiking', lx, ly - 5);
   }
 
   // Arrows
@@ -1075,23 +1083,12 @@ function drawHyst() {
     hctx.lineTo(x + ny * s * 0.5, y - nx * s * 0.5);
     hctx.closePath(); hctx.fill();
   };
-  arrowAt(xi(I_on * 0.4), yf(0), 1, 0, Q[2] + 'aa');
+  arrowAt(xi(on * 0.4), yf(0), 1, 0, Q[2] + 'aa');
   if (stable.length > 2) {
     const idx = Math.floor(stable.length * 0.4);
     const p0  = stable[idx], p1 = stable[idx - 1];
     arrowAt(xi(p0.I), yf(p0.f), xi(p1.I) - xi(p0.I), yf(p1.f) - yf(p0.f), Q[1] + 'aa');
   }
-
-  // Scan data
-  const dotR = 2.5;
-  scanData.up.forEach(({ I, f }) => {
-    hctx.beginPath(); hctx.arc(xi(I), yf(f), dotR, 0, Math.PI * 2);
-    hctx.fillStyle = Q[2] + 'cc'; hctx.fill();
-  });
-  scanData.down.forEach(({ I, f }) => {
-    hctx.beginPath(); hctx.arc(xi(I), yf(f), dotR, 0, Math.PI * 2);
-    hctx.fillStyle = Q[0] + 'cc'; hctx.fill();
-  });
 
   // History trail
   for (let i = 0; i < TRAIL_LEN; i++) {
@@ -1104,19 +1101,18 @@ function drawHyst() {
   }
 
   // Operating point
-  const currentI = scanMode ? scanI : I_eff;
   const obsF = (simISI !== null && (simStep - (lastSpikeStep || 0)) * DT < 1500)
     ? 1000 / (simISI * DT) : 0;
-  hctx.beginPath(); hctx.arc(xi(currentI), yf(obsF), 6, 0, Math.PI * 2);
-  hctx.fillStyle = Iw > 1 ? Q[1] : Q[2];
+  hctx.beginPath(); hctx.arc(xi(I_eff), yf(obsF), 6, 0, Math.PI * 2);
+  hctx.fillStyle = (enable_plus && Iw > 1) ? Q[1] : Q[2];
   hctx.strokeStyle = '#1e1e1e'; hctx.lineWidth = 1.5;
   hctx.fill(); hctx.stroke();
 
   hctx.strokeStyle = 'rgba(255,255,255,0.1)'; hctx.lineWidth = 1;
-  hctx.beginPath(); hctx.moveTo(xi(currentI), mt); hctx.lineTo(xi(currentI), mt + cH); hctx.stroke();
+  hctx.beginPath(); hctx.moveTo(xi(I_eff), mt); hctx.lineTo(xi(I_eff), mt + cH); hctx.stroke();
 }
 
-// ── State badge ────────────────────────────────────────────────────────────────
+// ── State badge + Iw+ mean readout ─────────────────────────────────────────────
 function updateBadge() {
   if (frameCount % 15 !== 0) return;
   const badge  = document.getElementById('state-badge');
@@ -1125,13 +1121,15 @@ function updateBadge() {
   const hzStr  = (obsF > 0.5 ? obsF.toFixed(1) : '  —').padStart(4);
   const iwStr  = Math.round(Iw).toString().padStart(2);
   badge.textContent = hzStr + ' Hz · Iw⁺ = ' + iwStr;
-  if (Iw > 1 && obsF > 0.5) {
+  if (enable_plus && Iw > 1 && obsF > 0.5) {
     badge.style.background = 'rgba(0,205,108,0.15)';
     badge.style.color = Q[1];
   } else {
     badge.style.background = 'rgba(0,154,222,0.12)';
     badge.style.color = Q[2];
   }
+  const meanEl = document.getElementById('mean-plus');
+  if (meanEl) meanEl.textContent = '⟨Iw⁺⟩ = ' + Iw.toFixed(1) + ' mV';
 }
 
 // ── Animation loop ─────────────────────────────────────────────────────────────
@@ -1143,46 +1141,21 @@ function loop() {
   lastFrameTime = now;
   frameCount++;
 
-  const currentI = scanMode ? scanI : I_eff;
-  const spd      = scanMode ? 4 : speed;
-  const steps    = Math.round(dtReal * spd / DT);
+  const steps = Math.round(dtReal * speed / DT);
 
   for (let s = 0; s < steps; s++) {
-    const spiked = step(currentI);
+    step(I_eff);
     vHistory[traceHead]      = V;
     iHistoryPulse[traceHead] = I_pulse;
-    iHistoryIw[traceHead]    = Iw;
+    iHistoryIw[traceHead]    = enable_plus ? Iw : 0;
     traceHead++;
     if (traceHead >= traceEff) { traceHead = 0; traceFull = true; }
-
-    if (scanMode) {
-      scanSteps++;
-      if (scanSteps > SCAN_DWELL / DT / 2) scanSpikes += spiked ? 1 : 0;
-      if (scanSteps >= SCAN_DWELL / DT) {
-        const f_meas = scanSpikes * 1000 / (SCAN_DWELL * 0.5);
-        if (scanDir === +1) scanData.up.push({ I: scanI, f: f_meas });
-        else               scanData.down.push({ I: scanI, f: f_meas });
-        scanSteps = 0; scanSpikes = 0;
-        const dI = (I_scan_hi - I_scan_lo) / SCAN_N;
-        if (scanDir === +1) {
-          scanI += dI;
-          if (scanI > I_scan_hi) { scanDir = -1; scanI = I_scan_hi; }
-        } else {
-          scanI -= dI;
-          if (scanI < I_scan_lo) {
-            scanMode = false;
-            document.getElementById('btn-scan').classList.remove('active');
-            document.getElementById('btn-scan').textContent = 'Auto-scan ⇔';
-          }
-        }
-      }
-    }
   }
 
   if (frameCount % 4 === 0) {
     const obsF = (simISI !== null && (simStep - (lastSpikeStep || 0)) * DT < 1500)
       ? 1000 / (simISI * DT) : 0;
-    trailI[trailHead] = scanMode ? scanI : I_eff;
+    trailI[trailHead] = I_eff;
     trailF[trailHead] = obsF;
     trailHead = (trailHead + 1) % TRAIL_LEN;
   }
@@ -1196,67 +1169,74 @@ function loop() {
 
 // ── Controls ───────────────────────────────────────────────────────────────────
 function resetSim() {
-  V = 0; Iw = 0;
+  V = V_rest; Iw = 0;
   I_pulse = 0; ieffMod = 0;
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
+  vHistory.fill(V_rest); iHistoryPulse.fill(0); iHistoryIw.fill(0);
   traceHead = 0; traceFull = false;
   lastSpikeStep = null; simISI = null; smoothISI = null; simStep = 0;
   trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
 }
 
-const resetBuffers = () => {
-  vHistory.fill(0); iHistoryPulse.fill(0); iHistoryIw.fill(0);
-  traceHead = 0; traceFull = false;
-  trailI.fill(NaN); trailF.fill(NaN); trailHead = 0;
+// Clear only the spike-timing trackers + branch cache on a live parameter change —
+// the simulation keeps running so the change can be felt (per site convention).
+const refreshFP = () => {
+  branchCache = null;
+  lastSpikeStep = null; simISI = null; smoothISI = null;
 };
 
 document.getElementById('sl-I').addEventListener('input', function () {
   I_eff = parseFloat(this.value);
-  document.getElementById('val-I').textContent = I_eff.toFixed(1) + ' µA';
+  document.getElementById('val-I').textContent = I_eff.toFixed(1) + ' mV';
+  lastSpikeStep = null; simISI = null; smoothISI = null;
 });
 
-document.getElementById('sl-cm').addEventListener('input', function () {
-  Cm = parseFloat(this.value);
-  document.getElementById('val-cm').textContent = Cm.toFixed(3) + ' µF';
-  branchCache = null; scanData = { up: [], down: [] }; resetBuffers();
+document.getElementById('sl-tau').addEventListener('input', function () {
+  tau_m = parseFloat(this.value);
+  document.getElementById('val-tau').textContent = Math.round(tau_m) + ' ms';
+  refreshFP();
 });
 
-document.getElementById('sl-rm').addEventListener('input', function () {
-  Rm = parseFloat(this.value);
-  V_sub = I_sub * Rm;
-  document.getElementById('val-rm').textContent = Rm.toFixed(0) + ' kΩ';
-  branchCache = null; scanData = { up: [], down: [] }; resetBuffers();
+document.getElementById('sl-vrest').addEventListener('input', function () {
+  let val = parseFloat(this.value);
+  if (val >= V_theta - 5) { val = V_theta - 5; this.value = val; }
+  V_rest = val;
+  document.getElementById('val-vrest').textContent = V_rest.toFixed(0) + ' mV';
+  refreshFP();
 });
 
-document.getElementById('sl-gl').addEventListener('input', function () {
-  gL = parseFloat(this.value);
-  document.getElementById('val-gl').textContent = gL.toFixed(1) + ' µS';
-  branchCache = null; scanData = { up: [], down: [] }; resetBuffers();
-});
-
-document.getElementById('sl-vsub').addEventListener('input', function () {
-  I_sub = parseFloat(this.value);
-  V_sub = I_sub * Rm;
-  document.getElementById('val-vsub').textContent = I_sub.toFixed(1) + ' µA';
-  branchCache = null; scanData = { up: [], down: [] }; resetBuffers();
+document.getElementById('sl-vtheta').addEventListener('input', function () {
+  let val = parseFloat(this.value);
+  if (val <= V_rest + 5) { val = V_rest + 5; this.value = val; }
+  V_theta = val;
+  document.getElementById('val-vtheta').textContent = V_theta.toFixed(0) + ' mV';
+  refreshFP();
 });
 
 document.getElementById('sl-bp').addEventListener('input', function () {
   b_plus = parseFloat(this.value);
-  document.getElementById('val-bp').textContent = b_plus.toFixed(1);
-  branchCache = null; scanData = { up: [], down: [] }; resetBuffers();
+  document.getElementById('val-bp').textContent = b_plus.toFixed(1) + ' mV';
+  refreshFP();
 });
 
 document.getElementById('sl-tauwp').addEventListener('input', function () {
   tau_wp = parseFloat(this.value);
-  document.getElementById('val-tauwp').textContent = tau_wp + ' ms';
-  branchCache = null; scanData = { up: [], down: [] }; resetBuffers();
+  document.getElementById('val-tauwp').textContent = Math.round(tau_wp) + ' ms';
+  refreshFP();
 });
 
 document.getElementById('sl-spd').addEventListener('input', function () {
   speed = parseFloat(this.value);
   const label = speed === 0.25 ? '¼×' : speed === 0.5 ? '½×' : speed === 0.75 ? '¾×' : speed + '×';
   document.getElementById('val-spd').textContent = label;
+});
+
+// ── Iw+ toggle ─────────────────────────────────────────────────────────────────
+document.getElementById('header-plus').addEventListener('click', () => {
+  enable_plus = !enable_plus;
+  document.getElementById('header-plus').classList.toggle('active', enable_plus);
+  document.getElementById('sliders-plus').classList.toggle('open', enable_plus);
+  if (!enable_plus) Iw = 0;
+  refreshFP();
 });
 
 // ── Stimulus controls ──────────────────────────────────────────────────────────
@@ -1275,7 +1255,7 @@ document.getElementById('stim-type-btns').addEventListener('click', e => {
 
 document.getElementById('sl-stim-amp').addEventListener('input', function () {
   stimAmp = parseFloat(this.value);
-  document.getElementById('val-stim-amp').textContent = stimAmp.toFixed(1) + ' µA';
+  document.getElementById('val-stim-amp').textContent = stimAmp.toFixed(1) + ' mV';
 });
 
 document.getElementById('sl-stim-dur').addEventListener('input', function () {
@@ -1285,7 +1265,7 @@ document.getElementById('sl-stim-dur').addEventListener('input', function () {
 
 document.getElementById('sl-stim-low').addEventListener('input', function () {
   stimLow = parseFloat(this.value);
-  document.getElementById('val-stim-low').textContent = stimLow.toFixed(1) + ' µA';
+  document.getElementById('val-stim-low').textContent = stimLow.toFixed(1) + ' mV';
 });
 
 document.getElementById('btn-fire').addEventListener('click', () => {
@@ -1299,33 +1279,6 @@ document.getElementById('btn-fire').addEventListener('click', () => {
 
 document.getElementById('btn-reset').addEventListener('click', () => {
   stopStim(); resetSim();
-  scanMode = false;
-  document.getElementById('btn-scan').classList.remove('active');
-  document.getElementById('btn-scan').textContent = 'Auto-scan ⇔';
-  scanData = { up: [], down: [] };
-});
-
-document.getElementById('btn-scan').addEventListener('click', () => {
-  if (scanMode) {
-    scanMode = false;
-    document.getElementById('btn-scan').classList.remove('active');
-    document.getElementById('btn-scan').textContent = 'Auto-scan ⇔';
-    return;
-  }
-  branchCache = null;
-  const { I_off } = getBranches();
-  const I_on = I_for_Vstar(V_sub);
-  I_scan_lo  = Math.max(0, I_off - 5);
-  I_scan_hi  = I_on + 10;
-  scanI     = I_scan_lo;
-  scanDir   = +1;
-  scanSteps = 0; scanSpikes = 0;
-  scanData  = { up: [], down: [] };
-  stopStim(); V = 0; Iw = 0;
-  lastSpikeStep = null; simISI = null;
-  scanMode  = true;
-  document.getElementById('btn-scan').classList.add('active');
-  document.getElementById('btn-scan').textContent = 'Stop scan ■';
 });
 
 document.getElementById('btn-zoom').addEventListener('click', () => {
@@ -1338,19 +1291,19 @@ document.getElementById('btn-zoom').addEventListener('click', () => {
 // ── KaTeX ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   katex.render(
-    String.raw`C_m \frac{dV}{dt} = -\bigl(\tfrac{1}{R_m}+g_L\bigr)V + I_{\text{net}},\quad I_{\text{net}} = I_{\text{eff}} + I_w^{+} + I_{\text{pulse}}`,
+    String.raw`\tau_m \frac{dV}{dt} = -(V - V_{\text{rest}}) + I_{\text{net}},\quad I_{\text{net}} = I_{\text{eff}} + I_w^{+} + I_{\text{pulse}}`,
     document.getElementById('eq1'), { displayMode: false }
   );
   katex.render(
-    String.raw`g_{\text{tot}} = \tfrac{1}{R_m}+g_L,\quad V^{*} = \frac{I_{\text{net}}}{g_{\text{tot}}},\quad \tau_{\text{eff}} = \frac{C_m}{g_{\text{tot}}},\quad f = \frac{1000}{\tau_{\text{eff}}\ln\!\left(\dfrac{V^{*}}{V^{*}-V_{\text{sub}}}\right)}`,
+    String.raw`\Delta V_\theta = V_\theta - V_{\text{rest}},\quad f = \frac{1000}{\tau_m\,\ln\!\left(\dfrac{I_{\text{net}}}{I_{\text{net}}-\Delta V_\theta}\right)}\ \ (I_{\text{net}} > \Delta V_\theta)`,
     document.getElementById('eq2'), { displayMode: false }
   );
   katex.render(
-    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+},\quad \text{on spike: } I_w^{+} \leftarrow I_w^{+} + b^{+},\quad K = \frac{b^{+}\tau_w^{+}}{1000}\ [\mu\text{A/Hz}]`,
+    String.raw`\tau_w^{+} \frac{dI_w^{+}}{dt} = -I_w^{+},\quad \text{on spike: } I_w^{+} \leftarrow I_w^{+} + b^{+},\quad K = \frac{b^{+}\tau_w^{+}}{1000}\ [\text{mV/Hz}]`,
     document.getElementById('eq3'), { displayMode: false }
   );
   katex.render(
-    String.raw`\text{spike if } V \geq V_{\text{sub}},\quad V \leftarrow 0\quad \text{(instantaneous reset)}`,
+    String.raw`\text{spike if } V \geq V_\theta,\quad V \leftarrow V_{\text{rest}}`,
     document.getElementById('eq4'), { displayMode: false }
   );
 });
@@ -1358,25 +1311,23 @@ window.addEventListener('load', () => {
 // ── Init sliders ───────────────────────────────────────────────────────────────
 function initSliders() {
   [
-    ['sl-I',        I_eff,   'val-I',        v => v.toFixed(1) + ' µA'],
-    ['sl-cm',       Cm,      'val-cm',       v => v.toFixed(3) + ' µF'],
-    ['sl-rm',       Rm,      'val-rm',       v => Math.round(v) + ' kΩ'],
-    ['sl-gl',       gL,      'val-gl',       v => v.toFixed(1) + ' µS'],
-    ['sl-vsub',     I_sub,   'val-vsub',     v => v.toFixed(1) + ' µA'],
-    ['sl-bp',       b_plus,  'val-bp',       v => v.toFixed(1)],
-    ['sl-tauwp',    tau_wp,  'val-tauwp',    v => v + ' ms'],
+    ['sl-tau',      tau_m,   'val-tau',      v => Math.round(v) + ' ms'],
+    ['sl-vrest',    V_rest,  'val-vrest',    v => Math.round(v) + ' mV'],
+    ['sl-vtheta',   V_theta, 'val-vtheta',   v => Math.round(v) + ' mV'],
+    ['sl-I',        I_eff,   'val-I',        v => v.toFixed(1) + ' mV'],
     ['sl-spd',      speed,   'val-spd',      v => v === 0.5 ? '½×' : v + '×'],
-    ['sl-stim-amp', stimAmp, 'val-stim-amp', v => v.toFixed(1) + ' µA'],
+    ['sl-tauwp',    tau_wp,  'val-tauwp',    v => Math.round(v) + ' ms'],
+    ['sl-bp',       b_plus,  'val-bp',       v => v.toFixed(1) + ' mV'],
+    ['sl-stim-amp', stimAmp, 'val-stim-amp', v => v.toFixed(1) + ' mV'],
     ['sl-stim-dur', stimDur, 'val-stim-dur', v => v + ' ms'],
-    ['sl-stim-low', stimLow, 'val-stim-low', v => v.toFixed(1) + ' µA'],
+    ['sl-stim-low', stimLow, 'val-stim-low', v => v.toFixed(1) + ' mV'],
   ].forEach(([sid, val, vid, fmt]) => {
     const s = document.getElementById(sid);
-    if (s) { s.value = val; s.dispatchEvent(new Event('input')); }
+    if (s) s.value = val;
     const v = document.getElementById(vid); if (v) v.textContent = fmt(val);
   });
 }
 initSliders();
-window.addEventListener('load', () => { initSliders(); setTimeout(initSliders, 200); });
 
 requestAnimationFrame(loop);
 </script>
