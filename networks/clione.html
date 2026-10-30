@@ -930,64 +930,17 @@
     .ctrl-btn.on:hover { filter: brightness(1.15); }
   }
 
-  /* Bottom controls (except the X/Y/Z rotate pills, kept as on main) use the site's main button style (same as the
-     preset buttons on the main site): 8px corners, grey border, lift +
-     shadow on hover, blue border and soft blue fill when on. */
-  .shell footer :is(.case-btn, .ctrl-btn, .speed-btn) {
-    font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    line-height: 1.2;
-    padding: 0.5rem 1.05rem;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--muted);
-    filter: none;
-    transition: border-color 0.18s, color 0.18s, background-color 0.18s,
-                transform 0.12s ease, box-shadow 0.18s;
+  /* Bottom controls keep the main-site Clione look (pills; solid blue with
+     white text when on). Speed and rotate buttons are a bit larger. */
+  .shell footer :is(.speed-btn, .rot-btn) {
+    font-size: 12px;
+    padding: 7px 12px;
   }
-  .shell footer .speed-btn {
-    font-size: 0.82rem;
-    padding: 0.5rem 0.9rem;
-    min-width: 2.6rem;
-    font-variant-numeric: tabular-nums;
-  }
+  .shell footer .speed-btn { min-width: 2.4rem; }
   /* keep the "Speed" label on the same line as its buttons */
   .shell footer .speed-inline { flex-wrap: nowrap; }
   .shell footer #speedButtons { gap: 6px; flex-wrap: nowrap; }
   @media (max-width: 420px) { .shell footer #speedButtons { flex-wrap: wrap; } }
-
-  /* X/Y/Z rotate pills: original look, a bit larger */
-  .shell footer .rot-btn {
-    font-size: 12px;
-    padding: 7px 12px;
-  }
-  .shell footer :is(.case-btn.active, .ctrl-btn.on, .speed-btn.on) {
-    border-color: var(--accent);
-    background: rgba(0, 154, 222, 0.14);
-    color: var(--accent);
-    text-shadow: 0 0 0.65px currentColor; /* looks bold, but keeps the button's width */
-  }
-  .shell footer :is(.case-btn, .ctrl-btn, .speed-btn):active {
-    transform: scale(0.97);
-    box-shadow: none;
-  }
-  @media (hover: hover) {
-    .shell footer :is(.case-btn, .ctrl-btn, .speed-btn):hover {
-      border-color: var(--accent);
-      color: var(--text);
-      background: var(--surface);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-      filter: none;
-    }
-    .shell footer :is(.case-btn.active, .ctrl-btn.on, .speed-btn.on):hover {
-      color: var(--accent);
-      background: rgba(0, 154, 222, 0.2);
-    }
-  }
 
 </style>
 </head>
