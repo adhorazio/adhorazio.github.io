@@ -392,6 +392,7 @@ updateRatio();
 requestAnimationFrame(loop);
 
 window.addEventListener('load', () => {
+  if (!window.katex) return; // equations are optional (KaTeX CDN unreachable)
   katex.render(
     String.raw`X_1(t) = A_1\,\sin(2\pi f_1\,t + \varphi_1)`,
     document.getElementById('eq1'), { displayMode: false, throwOnError: false }
