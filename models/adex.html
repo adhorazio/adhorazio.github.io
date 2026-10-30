@@ -466,7 +466,7 @@ const DT     = 0.1;  // ms   (integration time step)
 
 // ── Presets — Table 6.1, Gerstner et al. (Neuronal Dynamics) ──────────────
 // tau_m = C_m / g_L; varying tau_m with fixed g_L changes C_m
-// window: trace time span in ms (sets sampleEvery automatically)
+// window: trace time span in ms
 const PRESETS = {
   TONIC:    { I_ext: 65, tau_m: 20,  a:  0.0, b: 60, tau_w:  30, V_r: -55, window:  500 },
   ADAPTING: { I_ext: 65, tau_m: 20,  a:  0.0, b:  5, tau_w: 100, V_r: -55, window: 2000 },
