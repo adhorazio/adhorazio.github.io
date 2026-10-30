@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clione — QR Code</title>
+<style>
+  :root {
+    --bg:     #2b2b2b;
+    --border: #444444;
+    --text:   #e0e0e0;
+    --muted:  #888888;
+    --accent: #009ADE;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 3rem 2rem;
+  }
+
+  .page-title {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .page-title h1 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .page-title p {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .qr-frame {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,0.5);
+    line-height: 0;
+  }
+
+  #qr-canvas { display: block; }
+
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+  button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    padding: 0.45rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    font-family: inherit;
+    text-transform: uppercase;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .url-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.025em;
+    font-family: "SF Mono", "Fira Mono", ui-monospace, monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <h1>Clione</h1>
+  <p>Spiking Neuromorphics</p>
+</div>
+
+<div class="qr-frame">
+  <canvas id="qr-canvas"></canvas>
+</div>
+
+<div class="actions">
+  <button onclick="downloadPNG()">Download PNG</button>
+  <button onclick="downloadSVG()">Download SVG</button>
+</div>
+
+<span class="url-label">adhorazio.github.io/networks/clione.html</span>
+
+<script src="../assets/qrcode.min.js"></script>
+<script>
+const QR_URL  = 'https://adhorazio.github.io/networks/clione.html';
+const SIZE    = 440;   // canvas px
+const canvas  = document.getElementById('qr-canvas');
+canvas.width  = SIZE;
+canvas.height = SIZE;
+
+// ── Octahedron data ───────────────────────────────────────────────────────
+// Vertices after rotX(20°), no rotY — matches the classic straight-on view:
+//   T/B on vertical axis, L/R on horizontal, F visible below center, K hidden above.
+// u = screen-x factor, v = screen-y factor (py = cy − v·s)
+// z > 0 = front (solid),  z < 0 = back (dashed)
+//
+// rotX(20°) of [0,±1,0], [±1,0,0], [0,0,±1]:
+//   T [0,1,0]  → u=0,     v= 0.940, z= 0.342
+//   B [0,-1,0] → u=0,     v=-0.940, z=-0.342
+//   L [-1,0,0] → u=-1,    v= 0,     z= 0
+//   R [1,0,0]  → u= 1,    v= 0,     z= 0
+//   F [0,0,1]  → u=0,     v=-0.342, z= 0.940  ← front dot (below center)
+//   K [0,0,-1] → u=0,     v= 0.342, z=-0.940  ← hidden (above center)
+const VERTS = [
+  { u:  0,    v:  0.940, z:  0.342 }, // 0 T  top
+  { u:  0,    v: -0.940, z: -0.342 }, // 1 B  bottom
+  { u: -1.00, v:  0,     z:  0     }, // 2 L  left
+  { u:  1.00, v:  0,     z:  0     }, // 3 R  right
+  { u:  0,    v: -0.342, z:  0.940 }, // 4 F  front — visible dot
+  { u:  0,    v:  0.342, z: -0.940 }, // 5 K  back  — hidden (dashed)
+];
+
+// 12 octahedron edges: every pair except the 3 antipodal ones (T↔B, L↔R, F↔K)
+const EDGES = [
+  [0,2],[0,3],[0,4],[0,5],  // T–L, T–R, T–F, T–K
+  [1,2],[1,3],[1,4],[1,5],  // B–L, B–R, B–F, B–K
+  [2,4],[3,4],[2,5],[3,5],  // L–F, R–F, L–K, R–K
+];
+
+// Edge is dashed when it belongs ONLY to back-facing faces (all 4 edges touching K).
+// avg-z threshold: K-edges have avg-z ≤ −0.299, all others ≥ −0.171.
+const DASHED_THRESHOLD = -0.2;
+
+function drawOctahedron(ctx, cx, cy, radius) {
+  const s  = radius * 0.90;
+  const nr = radius * 0.085;
+
+  const pts = VERTS.map(v => ({
+    x: cx + v.u * s,
+    y: cy - v.v * s,
+    z: v.z,
+  }));
+
+  // Draw back edges first, then front (painter's order)
+  const sorted = EDGES
+    .map(([i, j]) => ({ i, j, z: (pts[i].z + pts[j].z) / 2 }))
+    .sort((a, b) => a.z - b.z);
+
+  for (const { i, j, z } of sorted) {
+    const dashed = z < DASHED_THRESHOLD;
+    ctx.beginPath();
+    ctx.moveTo(pts[i].x, pts[i].y);
+    ctx.lineTo(pts[j].x, pts[j].y);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth   = dashed ? 1.0 : 1.5;
+    ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Nodes back → front
+  const nodesSorted = pts.map((p, i) => ({ ...p, i })).sort((a, b) => a.z - b.z);
+  for (const pt of nodesSorted) {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, nr, 0, Math.PI * 2);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+  }
+}
+
+// ── Composite rendering ──────────────────────────────────────────────────
+// qrcodejs renders to a canvas (hidden) then copies to an img.
+// We render to a hidden div, capture the hidden canvas, then composite.
+
+function compose(srcCanvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(srcCanvas, 0, 0, SIZE, SIZE);
+
+  const cx = SIZE / 2, cy = SIZE / 2, r = SIZE * 0.135;
+
+  // Clear circle — white background for the logo
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  drawOctahedron(ctx, cx, cy, r);
+}
+
+// Render QR into hidden offscreen div
+const offDiv = document.createElement('div');
+offDiv.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;';
+document.body.appendChild(offDiv);
+
+new QRCode(offDiv, {
+  text:         QR_URL,
+  width:        SIZE,
+  height:       SIZE,
+  colorDark:    '#000000',
+  colorLight:   '#ffffff',
+  correctLevel: QRCode.CorrectLevel.H,
+});
+
+// qrcodejs is synchronous for canvas draw; the makeImage img swap
+// happens async (via a data-URI check). Capture before the swap.
+const srcCanvas = offDiv.querySelector('canvas');
+if (srcCanvas) {
+  compose(srcCanvas);
+} else {
+  // Fallback: wait one frame
+  requestAnimationFrame(() => {
+    const c2 = offDiv.querySelector('canvas');
+    if (c2) compose(c2);
+  });
+}
+
+// ── Download ─────────────────────────────────────────────────────────────
+function downloadPNG() {
+  const a = document.createElement('a');
+  a.download = 'clione-qr.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// Build a vector SVG by extracting the QR module matrix from the canvas pixels.
+function downloadSVG() {
+  const ctx    = canvas.getContext('2d');
+  const imgPx  = ctx.getImageData(0, 0, SIZE, SIZE).data;
+
+  // Detect module size: scan the top-left finder pattern.
+  // First non-light pixel row: modules start after the quiet zone.
+  const modSize = detectModuleSize(imgPx, SIZE);
+  const N       = Math.round(SIZE / modSize);
+  const svgMod  = 400 / N;
+  const svgSize = 400;
+
+  let rects = '';
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const sx = Math.floor((c + 0.5) * modSize);
+      const sy = Math.floor((r + 0.5) * modSize);
+      if (sx >= SIZE || sy >= SIZE) continue;
+      const idx = (sy * SIZE + sx) * 4;
+      if (imgPx[idx] < 128) {            // dark module → draw
+        const x = (c * svgMod).toFixed(2);
+        const y = (r * svgMod).toFixed(2);
+        const w = (svgMod + 0.3).toFixed(2);
+        rects += `<rect x="${x}" y="${y}" width="${w}" height="${w}"/>`;
+      }
+    }
+  }
+
+  // Octahedron paths for SVG
+  const cx = svgSize / 2, cy = svgSize / 2, R = svgSize * 0.135;
+  const s  = R * 0.90, nr = R * 0.085;
+  const pts = VERTS.map(v => ({
+    x: (cx + v.u * s).toFixed(2),
+    y: (cy - v.v * s).toFixed(2),
+    z: v.z,
+  }));
+
+  const edgesSorted = EDGES
+    .map(([i, j]) => ({ i, j, z: (VERTS[i].z + VERTS[j].z) / 2 }))
+    .sort((a, b) => a.z - b.z);
+
+  let edgeSvg = '';
+  for (const { i, j, z } of edgesSorted) {
+    const dashed = z < DASHED_THRESHOLD;
+    const lw     = dashed ? 1.0 : 1.5;
+    const dash   = dashed ? ' stroke-dasharray="4 3"' : '';
+    edgeSvg += `<line x1="${pts[i].x}" y1="${pts[i].y}" x2="${pts[j].x}" y2="${pts[j].y}" `
+             + `stroke="#000000" stroke-width="${lw}"${dash}/>`;
+  }
+
+  const nodesSorted = VERTS.map((v, i) => ({ ...v, i })).sort((a, b) => a.z - b.z);
+  let nodeSvg = '';
+  for (const v of nodesSorted) {
+    const px = pts[v.i].x, py = pts[v.i].y;
+    nodeSvg += `<circle cx="${px}" cy="${py}" r="${nr.toFixed(2)}" fill="#000000"/>`;
+  }
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgSize} ${svgSize}" width="${svgSize}" height="${svgSize}">
+  <rect width="${svgSize}" height="${svgSize}" fill="#ffffff"/>
+  <g fill="#000000">${rects}</g>
+  <circle cx="${cx}" cy="${cy}" r="${(R+6).toFixed(2)}" fill="#ffffff"/>
+  ${edgeSvg}
+  ${nodeSvg}
+</svg>`;
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.download = 'clione-qr.svg';
+  a.href = URL.createObjectURL(blob);
+  a.click();
+}
+
+// Scan first column to detect module size via dark-run length.
+function detectModuleSize(px, W) {
+  // Look at col=0 scan downward; first dark run gives 1 module height.
+  let runStart = -1, runLen = 0;
+  for (let y = 0; y < W; y++) {
+    const bright = px[y * W * 4] > 128;
+    if (!bright) {
+      if (runStart < 0) runStart = y;
+      runLen++;
+    } else if (runStart >= 0) {
+      break;
+    }
+  }
+  return runLen > 0 ? runLen : Math.round(W / 41);
+}
+</script>
+</body>
+</html>
