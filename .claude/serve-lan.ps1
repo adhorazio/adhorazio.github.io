@@ -13,8 +13,19 @@ $mime = @{
   '.ico'  = 'image/x-icon'; '.xml' = 'application/xml'; '.txt' = 'text/plain; charset=utf-8'
 }
 
-$listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $Port)
-$listener.Start()
+# Windows reserves some port ranges (Hyper-V / WSL); try a few until one works
+$listener = $null
+foreach ($p in @($Port, 8080, 5500, 8000, 8888, 4173, 9000, 18080)) {
+  try {
+    $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $p)
+    $l.Start()
+    $listener = $l; $Port = $p
+    break
+  } catch {
+    Write-Host "Port $p not available, trying another..."
+  }
+}
+if (-not $listener) { Write-Host "No free port found. Try: -Port 12345"; exit 1 }
 
 Write-Host ""
 Write-Host "Serving $root"
