@@ -14,8 +14,6 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `index.html` — home page (cards).
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
-- `networks/clione-qr.html` — printable QR code to the Clione page
-  (uses `assets/qrcode.min.js`).
 - `tools/lissajous.html` — Lissajous tool.
 
 Older pages (neuron models, hysteresis pages, the long AI_PROJECT_MEMORY.md)
