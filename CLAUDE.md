@@ -15,6 +15,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
 - `tools/lissajous.html` — Lissajous tool.
+- `models/izhikevich.html` — Izhikevich neuron (brought back from main, light layout).
 
 Older pages (neuron models, hysteresis pages, the long AI_PROJECT_MEMORY.md)
 are not lost: see `main` and the local branch `archive/hysteresis-work`.

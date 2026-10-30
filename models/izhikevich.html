@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Izhikevich Model</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <style>
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
+
+    /* Membrane trace (main plot) left, phase plane right; stacked on phones */
+    .plots {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 1rem;
+    }
+    #canvas-wrap { position: relative; min-width: 0; }
+    #trace { width: 100%; height: 300px; }
+    #phase { width: 300px; height: 300px; }
+
+    /* "What is what" under the controls, sections side by side from the left,
+       in the same order as the plots: trace first, then phase plane */
+    .legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .eq-reset { padding: 0.55rem 1rem; color: #b0b0b0; }
+    .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
+
+    @media (max-width: 760px) {
+      .plots { grid-template-columns: 1fr; }
+      #trace { height: 200px; }
+      #phase { width: 100%; max-width: 360px; height: auto; aspect-ratio: 1; justify-self: center; }
+    }
+    @media (max-width: 600px) {
+      .legend { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Izhikevich Model</h1>
+  <a href="../index.html">&larr; Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn active" data-preset="RS">Regular spiking</button>
+    <button class="preset-btn" data-preset="IB">Intrinsically bursting</button>
+    <button class="preset-btn" data-preset="CH">Chattering</button>
+    <button class="preset-btn" data-preset="FS">Fast spiking</button>
+    <button class="preset-btn" data-preset="LTS">Low-threshold spiking</button>
+    <button class="preset-btn" data-preset="RZ">Resonator</button>
+  </div>
+
+  <!-- Plots first, controls right under them, explanations last -->
+  <div class="plots">
+    <div id="canvas-wrap">
+      <canvas id="trace" height="300"></canvas>
+    </div>
+    <canvas id="phase" width="300" height="300"></canvas>
+  </div>
+
+  <div class="controls" id="controls">
+    <div class="control-group">
+      <label>a &mdash; recovery timescale <span id="val-a">0.02</span></label>
+      <input type="range" id="sl-a" min="0.01" max="0.15" step="0.005" value="0.02" />
+    </div>
+    <div class="control-group">
+      <label>b &mdash; recovery sensitivity <span id="val-b">0.20</span></label>
+      <input type="range" id="sl-b" min="0.1" max="0.3" step="0.01" value="0.20" />
+    </div>
+    <div class="control-group">
+      <label>c &mdash; reset value (mV) <span id="val-c">-65</span></label>
+      <input type="range" id="sl-c" min="-75" max="-40" step="1" value="-65" />
+    </div>
+    <div class="control-group">
+      <label>d &mdash; recovery reset <span id="val-d">8</span></label>
+      <input type="range" id="sl-d" min="0.05" max="10" step="0.05" value="8" />
+    </div>
+    <div class="control-group">
+      <label>I &mdash; input current <span id="val-I">10</span></label>
+      <input type="range" id="sl-I" min="0" max="25" step="0.5" value="10" />
+    </div>
+    <div class="control-group">
+      <label>speed <span id="val-spd">1&times;</span></label>
+      <input type="range" id="sl-spd" min="1" max="8" step="1" value="1" />
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <div class="legend-section">
+      <div class="legend-section-title">Trace</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <span>v (membrane potential)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+        <span>u (recovery variable)</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Phase plane (v, u)</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+        <span>phase trajectory</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q5); opacity: .6;"></div>
+        <span>dv/dt = 0 (v-nullcline)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q1); opacity: .6;"></div>
+        <span>du/dt = 0 (u-nullcline)</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Reset</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q4);"></div>
+        <span>c (v reset)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q6);"></div>
+        <span>u + d (recovery after spike)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="equations" id="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+    <div class="eq-reset" id="eq3"></div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="footer-ref">
+    <span class="ref-label">Reference</span>
+    Izhikevich, E. M. Simple model of spiking neurons. <em>IEEE Trans. Neural Netw.</em> <strong>14</strong>, 1569&ndash;1572 (2003).
+    <a href="https://doi.org/10.1109/TNN.2003.820440" target="_blank" rel="noopener">https://doi.org/10.1109/TNN.2003.820440</a>
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const GDV = {
+  q:  ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'],
+  s1: ['#E4F1F7','#C5E1EF','#9EC9E2','#6CB0D6','#3C93C2','#226E9C','#0D4A70'],
+  m3: ['#FFF3B2','#FED976','#FEB24C','#FD8D3C','#FC4E2A','#E31A1C','#B10026'],
+  d1: ['#009392','#39B185','#9CCB86','#E9E29C','#EEB479','#E88471','#CF597E'],
+};
+
+const PRESETS = {
+  RS:  { a:0.02, b:0.20, c:-65, d:8,  I:10 },
+  IB:  { a:0.02, b:0.20, c:-55, d:4,  I:10 },
+  CH:  { a:0.02, b:0.20, c:-50, d:2,  I:10 },
+  FS:  { a:0.10, b:0.20, c:-65, d:2,  I:10 },
+  LTS: { a:0.02, b:0.25, c:-65, d:2,  I:10 },
+  RZ:  { a:0.10, b:0.26, c:-65, d:2,  I:10 },
+};
+
+let params = { ...PRESETS.RS };
+let v = -65, u = params.b * v;
+let lastSpikeU = null;
+const TRACE_LEN = 600;
+const vHistory  = new Float32Array(TRACE_LEN);
+const uHistory  = new Float32Array(TRACE_LEN);
+let traceHead   = 0;
+let traceFull   = false;
+const PHASE_LEN = 800;
+const phaseV    = new Float32Array(PHASE_LEN);
+const phaseU    = new Float32Array(PHASE_LEN);
+let phaseHead   = 0;
+
+const traceCanvas = document.getElementById('trace');
+const tctx = traceCanvas.getContext('2d');
+const phaseCanvas = document.getElementById('phase');
+const pctx = phaseCanvas.getContext('2d');
+
+// HiDPI: match canvas pixels exactly to the on-screen size at the current
+// pixel ratio (Windows scaling / browser zoom), and follow layout changes.
+function fitCanvas(c, ctx) {
+  const r = c.getBoundingClientRect();
+  const w = r.width || c.width, h = r.height || c.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
+  c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
+}
+function resizeCanvases() {
+  fitCanvas(traceCanvas, tctx);
+  fitCanvas(phaseCanvas, pctx);
+}
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(resizeCanvases);
+  ro.observe(traceCanvas); ro.observe(phaseCanvas);
+}
+resizeCanvases();
+
+function step(I) {
+  for (let s = 0; s < 2; s++) {
+    const dv = 0.04*v*v + 5*v + 140 - u + I;
+    const du = params.a * (params.b*v - u);
+    v += dv * 0.5;
+    u += du * 0.5;
+  }
+  if (v >= 30) { lastSpikeU = u; v = params.c; u += params.d; }
+}
+
+function drawTrace() {
+  const W = traceCanvas._lw, H = traceCanvas._lh;
+  tctx.clearRect(0, 0, W, H);
+  const vMin = -90, vMax = 40;
+  const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
+
+  tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1;
+  [-65, -40, 0, 30].forEach(yv => {
+    const y = mapY(yv);
+    tctx.beginPath(); tctx.moveTo(0, y); tctx.lineTo(W, y); tctx.stroke();
+    tctx.fillStyle = '#555'; tctx.font = '10px monospace';
+    tctx.fillText(yv + ' mV', 4, y - 3);
+  });
+
+  const uScale = (vMax - vMin) / 200;
+  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
+
+  const drawSeg = (arr, from, to, color, lw, alpha, yFn) => {
+    if (to <= from) return;
+    tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (TRACE_LEN - 1)) * W;
+      i === from ? tctx.moveTo(x, yFn(arr[i])) : tctx.lineTo(x, yFn(arr[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  const yU = val => mapY(val * uScale - 65 + 5);
+  const yV = val => mapY(val);
+
+  if (traceFull) {
+    drawSeg(uHistory, traceHead, TRACE_LEN, GDV.q[0], 1,   0.12, yU);
+    drawSeg(vHistory, traceHead, TRACE_LEN, GDV.q[2], 1.8, 0.12, yV);
+  }
+  drawSeg(uHistory, 0, traceHead, GDV.q[0], 1,   0.5, yU);
+  drawSeg(vHistory, 0, traceHead, GDV.q[2], 1.8, 1.0, yV);
+
+  tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
+}
+
+function drawPhase() {
+  const W = phaseCanvas._lw, H = phaseCanvas._lh;
+  pctx.clearRect(0, 0, W, H);
+  pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
+  const vMin=-90, vMax=40, uMin=-25, uMax=20;
+  const mx = v => (v - vMin)/(vMax - vMin) * W;
+  const mu = u => H - (u - uMin)/(uMax - uMin) * H;
+  pctx.fillStyle = '#777'; pctx.font = '12px monospace';
+  pctx.fillText('v', W - 12, H - 6);
+  pctx.fillText('u', 4, 13);
+
+  pctx.strokeStyle = GDV.q[4] + '66'; pctx.lineWidth = 1;
+  pctx.beginPath();
+  for (let vi = vMin; vi <= vMax; vi++) {
+    const ui = 0.04*vi*vi + 5*vi + 140 + params.I;
+    vi === vMin ? pctx.moveTo(mx(vi), mu(ui)) : pctx.lineTo(mx(vi), mu(ui));
+  }
+  pctx.stroke();
+  pctx.strokeStyle = GDV.q[0] + '66';
+  pctx.beginPath();
+  for (let vi = vMin; vi <= vMax; vi++) pctx.lineTo(mx(vi), mu(params.b * vi));
+  pctx.stroke();
+  // Reference lines c and d
+  pctx.setLineDash([3, 3]);
+  pctx.lineWidth = 1;
+
+  pctx.strokeStyle = GDV.q[3] + 'aa';
+  pctx.beginPath(); pctx.moveTo(mx(params.c), 0); pctx.lineTo(mx(params.c), H); pctx.stroke();
+
+  pctx.setLineDash([]);
+
+  // Horizontal line at u = lastSpikeU + d
+  if (lastSpikeU !== null) {
+    pctx.setLineDash([3, 3]);
+    pctx.strokeStyle = GDV.q[5] + 'aa';
+    pctx.lineWidth = 1;
+    pctx.beginPath(); pctx.moveTo(0, mu(lastSpikeU + params.d)); pctx.lineTo(W, mu(lastSpikeU + params.d)); pctx.stroke();
+    pctx.setLineDash([]);
+  }
+
+  // Reset arrow: (30, lastSpikeU) → (c, lastSpikeU + d)
+  if (lastSpikeU !== null) {
+    const ax1 = mx(30), ay = mu(lastSpikeU);
+    const ax2 = mx(params.c), ay2 = mu(lastSpikeU + params.d);
+    pctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    pctx.lineWidth = 1; pctx.setLineDash([2, 2]);
+    pctx.beginPath(); pctx.moveTo(ax1, ay); pctx.lineTo(ax2, ay); pctx.lineTo(ax2, ay2); pctx.stroke();
+    pctx.setLineDash([]);
+    pctx.fillStyle = 'rgba(255,255,255,0.5)';
+    pctx.beginPath(); pctx.arc(ax2, ay2, 2, 0, Math.PI * 2); pctx.fill();
+  }
+
+  // Fading trajectory, drawn in short runs that share one opacity
+  // (~20 strokes per frame instead of 800; looks the same)
+  const RUN = 40;
+  pctx.lineWidth = 1.2;
+  pctx.lineJoin = 'round';
+  for (let i0 = 0; i0 < PHASE_LEN - 1; i0 += RUN) {
+    const i1 = Math.min(i0 + RUN, PHASE_LEN - 1);
+    pctx.strokeStyle = `rgba(255,197,30,${((i0 + i1) / 2 / PHASE_LEN) * 0.75})`;
+    pctx.beginPath();
+    for (let i = i0; i <= i1; i++) {
+      const idx = (phaseHead + i) % PHASE_LEN;
+      i === i0 ? pctx.moveTo(mx(phaseV[idx]), mu(phaseU[idx]))
+               : pctx.lineTo(mx(phaseV[idx]), mu(phaseU[idx]));
+    }
+    pctx.stroke();
+  }
+  pctx.beginPath();
+  pctx.arc(mx(v), mu(u), 3, 0, Math.PI * 2);
+  pctx.fillStyle = GDV.q[2]; pctx.fill();
+}
+
+function loop() {
+  const speed = parseInt(document.getElementById('sl-spd').value, 10);
+  for (let s = 0; s < speed; s++) {
+    step(params.I);
+    vHistory[traceHead] = v; uHistory[traceHead] = u;
+    traceHead++;
+    if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
+    phaseV[phaseHead] = v; phaseU[phaseHead] = u;
+    phaseHead = (phaseHead + 1) % PHASE_LEN;
+  }
+  drawTrace(); drawPhase();
+  requestAnimationFrame(loop);
+}
+
+[['a','sl-a','val-a',2],['b','sl-b','val-b',2],
+ ['c','sl-c','val-c',0],['d','sl-d','val-d',2],
+ ['I','sl-I','val-I',1]].forEach(([key, slId, valId, dec]) => {
+  const sl = document.getElementById(slId);
+  const val = document.getElementById(valId);
+  sl.addEventListener('input', () => {
+    params[key] = parseFloat(sl.value);
+    val.textContent = parseFloat(sl.value).toFixed(dec);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  });
+});
+
+document.getElementById('sl-spd').addEventListener('input', function() {
+  document.getElementById('val-spd').textContent = this.value + '×';
+});
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  params = { ...p };
+  v = -65; u = params.b * v;
+  vHistory.fill(-65); uHistory.fill(params.b * v);
+  traceHead = 0; traceFull = false; lastSpikeU = null;
+  document.getElementById('sl-a').value = p.a;
+  document.getElementById('sl-b').value = p.b;
+  document.getElementById('sl-c').value = p.c;
+  document.getElementById('sl-d').value = p.d;
+  document.getElementById('sl-I').value = p.I;
+  document.getElementById('val-a').textContent = p.a.toFixed(2);
+  document.getElementById('val-b').textContent = p.b.toFixed(2);
+  document.getElementById('val-c').textContent = p.c.toFixed(0);
+  document.getElementById('val-d').textContent = p.d.toFixed(2);
+  document.getElementById('val-I').textContent = p.I.toFixed(1);
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+}
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  if (!window.katex) return; // equations are optional (KaTeX CDN unreachable)
+  katex.render(String.raw`\frac{dv}{dt} = 0.04v^2 + 5v + 140 - u + I`, document.getElementById('eq1'), { displayMode: false });
+  katex.render(String.raw`\frac{du}{dt} = a\,(bv - u)`, document.getElementById('eq2'), { displayMode: false });
+  katex.render(String.raw`\text{if } v \geq 30\,\text{mV} \;:\quad v \leftarrow c,\quad u \leftarrow u + d`, document.getElementById('eq3'), { displayMode: false });
+});
+</script>
+
+</body>
+</html>
