@@ -20,12 +20,11 @@
     .legend {
       flex-direction: row;
       flex-wrap: wrap;
-      justify-content: space-between;
       gap: 0.8rem 2.5rem;
       padding-top: 1rem;
       border-top: 1px solid var(--border);
     }
-    .legend-axes { display: flex; flex-wrap: wrap; gap: 0.8rem 2.5rem; }
+    .legend-axes { display: contents; } /* X and Y simply follow Trace in the row */
     .freq-display {
       font-size: 0.68rem;
       color: var(--gdv-q5);
@@ -34,7 +33,7 @@
     }
 
     @media (max-width: 600px) {
-      .legend, .legend-axes { flex-direction: column; gap: 1rem; }
+      .legend { flex-direction: column; gap: 1rem; }
       #trace { height: 140px; }
     }
   </style>
