@@ -336,7 +336,7 @@
     justify-self: end;
   }
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1260px) { /* stack the controls before the bigger buttons collide */
     footer {
       grid-template-columns: 1fr;
       justify-items: center;
@@ -949,9 +949,20 @@
                 transform 0.12s ease, box-shadow 0.18s;
   }
   .shell footer .speed-btn {
-    font-size: 0.75rem;
-    padding: 0.4rem 0.7rem;
+    font-size: 0.82rem;
+    padding: 0.5rem 0.9rem;
+    min-width: 2.6rem;
     font-variant-numeric: tabular-nums;
+  }
+  /* keep the "Speed" label on the same line as its buttons */
+  .shell footer .speed-inline { flex-wrap: nowrap; }
+  .shell footer #speedButtons { gap: 6px; flex-wrap: nowrap; }
+  @media (max-width: 420px) { .shell footer #speedButtons { flex-wrap: wrap; } }
+
+  /* X/Y/Z rotate pills: original look, a bit larger */
+  .shell footer .rot-btn {
+    font-size: 12px;
+    padding: 7px 12px;
   }
   .shell footer :is(.case-btn.active, .ctrl-btn.on, .speed-btn.on) {
     border-color: var(--accent);
