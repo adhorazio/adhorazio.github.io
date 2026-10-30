@@ -4,244 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spiking Neuromorphics</title>
-  <style>
-    :root {
-      --bg: #2b2b2b;
-      --surface: #333333;
-      --border: #444444;
-      --text: #e0e0e0;
-      --text-dim: #888888;
-      --accent: #009ADE;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 2rem 2rem;
-    }
-
-    /* ── Header ── */
-    header {
-      width: 100%;
-      max-width: 900px;
-      padding: 16px 0 1.5rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2rem;
-    }
-
-    .header-title {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .header-title img {
-      height: 4rem;
-      width: auto;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--text);
-    }
-
-    header p {
-      margin-top: 0.05rem;
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      letter-spacing: 0.04em;
-    }
-
-    main {
-      flex: 1;
-      width: 100%;
-      max-width: 900px;
-    }
-
-    /* ── Sections ── */
-    .section {
-      margin-bottom: 2.5rem;
-    }
-
-    .section-label {
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text);
-      margin-bottom: 0.9rem;
-    }
-
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 0.75rem;
-    }
-
-    /* ── Cards ── */
-    .card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.1rem 1.25rem;
-      text-decoration: none;
-      color: var(--text);
-      transition: border-color 0.2s, background 0.2s,
-                  transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-                  box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .card:hover {
-      border-color: var(--accent);
-      background: rgba(0,154,222,0.05);
-      transform: translateY(-3px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    }
-
-    .card-body {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .card-name {
-      font-size: 0.9rem;
-      font-weight: 500;
-      margin-bottom: 0.25rem;
-    }
-
-    .card-sub {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-    }
-
-    /* ── Footer ── */
-    footer {
-      width: 100%;
-      max-width: 900px;
-      padding: 0.75rem 0 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-top: 1px solid var(--border);
-      margin-top: 2.5rem;
-    }
-
-    footer a {
-      color: var(--text-dim);
-      text-decoration: none;
-      transition: color 0.15s;
-    }
-
-    footer a:hover { color: var(--accent); }
-
-    /* ── Mobile ── */
-    @media (max-width: 600px) {
-      body { padding: 0 1rem 1.5rem; }
-      header { padding: 16px 0 1.25rem; margin-bottom: 1.5rem; }
-      header h1 { font-size: 1.55rem; }
-      .header-title { gap: 0.6rem; flex-wrap: wrap; }
-      .header-title img { height: 2.5rem; }
-      .card-grid { grid-template-columns: 1fr; }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/css/site.css" />
 </head>
 <body>
 
 <header>
-  <div class="header-title">
-    <h1>Spiking Neuromorphics</h1>
-    <img src="assets/img/AP_HH.svg" alt="HH action potential" />
-  </div>
+  <h1>Spiking Neuromorphics</h1>
   <p>How Far Can Minimal Models Reproduce Neural Dynamics?</p>
 </header>
 
 <main>
-
-  <section class="section animate">
-    <div class="section-label">Neuron Models</div>
-    <div class="card-grid">
-      <a class="card" href="models/lif.html">
-        <div class="card-body">
-          <div class="card-name">LIF</div>
-          <div class="card-sub">Leaky integrate-and-fire neuron</div>
-        </div>
-      </a>
-      <a class="card" href="models/izhikevich.html">
-        <div class="card-body">
-          <div class="card-name">Izhikevich</div>
-          <div class="card-sub">Simple spiking neuron model</div>
-        </div>
-      </a>
-      <a class="card" href="models/hodgkin-huxley.html">
-        <div class="card-body">
-          <div class="card-name">Hodgkin–Huxley</div>
-          <div class="card-sub">Conductance-based action potential</div>
-        </div>
-      </a>
-      <a class="card" href="models/alif.html">
-        <div class="card-body">
-          <div class="card-name">aLIF</div>
-          <div class="card-sub">Analogue LIF with adaptation and self-excitation</div>
-        </div>
-      </a>
-      <a class="card" href="models/adex.html">
-        <div class="card-body">
-          <div class="card-name">AdEx</div>
-          <div class="card-sub">Adaptive exponential integrate-and-fire</div>
-        </div>
-      </a>
-      <a class="card" href="models/lif-se.html">
-        <div class="card-body">
-          <div class="card-name">LIF — Hysteresis</div>
-          <div class="card-sub">Simple LIF bistability via self-excitation</div>
-        </div>
-      </a>
-    </div>
-  </section>
-
-  <section class="section animate">
+  <section class="section">
     <div class="section-label">Networks</div>
     <div class="card-grid">
       <a class="card" href="networks/clione.html">
-        <div class="card-body">
-          <div class="card-name">Clione</div>
-          <div class="card-sub">Barycentric firing-rate dynamics</div>
-        </div>
+        <div class="card-name">Clione</div>
+        <div class="card-sub">Barycentric firing-rate dynamics</div>
+      </a>
+      <a class="card" href="networks/clione-qr.html">
+        <div class="card-name">Clione — QR code</div>
+        <div class="card-sub">Printable link to the Clione page</div>
       </a>
     </div>
   </section>
 
-  <section class="section animate">
+  <section class="section">
     <div class="section-label">Toolkit</div>
     <div class="card-grid">
       <a class="card" href="tools/lissajous.html">
-        <div class="card-body">
-          <div class="card-name">Lissajous</div>
-          <div class="card-sub">Parametric signal figures</div>
-        </div>
+        <div class="card-name">Lissajous</div>
+        <div class="card-sub">Parametric signal figures</div>
       </a>
     </div>
   </section>
-
 </main>
 
 <footer>
-  <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
-  <a href="LICENSE">MIT License</a>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="LICENSE">MIT License</a>
+  </div>
 </footer>
 
 </body>
