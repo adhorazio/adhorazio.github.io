@@ -154,12 +154,16 @@ const lctx            = lissajousCanvas.getContext('2d');
 const traceCanvas     = document.getElementById('trace');
 const tctx            = traceCanvas.getContext('2d');
 
-// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
-const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+// HiDPI: match the canvas pixels exactly to its on-screen size, using the
+// *current* pixel ratio (it changes with Windows display scaling and browser
+// zoom). A mismatch leaves a stretched sliver at the right edge.
 function fitCanvas(c, ctx) {
-  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
-  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const r = c.getBoundingClientRect();
+  const w = r.width || c.width, h = r.height || c.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
   c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
 }
 function resizeCanvases() {
@@ -168,6 +172,10 @@ function resizeCanvases() {
 }
 window.addEventListener('resize', resizeCanvases);
 window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(resizeCanvases);
+  ro.observe(lissajousCanvas); ro.observe(traceCanvas);
+}
 resizeCanvases();
 
 // ── Signals ───────────────────────────────────────────────────────────────────
@@ -272,11 +280,6 @@ function drawTrace() {
   tctx.setLineDash([4, 4]);
   tctx.beginPath(); tctx.moveTo(0, H / 2); tctx.lineTo(W, H / 2); tctx.stroke();
   tctx.setLineDash([]);
-
-  // Playhead
-  tctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(W, 0); tctx.lineTo(W, H); tctx.stroke();
 
   const drawSig = (fn, color) => {
     tctx.beginPath();
