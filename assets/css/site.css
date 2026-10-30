@@ -119,9 +119,11 @@ canvas { display: block; border-radius: 6px; background: var(--canvas); }
   font-weight: 500;
   cursor: pointer;
   transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease),
-              background-color var(--dur) var(--ease), transform 120ms var(--ease);
+              background-color var(--dur) var(--ease), transform 120ms var(--ease),
+              box-shadow var(--dur) var(--ease);
+  letter-spacing: 0.01em;
 }
-.preset-btn:active, .card:active { transform: scale(0.97); }
+.preset-btn:active, .card:active { transform: scale(0.97); box-shadow: none; }
 :is(a, button, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .preset-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
@@ -210,12 +212,14 @@ footer a:hover { color: var(--accent); }
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
   .card:hover .card-name { color: var(--accent); }
-  .preset-btn:not(.active):hover {
+  /* main-site preset style: blue border, lift and soft shadow */
+  .preset-btn:hover {
     border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0, 154, 222, 0.08);
+    color: var(--text);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   }
-  .preset-btn.active:hover { background: rgba(0, 154, 222, 0.22); }
+  .preset-btn.active:hover { color: var(--accent); background: rgba(0, 154, 222, 0.2); }
 }
 
 /* ── Touch screens: finger-sized controls ── */
