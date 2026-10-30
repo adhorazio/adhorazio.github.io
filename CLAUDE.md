@@ -24,7 +24,8 @@ Bring a page back only when asked.
 Presets -> big plots -> controls (sliders) right under the plots ->
 "what is what" legend as a quiet row below the controls -> equations ->
 reference. Keep explanations out of the space between plots and controls.
-On PC the plots sit side by side and large; on phones they stack.
+Plots large; legend sections in the same order as the plots they describe.
+Lissajous: figure centred, full-width waveforms (full 4 s span) below it.
 
 ## Before committing
 Page loads without console errors, links work, `sitemap.xml` and the home
