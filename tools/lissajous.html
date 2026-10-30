@@ -8,11 +8,26 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
   <style>
-    /* Page-specific layout only — shared styles live in assets/css/site.css */
-    #liss-wrap { display: flex; gap: 1rem; align-items: flex-start; }
-    #lissajous { width: 220px; height: 220px; flex-shrink: 0; }
-    #canvas-wrap { position: relative; width: 100%; }
-    #trace { width: 100%; height: 120px; }
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
+
+    /* Big plots side by side: Lissajous figure + time traces */
+    .plots {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 1rem;
+    }
+    #lissajous { width: 360px; height: 360px; }
+    #canvas-wrap { position: relative; min-width: 0; }
+    #trace { width: 100%; height: 360px; }
+
+    /* "What is what" sits under the controls, as a quiet row */
+    .legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
     .freq-display {
       font-size: 0.68rem;
       color: var(--gdv-q5);
@@ -20,15 +35,14 @@
       margin-top: 0.15rem;
     }
 
+    /* Narrower screens: stack the plots */
+    @media (max-width: 760px) {
+      .plots { grid-template-columns: 1fr; }
+      #lissajous { width: 100%; max-width: 420px; height: auto; aspect-ratio: 1; justify-self: center; }
+      #trace { height: 140px; }
+    }
     @media (max-width: 600px) {
-      /* Legend goes after the controls on phones */
-      #liss-wrap   { display: contents; }
-      .widget-title{ order: 0; }
-      .presets     { order: 1; }
-      #lissajous   { order: 2; width: 100%; height: auto; }
-      #canvas-wrap { order: 3; }
-      .controls    { order: 4; }
-      .legend      { order: 5; }
+      .legend { flex-direction: column; gap: 1rem; }
     }
   </style>
 </head>
@@ -54,41 +68,12 @@
     <button class="preset-btn" data-preset="P6Q5">6:5</button>
   </div>
 
-  <div id="liss-wrap">
-    <canvas id="lissajous" width="220" height="220"></canvas>
-    <div class="legend">
-      <div class="legend-section">
-        <div class="legend-section-title">X axis (horizontal)</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>X₁ = sin(2πt)</span>
-        </div>
-        <div class="legend-note">A₁ = 1 &nbsp;·&nbsp; f₁ = 1 Hz &nbsp;·&nbsp; φ₁ = 0 &nbsp;— fixed</div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-section-title">Y axis (vertical)</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
-          <span>X₂ = A₂ sin(2πf₂t + φ₂)</span>
-        </div>
-        <div class="freq-display" id="ratio-display">f₂ / f₁ = 2:1</div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-section-title">Trace</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: rgba(255,255,255,0.15);"></div>
-          <span>ghost (full curve)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>live trail</span>
-        </div>
-      </div>
+  <!-- Plots first, controls right under them, explanations last -->
+  <div class="plots">
+    <canvas id="lissajous" width="360" height="360"></canvas>
+    <div id="canvas-wrap">
+      <canvas id="trace" height="360"></canvas>
     </div>
-  </div>
-
-  <div id="canvas-wrap">
-    <canvas id="trace" height="120"></canvas>
   </div>
 
   <div class="controls">
@@ -107,6 +92,36 @@
     <div class="control-group">
       <label>speed <span id="val-spd">½×</span></label>
       <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.5" />
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <div class="legend-section">
+      <div class="legend-section-title">X axis (horizontal)</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <span>X₁ = sin(2πt)</span>
+      </div>
+      <div class="legend-note">A₁ = 1 &nbsp;·&nbsp; f₁ = 1 Hz &nbsp;·&nbsp; φ₁ = 0 &nbsp;— fixed</div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Y axis (vertical)</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+        <span>X₂ = A₂ sin(2πf₂t + φ₂)</span>
+      </div>
+      <div class="freq-display" id="ratio-display">f₂ / f₁ = 2:1</div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Trace</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: rgba(255,255,255,0.15);"></div>
+        <span>ghost (full curve)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <span>live trail</span>
+      </div>
     </div>
   </div>
 </div>
@@ -264,11 +279,12 @@ function drawLissajous() {
 }
 
 // ── Time-trace canvas ─────────────────────────────────────────────────────────
-const TRACE_DUR  = 4;
+const TRACE_PX_PER_S = 210; // time window = panel width / 210 px per second
 const TRACE_SAMP = 500;
 
 function drawTrace() {
   const W = traceCanvas._lw, H = traceCanvas._lh;
+  const TRACE_DUR = Math.max(1.5, W / TRACE_PX_PER_S);
   tctx.clearRect(0, 0, W, H);
 
   const maxA = Math.max(1, params.A2) * 1.15;
