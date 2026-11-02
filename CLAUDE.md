@@ -21,6 +21,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `models/lif.html` — LIF neuron (brought back from main, light layout).
 - `models/izhikevich.html` — Izhikevich neuron (brought back from main, light layout).
 - `models/adex.html` — AdEx neuron (brought back from main, light layout).
+- `models/aqif.html` — adaptive QIF (parameters from Depannemaecker, d'Hollande et al. 2026); base for the eQIF page.
 
 Older pages (neuron models, hysteresis pages, the long AI_PROJECT_MEMORY.md)
 are not lost: see `main` and the local branch `archive/hysteresis-work`.
