@@ -737,8 +737,6 @@ function drawSlowPlane() {
       pctx.beginPath(); pctx.moveTo(ax, ay); pctx.lineTo(bx - 5 * ux, by - 5 * uy); pctx.stroke();
       pctx.setLineDash([]);
       pctx.beginPath(); pctx.moveTo(bx, by); pctx.lineTo(bx - 6 * ux - 3 * uy, by - 6 * uy + 3 * ux); pctx.lineTo(bx - 6 * ux + 3 * uy, by - 6 * uy - 3 * ux); pctx.closePath(); pctx.fill();
-      pctx.font = '10px monospace'; pctx.textAlign = 'left';
-      pctx.fillText('+ (b⁻, b⁺)', bx + 5, by - 2);
       pctx.restore();
     }
   }
