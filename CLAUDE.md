@@ -47,11 +47,13 @@ white dot = where the neuron is now (phase-plane state, f-I operating point).
 Extended palette: `PALETTE_EXT` in palette.js lists every colour in use or kept for reference: GDV 6a,
 extra tones picked from the GDV ramps, the full GDV ramps, and legacy sets (old Clione Open Color, old HH gates).
 Use it when many series need colours and telling them apart matters less; meaning still comes from COL / 6a.
-Feedback toggles (neuron models): a small green '+ self-excitation w_e' button adds
+Feedback currents (neuron models): one .adapt-section box per slow current (main-site aLIF design,
+styles in site.css): pill + name + sparkline with mean mu, sliders inside. Own adaptation = red box,
+always on (.fixed); self-excitation = green box, click to toggle. The w_e box adds
 tau_e dw_e/dt = a_e (V - E_L) - w_e, +w_e in dV/dt, w_e += b_e at spike (the paper's I_w, renamed).
 Adaptation is never removed from models that have it; models without it (LIF) also get an
-'+ adaptation' button. With w_e on: green w_e scope, Excite/Inhibit pulse buttons (+-100 pA, 50 ms,
-yellow blocks under V), phase plane switch (V, w) / (V, w_e), equilibria from the full Jacobian.
+'+ adaptation' button. With w_e on: green w_e scope, Excite/Inhibit pulse buttons (+-100 pA, 50 ms; yellow
+buttons flashing green/red, green/red blocks under V), phase plane switch (V, w) / (V, w_e), equilibria from the full Jacobian.
 Reference implementation: models/aqif.html (Working memory preset).
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current
 curve (V-nullcline, rheobase) always uses styleInputCurve() and is clipped, never flattened.
