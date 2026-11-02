@@ -22,7 +22,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `models/lif.html` — LIF neuron (brought back from main, light layout).
 - `models/izhikevich.html` — Izhikevich neuron (brought back from main, light layout).
 - `models/adex.html` — AdEx neuron (brought back from main, light layout).
-- `models/aqif.html` — adaptive QIF (parameters from Depannemaecker, d'Hollande et al. 2026); base for the eQIF page.
+- `models/qif.html` — QIF with two optional slow currents: adaptation w- (aQIF) and self-excitation w+ (eQIF, the paper's I_w); parameters from Depannemaecker, d'Hollande et al. 2026.
 
 Older pages (neuron models, hysteresis pages, the long AI_PROJECT_MEMORY.md)
 are not lost: see `main` and the local branch `archive/hysteresis-work`.
@@ -47,14 +47,15 @@ white dot = where the neuron is now (phase-plane state, f-I operating point).
 Extended palette: `PALETTE_EXT` in palette.js lists every colour in use or kept for reference: GDV 6a,
 extra tones picked from the GDV ramps, the full GDV ramps, and legacy sets (old Clione Open Color, old HH gates).
 Use it when many series need colours and telling them apart matters less; meaning still comes from COL / 6a.
-Feedback currents (neuron models): one .adapt-section box per slow current (main-site aLIF design,
-styles in site.css): pill + name + sparkline with mean mu, sliders inside. Own adaptation = red box,
-always on (.fixed); self-excitation = green box, click to toggle. The w_e box adds
-tau_e dw_e/dt = a_e (V - E_L) - w_e, +w_e in dV/dt, w_e += b_e at spike (the paper's I_w, renamed).
-Adaptation is never removed from models that have it; models without it (LIF) also get an
-'+ adaptation' button. With w_e on: green w_e scope, Excite/Inhibit pulse buttons (+-100 pA, 50 ms; yellow
-buttons flashing green/red, green/red blocks under V), phase plane switch (V, w) / (V, w_e), equilibria from the full Jacobian.
-Reference implementation: models/aqif.html (Working memory preset).
+Feedback currents (neuron models): naming w- (adaptation, red, negative feedback) and w+ (self-excitation,
+green, positive feedback; the paper's I_w). Each has a toggle button in the Feedback row and an .adapt-section
+box (main-site aLIF design, styles in site.css: pill + name + sparkline with mean mu, sliders a, b, tau inside);
+button and box header are the same switch. tau+- dw+-/dt = a+-(V - E_L) - w+-, dV/dt gets -w- +w+, w+- += b+- at
+spike. Pages whose model has adaptation built in (Izhikevich u, AdEx w) keep it always on (.fixed box) and only
+get the w+ switch. With w+ on: Excite/Inhibit pulses (+-100 pA, 50 ms; yellow buttons flashing green/red,
+green/red blocks under V). Phase views offered by what is on: (V, dV/dt) phase line, (V, w-), (V, w+),
+slow plane (w-, w+) with the 45-degree spiking line I + w+ - w- = I_SN; equilibria from the full Jacobian.
+Reference implementation: models/qif.html (both currents togglable, w-/w+ naming, phase line / (V,w-) / (V,w+) / slow plane (w-,w+)).
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current
 curve (V-nullcline, rheobase) always uses styleInputCurve() and is clipped, never flattened.
 Spike plots are stacked scopes (assets/js/scope.js): one scope per signal (V on top,
