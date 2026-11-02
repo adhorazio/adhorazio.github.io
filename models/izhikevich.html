@@ -300,7 +300,7 @@ function drawPhase() {
   pctx.fillText('v', W - 12, H - 6);
   pctx.fillText('u', 4, 13);
 
-  pctx.strokeStyle = COL.IN + 'aa'; pctx.lineWidth = 1.2;  // v-nullcline: shifts with the input current I
+  styleInputCurve(pctx);  // v-nullcline: shifts with the input current I
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) {
     const ui = 0.04*vi*vi + 5*vi + 140 + params.I;

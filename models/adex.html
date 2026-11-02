@@ -139,8 +139,8 @@
       <input type="range" id="sl-Vr" min="-70" max="-40" step="1" value="-55" />
     </div>
     <div class="control-group">
-      <label><span>speed</span><span id="val-spd">¼×</span></label>
-      <input type="range" id="sl-spd" min="1" max="5" step="1" value="2" />
+      <label><span>speed</span><span id="val-spd">⅛×</span></label>
+      <input type="range" id="sl-spd" min="1" max="5" step="1" value="1" autocomplete="off" />
     </div>
   </div>
 
@@ -552,19 +552,25 @@ function drawPhase() {
   pctx.textAlign = 'left';
 
   // ── V-nullcline ────────────────────────────────────────────────────────
-  pctx.strokeStyle = COL.IN + 'aa'; pctx.lineWidth = 1.2; pctx.setLineDash([]); // V-nullcline: shifts with the input current I
+  // V-nullcline: shifts with the input current I. Same look as Izhikevich:
+  // drawn as is and clipped to the plot box (no flattening at the edges).
+  pctx.save();
+  pctx.beginPath(); pctx.rect(ml, mt, cW, cH); pctx.clip();
+  styleInputCurve(pctx);
   pctx.beginPath();
   let firstVnull = true;
+  const wSpan = wHi - wLo;
   for (let px = 0; px <= cW; px++) {
     const Vv  = vLo + (px / cW) * (vHi - vLo);
     if (Vv >= V_peak) break;
     const wv  = vNullcline(Vv);
-    if (wv < wLo - 20 || wv > wHi + 20) { firstVnull = true; continue; }
-    const cy  = yw(Math.max(wLo, Math.min(wHi, wv)));
+    if (wv < wLo - wSpan || wv > wHi + wSpan) { firstVnull = true; continue; }
+    const cy  = yw(wv);
     if (firstVnull) { pctx.moveTo(ml + px, cy); firstVnull = false; }
     else            { pctx.lineTo(ml + px, cy); }
   }
   pctx.stroke();
+  pctx.restore();
 
   // ── w-nullcline ────────────────────────────────────────────────────────
   pctx.strokeStyle = COL.NEG + '88'; pctx.lineWidth = 1.2;

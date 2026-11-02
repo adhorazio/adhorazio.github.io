@@ -330,7 +330,7 @@ function drawFICurve() {
 
   // Rheobase dashed line
   if (dVth > 0 && dVth <= I_MAX) {
-    fctx.strokeStyle = COL.IN + 'aa'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]); // rheobase current
+    styleInputCurve(fctx, true); // rheobase current (same style as the V-nullclines)
     fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
     fctx.setLineDash([]);
   }

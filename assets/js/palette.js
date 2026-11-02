@@ -25,6 +25,14 @@ const COL = {
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha
 };
 
+// Input-current curves (V-nullcline set by I, rheobase line): one style for
+// every model, so the curve the current slider moves always looks the same.
+function styleInputCurve(ctx, dashed) {
+  ctx.strokeStyle = COL.IN + 'dd';
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash(dashed ? [4, 3] : []);
+}
+
 // "Where the neuron is now" dot, same on every model (phase-plane state,
 // f-I operating point). Style is chosen once here:
 //   'plain'    solid white dot
