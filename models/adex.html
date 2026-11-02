@@ -267,7 +267,7 @@ let traceHead   = 0;
 let traceFull   = false;
 
 const PHASE_LEN = 12000;  // buffer; how much of it is drawn depends on speed (see phaseShow)
-let phaseShow = 600;       // samples drawn = ~0.5 s of real time, so the trail doesn't strobe at high speed
+let phaseShow = 1200;      // samples drawn = ~1 s of real time, so the trail doesn't strobe at high speed
 const phaseV    = new Float32Array(PHASE_LEN);
 const phaseW    = new Float32Array(PHASE_LEN);
 phaseV.fill(E_L); phaseW.fill(0);
@@ -588,7 +588,7 @@ function drawPhase() {
     const RUN = Math.max(40, Math.ceil(tLen / 30)); // ~30 strokes per frame whatever the trail length
     for (let i0 = 1; i0 < tLen; i0 += RUN) {
       const i1 = Math.min(i0 + RUN, tLen);
-      const alpha = 0.08 + 0.72 * (((i0 + i1) / 2) / tLen);
+      const alpha = 0.12 + 0.70 * (((i0 + i1) / 2) / tLen);
       pctx.strokeStyle = `rgba(${COL.TRAJ},${alpha.toFixed(2)})`;
       pctx.beginPath();
       let penDown = false;
@@ -647,8 +647,8 @@ function loop() {
   lastFrameTime = now;
 
   const steps = Math.max(1, Math.round((dtReal / DT) * speed));
-  // trail length follows the speed: always ~30 frames (~0.5 s) of history
-  phaseShow = Math.max(600, Math.min(PHASE_LEN, Math.round(((16.7 / DT) * speed) * 30)));
+  // trail length follows the speed: always ~60 frames (~1 s) of history
+  phaseShow = Math.max(1200, Math.min(PHASE_LEN, Math.round(((16.7 / DT) * speed) * 60)));
   for (let s = 0; s < steps; s++) {
     step();
     vHistory[traceHead] = V;
