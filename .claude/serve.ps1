@@ -23,10 +23,12 @@ while ($listener.IsListening) {
             '.png'  { 'image/png' }
             '.jpg'  { 'image/jpeg' }
             '.svg'  { 'image/svg+xml' }
+            '.json' { 'application/json' }
             default { 'application/octet-stream' }
         }
         $bytes = [IO.File]::ReadAllBytes($file)
         $res.ContentType = $mime
+        $res.Headers.Add('Cache-Control', 'no-cache')  # always serve the latest edits
         $res.ContentLength64 = $bytes.Length
         $res.OutputStream.Write($bytes, 0, $bytes.Length)
     } else {
