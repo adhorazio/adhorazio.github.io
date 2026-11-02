@@ -264,8 +264,8 @@ function drawTrace() {
   fbSteadyRange(uRange, uLo - 1, uHi + 1, 5);
   const yU = scopeY(rU, uRange.lo, uRange.hi);
 
-  drawScope(tctx, rV, vMin, vMax, 'v (mV)', COL.V, [-80, -60, -40, -20, 0, 20]);
-  drawScope(tctx, rU, uRange.lo, uRange.hi, 'u', COL.NEG);
+  drawScope(tctx, rV, vMin, vMax, 'v (mV)', COL.V, [-65, -40, 0, 30]);
+  drawScope(tctx, rU, uRange.lo, uRange.hi, 'u (mV)', COL.NEG);  // u has the units of v
 
   const xOf = scopeX(rV, TRACE_LEN);
   const drawSeg = (r, arr, from, to, color, lw, alpha, yFn) => {

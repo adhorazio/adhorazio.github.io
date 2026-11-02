@@ -243,7 +243,7 @@ function drawTrace() {
   const [rV] = scopeRects(W, H, [1]);
   const vMin = -95, vMax = -20;
   const yV = scopeY(rV, vMin, vMax);
-  drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V, [-90, -80, -70, -60, -50, -40, -30, -20]);
+  drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V, [-80, -60, -40]);
 
   scopeRefLine(tctx, rV, yV(Vr), '#4a4a4a', [2, 4], 'V_rest ' + Vr + ' mV', '#666');
   scopeRefLine(tctx, rV, yV(Vth), COL.THRESH + '66', [4, 4], 'Vθ ' + Vth + ' mV', COL.THRESH + 'cc');

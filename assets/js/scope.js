@@ -1,7 +1,8 @@
-// Oscilloscope layout for the neuron trace plots: one scope per signal,
-// stacked, each with its own y axis (labels in the left margin) and the
-// signal name + unit in its colour; all scopes share the time axis below.
-const SCOPE = { ML: 46, GAP: 12 };
+// Stacked scopes for the neuron trace plots: one scope per signal, sharing
+// the time axis below. Minimal y design: no axis line, just a few faint grid
+// lines labelled inside the plot ("-40 mV"), and the signal name in its
+// colour at the top right. A faint line separates the scopes.
+const SCOPE = { ML: 0, GAP: 12 };
 
 // Split the plot height H into stacked scope rectangles (weights sum to 1).
 function scopeRects(W, H, weights) {
@@ -27,26 +28,29 @@ function niceTicks(lo, hi, maxN) {
   return out;
 }
 
-// Frame of one scope: y axis line, ticks + labels in the margin, faint
-// horizontal grid, and the signal label (e.g. "v (mV)") in its colour.
+// Frame of one scope: faint grid lines with inline labels (unit taken from
+// the signal label, e.g. "v (mV)" -> "-40 mV"), the signal label in its
+// colour, and a faint separator above the scope (except the top one).
 function drawScope(ctx, r, lo, hi, label, color, ticks) {
   const y = scopeY(r, lo, hi);
-  const tk = ticks || niceTicks(lo, hi, Math.max(2, Math.floor(r.h / 34)));
+  const m = /\(([^)]+)\)/.exec(label);
+  const unit = m ? ' ' + m[1] : '';
+  const tk = ticks || niceTicks(lo, hi, Math.max(3, Math.floor(r.h / 45)));
   ctx.save();
   ctx.lineWidth = 1; ctx.setLineDash([]);
-  ctx.strokeStyle = '#444';
-  ctx.beginPath(); ctx.moveTo(r.x + 0.5, r.y); ctx.lineTo(r.x + 0.5, r.y + r.h); ctx.stroke();
-  ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  if (r.y > 0) {                                   // separator between scopes
+    const sy = Math.round(r.y - SCOPE.GAP / 2) + 0.5;
+    ctx.strokeStyle = '#2e2e2e';
+    ctx.beginPath(); ctx.moveTo(r.x, sy); ctx.lineTo(r.x + r.w, sy); ctx.stroke();
+  }
+  ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
   tk.forEach(t => {
     const yy = Math.round(y(t)) + 0.5;
-    if (yy < r.y - 0.5 || yy > r.y + r.h + 0.5) return;
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    if (yy < r.y + 12 || yy > r.y + r.h - 1) return; // keep labels inside the scope
+    ctx.strokeStyle = '#333';
     ctx.beginPath(); ctx.moveTo(r.x, yy); ctx.lineTo(r.x + r.w, yy); ctx.stroke();
-    ctx.strokeStyle = '#555';
-    ctx.beginPath(); ctx.moveTo(r.x - 4, yy); ctx.lineTo(r.x, yy); ctx.stroke();
-    ctx.fillStyle = '#777';
-    // keep edge labels fully visible (nudged inside the scope)
-    ctx.fillText(String(t), r.x - 6, Math.min(Math.max(yy, r.y + 6), r.y + r.h - 6));
+    ctx.fillStyle = '#555';
+    ctx.fillText(t + unit, r.x + 4, yy - 3);
   });
   ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.fillStyle = color;
@@ -69,8 +73,8 @@ function scopeRefLine(ctx, r, yv, color, dash, label, labelColor) {
   ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash);
   ctx.beginPath(); ctx.moveTo(r.x, yy); ctx.lineTo(r.x + r.w, yy); ctx.stroke();
   if (label) {
-    ctx.setLineDash([]); ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = labelColor || color; ctx.fillText(label, r.x + 4, yy - 2);
+    ctx.setLineDash([]); ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = labelColor || color; ctx.fillText(label, r.x + r.w - 6, yy - 2);
   }
   ctx.restore();
 }
