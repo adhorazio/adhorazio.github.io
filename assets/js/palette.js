@@ -24,3 +24,15 @@ const COL = {
   OP:     '#FFFFFF',
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha
 };
+
+// "Where the neuron is now" dot, same on every model (phase-plane state,
+// f-I operating point). DOT_RING = null for a plain dot.
+COL.DOT_FILL = COL.OP;
+COL.DOT_RING = null;
+function drawStateDot(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = COL.DOT_FILL;
+  ctx.fill();
+  if (COL.DOT_RING) { ctx.lineWidth = 1.6; ctx.strokeStyle = COL.DOT_RING; ctx.stroke(); }
+}

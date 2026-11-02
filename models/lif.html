@@ -350,9 +350,7 @@ function drawFICurve() {
   // Operating point
   const op_I = Math.min(params.I_eff, I_MAX);
   const op_f = fiFreq(params.I_eff);
-  fctx.beginPath();
-  fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
-  fctx.fillStyle = COL.OP; fctx.fill();
+  drawStateDot(fctx, xi(op_I), yf(op_f), 4.5);
 
 }
 

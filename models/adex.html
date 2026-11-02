@@ -600,9 +600,7 @@ function drawPhase() {
   // ── State dot ──────────────────────────────────────────────────────────
   const sV = Math.max(vLo, Math.min(vHi, V));
   const sW = Math.max(wLo, Math.min(wHi, w));
-  pctx.beginPath();
-  pctx.arc(xv(sV), yw(sW), 4, 0, Math.PI * 2);
-  pctx.fillStyle = COL.OP; pctx.fill();
+  drawStateDot(pctx, xv(sV), yw(sW), 4.5);
 }
 
 // ── Animation loop ─────────────────────────────────────────────────────────

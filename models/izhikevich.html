@@ -350,9 +350,7 @@ function drawPhase() {
     }
     pctx.stroke();
   }
-  pctx.beginPath();
-  pctx.arc(mx(v), mu(u), 3.5, 0, Math.PI * 2);
-  pctx.fillStyle = COL.OP; pctx.fill();
+  drawStateDot(pctx, mx(v), mu(u), 4.5);
 }
 
 function loop() {
