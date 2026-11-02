@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="../assets/css/site.css" />
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
+    .presets-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+    #orbit { cursor: grab; }
     .plots { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
     #orbit  { width: 380px; max-width: 100%; height: auto; aspect-ratio: 1; }
     #raster { width: 100%; height: 84px; }
@@ -40,9 +42,15 @@
 <div class="widget">
   <div class="widget-title">Real-time simulation</div>
 
-  <div class="presets" id="looks">
-    <button class="preset-btn active" data-look="white">White glow</button>
-    <button class="preset-btn" data-look="tint">Tinted spikes</button>
+  <div class="presets-row">
+    <div class="presets" id="views">
+      <button class="preset-btn active" data-view="3d">3D</button>
+      <button class="preset-btn" data-view="flat">Flat</button>
+    </div>
+    <div class="presets" id="looks">
+      <button class="preset-btn active" data-look="white">White glow</button>
+      <button class="preset-btn" data-look="tint">Tinted spikes</button>
+    </div>
   </div>
 
   <div class="plots">
@@ -70,7 +78,7 @@
       <div class="legend-section-title">Orbit</div>
       <div class="legend-item"><div class="legend-glow"></div><span>one neuron; its angle is its phase θ</span></div>
       <div class="legend-item"><div class="legend-dot" style="background: rgba(255,255,255,0.5);"></div><span>trail: recent motion (long = fast)</span></div>
-      <div class="legend-note">spike = passing the top · centre glows with the inhibition being sent</div>
+      <div class="legend-note">spike = top of the orbit · centre glows with the inhibition being sent · drag to turn (3D)</div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">Raster</div>
@@ -190,9 +198,65 @@ function glow(ctx, x, y, r, c, a) {
 }
 
 // ── Drawing ──
+// ── Geometry: flat (one shared circle) or 3D (one tilted orbit per neuron) ──
+// 3D: orbit i lies in a plane whose normal is tilted by ALPHA from vertical, at
+// azimuth i·120°, so the three orbits are equally spaced around the vertical
+// axis. Spike (θ = π) at each orbit's highest point, slow region (θ ≈ 0) at its
+// lowest: the waiting neurons sit 120° apart instead of bunching up.
+let view = '3d';
+const ALPHA = 0.95, PITCH0 = 0.38, YAW_RATE = 0.12;   // rad, rad, rad/s (auto-rotation)
+let yawOff = 0, pitch = PITCH0, dragging = false;
+const BASIS = [0, 1, 2].map(i => {
+  const b = -Math.PI / 2 + i * 2 * Math.PI / 3;
+  const n = [Math.sin(ALPHA) * Math.cos(b), Math.cos(ALPHA), Math.sin(ALPHA) * Math.sin(b)];
+  let U = [-Math.cos(ALPHA) * n[0], 1 - Math.cos(ALPHA) * n[1], -Math.cos(ALPHA) * n[2]];
+  const m = Math.hypot(U[0], U[1], U[2]); U = U.map(v => v / m);
+  const Wv = [n[1] * U[2] - n[2] * U[1], n[2] * U[0] - n[0] * U[2], n[0] * U[1] - n[1] * U[0]];
+  return { U, W: Wv };
+});
+
+let G = null;   // per-frame geometry
+function setGeom() {
+  const W = orbit._lw, H = orbit._lh;
+  const yaw = yawOff + YAW_RATE * tRot;
+  G = { W, H, cx: W / 2, cy: H / 2,
+        R: Math.min(W, H) * (view === '3d' ? 0.27 : 0.33),
+        cy_: Math.cos(yaw), sy: Math.sin(yaw), cp: Math.cos(pitch), sp: Math.sin(pitch) };
+  G.f = 4 * G.R;
+}
+// position of neuron i at phase th (vn swings it outward): {x, y, z, b}
+// z: depth (+ = far), b: brightness factor (front 1, back ~0.45)
+function pos(i, th, vn) {
+  const r = G.R * (1 + 0.14 * vn);
+  if (view !== '3d') return { x: G.cx + r * Math.sin(th), y: G.cy + r * Math.cos(th), z: 0, b: 1, k: 1 };
+  const { U, W } = BASIS[i], c = -Math.cos(th), s_ = Math.sin(th);
+  const X = r * (c * U[0] + s_ * W[0]), Y = r * (c * U[1] + s_ * W[1]), Z = r * (c * U[2] + s_ * W[2]);
+  const x1 = X * G.cy_ + Z * G.sy, z1 = -X * G.sy + Z * G.cy_;
+  const y2 = Y * G.cp + z1 * G.sp, z2 = -Y * G.sp + z1 * G.cp;
+  const k = G.f / (G.f + z2);
+  return { x: G.cx + x1 * k, y: G.cy - y2 * k, z: z2, k,
+           b: Math.max(0.4, Math.min(1, 0.72 - 0.3 * z2 / G.R)) };
+}
+
 function drawOrbit() {
-  const W = orbit._lw, H = orbit._lh, cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.33;
+  setGeom();
+  const { W, H, cx, cy } = G;
   octx.clearRect(0, 0, W, H);
+  octx.lineCap = 'butt'; octx.lineJoin = 'round';
+
+  // 3D: the three orbits, very faint
+  if (view === '3d') {
+    octx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      octx.strokeStyle = 'rgba(255,255,255,0.06)';
+      octx.beginPath();
+      for (let k = 0; k <= 72; k++) {
+        const p = pos(i, -Math.PI + k * 2 * Math.PI / 72, 0);
+        k ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y);
+      }
+      octx.stroke();
+    }
+  }
 
   // centre: glows with the inhibition currently being sent
   const S = Math.min(1.2, s[0] + s[1] + s[2]);
@@ -200,51 +264,68 @@ function drawOrbit() {
   octx.fillStyle = 'rgba(255,255,255,0.85)';
   octx.beginPath(); octx.arc(cx, cy, 3, 0, 2 * Math.PI); octx.fill();
 
-  octx.lineCap = 'butt'; octx.lineJoin = 'round';
+  // trails: one continuous path split into a few runs, each with one opacity
+  // (same fix as the AdEx phase trail: no overlapping segment caps, no beads)
   for (let i = 0; i < 3; i++) {
-    const vn = Math.max(0, Math.min(1, vel[i] / 2));
-    const rr = R * (1 + 0.14 * vn);              // swings outward when firing
-    const x = cx + rr * Math.sin(th[i]), y = cy + rr * Math.cos(th[i]);
     const tr = trails[i];
     while (tr.length && tReal - tr[0].tr > TRAIL_S) tr.shift();
-
-    // trail: one continuous path split into a few runs, each with one opacity
-    // (same fix as the AdEx phase trail: no overlapping segment caps, no beads)
     const L = tr.length;
-    if (L > 1) {
-      const run = Math.max(2, Math.ceil(L / TRAIL_RUNS));
-      octx.lineWidth = 1.6;
-      for (let k0 = 1; k0 < L; k0 += run) {
-        const k1 = Math.min(k0 + run, L), mid = tr[Math.min(L - 1, (k0 + k1) >> 1)];
-        const a = Math.max(0, 1 - (tReal - mid.tr) / TRAIL_S);
-        octx.strokeStyle = rgba(dotRgb(i, mid.vn), 0.6 * a * a);
-        octx.beginPath();
-        for (let k = k0 - 1; k < k1; k++) {
-          const p = tr[k], r2 = R * (1 + 0.14 * p.vn);
-          const px = cx + r2 * Math.sin(p.th), py = cy + r2 * Math.cos(p.th);
-          k === k0 - 1 ? octx.moveTo(px, py) : octx.lineTo(px, py);
-        }
-        octx.stroke();
+    if (L < 2) continue;
+    const run = Math.max(2, Math.ceil(L / TRAIL_RUNS));
+    for (let k0 = 1; k0 < L; k0 += run) {
+      const k1 = Math.min(k0 + run, L), mid = tr[Math.min(L - 1, (k0 + k1) >> 1)];
+      const a = Math.max(0, 1 - (tReal - mid.tr) / TRAIL_S);
+      const pm = pos(i, mid.th, mid.vn);
+      octx.strokeStyle = rgba(dotRgb(i, mid.vn), 0.6 * a * a * pm.b);
+      octx.lineWidth = 1.6 * pm.k;
+      octx.beginPath();
+      for (let k = k0 - 1; k < k1; k++) {
+        const p = pos(i, tr[k].th, tr[k].vn);
+        k === k0 - 1 ? octx.moveTo(p.x, p.y) : octx.lineTo(p.x, p.y);
       }
+      octx.stroke();
     }
-
-    // dot: brighter and wider halo when fast
-    const c = dotRgb(i, vn);
-    glow(octx, x, y, 7 + 16 * vn, c, 0.35 + 0.5 * vn);
-    octx.fillStyle = rgba(c, 0.75 + 0.25 * vn);
-    octx.beginPath(); octx.arc(x, y, 2.6 + 0.8 * vn, 0, 2 * Math.PI); octx.fill();
   }
 
-  // spike flash: a soft ring opening at the top
+  // dots, far to near: brighter and wider halo when fast, dimmer when far
+  const dots = [0, 1, 2].map(i => {
+    const vn = Math.max(0, Math.min(1, vel[i] / 2));
+    return { i, vn, p: pos(i, th[i], vn) };
+  }).sort((a, b) => b.p.z - a.p.z);
+  for (const { i, vn, p } of dots) {
+    const c = dotRgb(i, vn);
+    glow(octx, p.x, p.y, (7 + 16 * vn) * p.k, c, (0.35 + 0.5 * vn) * p.b);
+    octx.fillStyle = rgba(c, (0.75 + 0.25 * vn) * (0.5 + 0.5 * p.b));
+    octx.beginPath(); octx.arc(p.x, p.y, (2.6 + 0.8 * vn) * p.k, 0, 2 * Math.PI); octx.fill();
+  }
+
+  // spike flash: a soft ring opening where the neuron fired (top of its orbit)
   for (let k = flashes.length - 1; k >= 0; k--) {
     const f = flashes[k], age = (tReal - f.born) / FLASH_S;
     if (age >= 1) { flashes.splice(k, 1); continue; }
-    const c = dotRgb(f.i, 1);
-    octx.strokeStyle = rgba(c, 0.35 * (1 - age));
+    const p = pos(f.i, Math.PI, 0), c = dotRgb(f.i, 1);
+    const q = view === '3d' ? p : { x: cx, y: cy - G.R * 1.14, k: 1, b: 1 };
+    octx.strokeStyle = rgba(c, 0.35 * (1 - age) * q.b);
     octx.lineWidth = 1.2;
-    octx.beginPath(); octx.arc(cx, cy - R * 1.14, 4 + 22 * age, 0, 2 * Math.PI); octx.stroke();
+    octx.beginPath(); octx.arc(q.x, q.y, (4 + 22 * age) * q.k, 0, 2 * Math.PI); octx.stroke();
   }
 }
+
+// drag to turn the 3D view (auto-rotation resumes when released)
+let tRot = 0;
+(() => {
+  let lx = 0, ly = 0;
+  orbit.style.touchAction = 'none';
+  orbit.addEventListener('pointerdown', e => { if (view !== '3d') return; dragging = true; lx = e.clientX; ly = e.clientY; orbit.setPointerCapture(e.pointerId); });
+  orbit.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    yawOff += (e.clientX - lx) * 0.01;
+    pitch = Math.max(-1.2, Math.min(1.2, pitch + (e.clientY - ly) * 0.01));
+    lx = e.clientX; ly = e.clientY;
+  });
+  const up = () => { dragging = false; };
+  orbit.addEventListener('pointerup', up); orbit.addEventListener('pointercancel', up);
+})();
 
 function drawRaster() {
   const W = raster._lw, H = raster._lh, ML = 30, row = H / 3;
@@ -272,6 +353,7 @@ let last = null;
 function frame(now) {
   const dtReal = last === null ? 0 : Math.min(0.05, (now - last) / 1000);
   last = now; tReal += dtReal;
+  if (!dragging && view === '3d') tRot += dtReal;
   const n = Math.round(speed * TIME_SCALE * dtReal / DT);
   for (let k = 0; k < n; k++) {
     step();
@@ -297,8 +379,16 @@ bind('sl-eta', 'val-eta', v => v.toFixed(2), v => { eta = v; });
 bind('sl-g',   'val-g',   v => v.toFixed(2), v => { g = v; });
 bind('sl-spd', 'val-spd', v => (SPD[v] || v + '×'), v => { speed = v; });
 
+document.querySelectorAll('#views .preset-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#views .preset-btn').forEach(x => x.classList.toggle('active', x === b));
+  view = b.dataset.view;
+}));
 document.querySelectorAll('#looks .preset-btn').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('#looks .preset-btn').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('#views .preset-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#views .preset-btn').forEach(x => x.classList.toggle('active', x === b));
+  view = b.dataset.view;
+}));
+document.querySelectorAll('#looks .preset-btn').forEach(x => x.classList.toggle('active', x === b));
   look = b.dataset.look;
 }));
 
