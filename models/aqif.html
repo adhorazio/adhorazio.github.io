@@ -33,11 +33,11 @@
     .win-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
     /* Feedback toggles (positive feedback = green) and input pulses (input = yellow) */
     .fb-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-    .win-btn.on-pos { border-color: var(--c-pos); color: var(--c-pos); background: rgba(0, 205, 108, 0.12); }
+    /* Pulse buttons: input = yellow text and border; flash green (excite) / red (inhibit) */
     .win-btn.pulse-btn { border-color: rgba(255, 198, 30, 0.45); color: var(--c-in); }
-    .win-btn.pulse-btn.fired { background: rgba(255, 198, 30, 0.18); }
+    .win-btn.pulse-btn.fired[data-pulse="1"]  { background: rgba(0, 205, 108, 0.22); }
+    .win-btn.pulse-btn.fired[data-pulse="-1"] { background: rgba(255, 31, 91, 0.22); }
     @media (hover: hover) {
-      .win-btn.on-pos:hover    { border-color: var(--c-pos); color: var(--c-pos); }
       .win-btn.pulse-btn:hover { border-color: var(--c-in);  color: var(--c-in); }
     }
     [hidden] { display: none !important; }
@@ -106,12 +106,9 @@
     <button class="preset-btn"         data-preset="MEMORY">Working memory</button>
   </div>
 
-  <div class="win-row">
-    <span class="win-label">Feedback</span>
-    <div class="fb-btns">
-      <button class="win-btn" id="tg-we" aria-pressed="false">+ self-excitation w<sub>e</sub></button>
-    </div>
-    <div class="fb-btns" id="pulse-btns" hidden>
+  <div class="win-row we-show" hidden>
+    <span class="win-label">Input pulse</span>
+    <div class="fb-btns" id="pulse-btns">
       <button class="win-btn pulse-btn" data-pulse="1">Excite pulse</button>
       <button class="win-btn pulse-btn" data-pulse="-1">Inhibit pulse</button>
     </div>
@@ -146,36 +143,64 @@
       <input type="range" id="sl-I" min="0" max="400" step="5" value="160" />
     </div>
     <div class="control-group">
-      <label><span>a — subthreshold adapt.</span><span id="val-a">0.0 nS</span></label>
-      <input type="range" id="sl-a" min="-4" max="12" step="0.5" value="0" />
-    </div>
-    <div class="control-group">
-      <label><span>b — spike-triggered adapt.</span><span id="val-b">5 pA</span></label>
-      <input type="range" id="sl-b" min="0" max="200" step="1" value="5" />
-    </div>
-    <div class="control-group">
-      <label><span>τ<sub>w</sub> — adapt. time const.</span><span id="val-tauw">20 ms</span></label>
-      <input type="range" id="sl-tauw" min="10" max="500" step="5" value="20" />
-    </div>
-    <div class="control-group">
       <label><span>V<sub>r</sub> — reset potential</span><span id="val-Vr">−70 mV</span></label>
       <input type="range" id="sl-Vr" min="-75" max="-45" step="1" value="-70" />
-    </div>
-    <div class="control-group we-show" hidden>
-      <label><span>a<sub>e</sub> — subthreshold self-exc.</span><span id="val-ae">10.0 nS</span></label>
-      <input type="range" id="sl-ae" min="0" max="20" step="0.5" value="10" />
-    </div>
-    <div class="control-group we-show" hidden>
-      <label><span>b<sub>e</sub> — spike-triggered self-exc.</span><span id="val-be">100 pA</span></label>
-      <input type="range" id="sl-be" min="0" max="200" step="5" value="100" />
-    </div>
-    <div class="control-group we-show" hidden>
-      <label><span>τ<sub>e</sub> — self-exc. time const.</span><span id="val-taue">20 ms</span></label>
-      <input type="range" id="sl-taue" min="5" max="200" step="5" value="20" />
     </div>
     <div class="control-group">
       <label><span>speed</span><span id="val-spd">⅛×</span></label>
       <input type="range" id="sl-spd" min="1" max="5" step="1" value="1" autocomplete="off" />
+    </div>
+  </div>
+
+  <!-- Slow feedback currents: adaptation (always on in aQIF), self-excitation (toggle) -->
+  <div class="fb-sections">
+    <div class="adapt-section">
+      <div class="adapt-header fixed on-neg">
+        <span class="toggle-btn">w</span>
+        <span class="adapt-label">adaptation current (part of the aQIF)</span>
+        <div class="spark-group">
+          <span class="spark-mean" id="mean-w"></span>
+          <canvas class="adapt-sparkline" id="spark-w" width="80" height="24"></canvas>
+        </div>
+      </div>
+      <div class="adapt-sliders open">
+        <div class="control-group">
+          <label><span>a — subthreshold adapt.</span><span id="val-a">0.0 nS</span></label>
+          <input type="range" id="sl-a" min="-4" max="12" step="0.5" value="0" />
+        </div>
+        <div class="control-group">
+          <label><span>b — spike-triggered adapt.</span><span id="val-b">5 pA</span></label>
+          <input type="range" id="sl-b" min="0" max="200" step="1" value="5" />
+        </div>
+        <div class="control-group">
+          <label><span>τ<sub>w</sub> — adapt. time const.</span><span id="val-tauw">20 ms</span></label>
+          <input type="range" id="sl-tauw" min="10" max="500" step="5" value="20" />
+        </div>
+      </div>
+    </div>
+    <div class="adapt-section">
+      <div class="adapt-header" id="tg-we" role="button" tabindex="0" aria-pressed="false">
+        <button class="toggle-btn" tabindex="-1">w<sub>e</sub></button>
+        <span class="adapt-label">self-excitatory intrinsic current (I<sub>w</sub> in the eQIF paper)</span>
+        <div class="spark-group">
+          <span class="spark-mean" id="mean-we"></span>
+          <canvas class="adapt-sparkline" id="spark-we" width="80" height="24"></canvas>
+        </div>
+      </div>
+      <div class="adapt-sliders" id="we-sliders">
+        <div class="control-group">
+          <label><span>a<sub>e</sub> — subthreshold self-exc.</span><span id="val-ae">10.0 nS</span></label>
+          <input type="range" id="sl-ae" min="0" max="20" step="0.5" value="10" />
+        </div>
+        <div class="control-group">
+          <label><span>b<sub>e</sub> — spike-triggered self-exc.</span><span id="val-be">100 pA</span></label>
+          <input type="range" id="sl-be" min="0" max="200" step="5" value="100" />
+        </div>
+        <div class="control-group">
+          <label><span>τ<sub>e</sub> — self-exc. time const.</span><span id="val-taue">20 ms</span></label>
+          <input type="range" id="sl-taue" min="5" max="200" step="5" value="20" />
+        </div>
+      </div>
     </div>
   </div>
 
@@ -195,7 +220,8 @@
         <span>w<sub>e</sub> (self-excitatory intrinsic current, I<sub>w</sub> in the eQIF paper)</span>
       </div>
       <div class="legend-item we-show" hidden>
-        <div class="legend-dot" style="background: var(--c-in);"></div>
+        <div class="legend-dot" style="background: var(--c-pos);"></div>
+        <div class="legend-dot" style="background: var(--c-neg); margin-left: -2px;"></div>
         <span>input pulses (excite up, inhibit down)</span>
       </div>
       <div class="legend-item">
@@ -337,6 +363,37 @@ let w              = 0;
 let wE             = 0;      // self-excitatory current w_e
 let pulseSign      = 0, pulseLeft = 0, curPulse = 0;
 let ppMode         = 'w';    // phase plane: (V, w) or (V, w_e)
+
+// ── Sparklines (main-site aLIF design): last ~0.5 s of w and w_e, with mean μ ──
+const SPARK_LEN = 120, SPARK_EVERY = 40;   // one sample every 4 ms of model time
+const sparkW = new Float32Array(SPARK_LEN), sparkWe = new Float32Array(SPARK_LEN);
+let sparkHead = 0, sparkTick = 0;
+const sparkCvs = { w: document.getElementById('spark-w'), we: document.getElementById('spark-we') };
+function drawSpark(cv, buf, color, meanEl) {
+  const r = cv.getBoundingClientRect(), Wc = r.width || 80, Hc = r.height || 24;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  if (cv.width !== Math.round(Wc * dpr)) { cv.width = Math.round(Wc * dpr); cv.height = Math.round(Hc * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, Wc, Hc);
+  let mn = Infinity, mx = -Infinity, sum = 0;
+  for (let i = 0; i < SPARK_LEN; i++) { const v = buf[i]; if (v < mn) mn = v; if (v > mx) mx = v; sum += v; }
+  const mean = sum / SPARK_LEN, range = mx - mn || 1;
+  const mapY = v => Hc - 2 - ((v - mn) / range) * (Hc - 4);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < SPARK_LEN; i++) {
+    const v = buf[(sparkHead + i) % SPARK_LEN], x = (i / (SPARK_LEN - 1)) * Wc;
+    i ? ctx.lineTo(x, mapY(v)) : ctx.moveTo(x, mapY(v));
+  }
+  ctx.stroke();
+  ctx.lineTo(Wc, Hc); ctx.lineTo(0, Hc); ctx.closePath();
+  ctx.fillStyle = color + '22'; ctx.fill();
+  ctx.strokeStyle = color + 'aa'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, mapY(mean)); ctx.lineTo(Wc, mapY(mean)); ctx.stroke();
+  ctx.setLineDash([]);
+  meanEl.textContent = 'μ = ' + mean.toFixed(1) + ' pA';
+}
 let spiking        = false;
 let simStep        = 0;
 let lastFrameTime  = null;
@@ -523,17 +580,18 @@ function drawTrace() {
       tctx.stroke();
     });
   };
-  // input pulses: small yellow blocks at the bottom of the V scope (up = excite, down = inhibit)
+  // input pulses: small blocks at the bottom of the V scope (green up = excite, red down = inhibit)
   const drawP = (fromIdx, toIdx, alpha) => {
     if (!params.we || toIdx <= fromIdx) return;
     const base = rV.y + rV.h - 9;
-    tctx.fillStyle = COL.IN; tctx.globalAlpha = 0.8 * alpha;
+    tctx.globalAlpha = 0.85 * alpha;
     let i = fromIdx;
     while (i < toIdx) {
       const sg = pHistory[i];
       if (!sg) { i++; continue; }
       let j = i; while (j < toIdx && pHistory[j] === sg) j++;
       const x0 = xOf(i), x1 = Math.max(xOf(j), x0 + 1);
+      tctx.fillStyle = sg > 0 ? COL.POS : COL.NEG;
       tctx.fillRect(x0, sg > 0 ? base - 6 : base, x1 - x0, 6);
       i = j;
     }
@@ -774,11 +832,18 @@ function loop() {
     phaseW[phaseHead] = w;
     phaseWe[phaseHead] = wE;
     phaseHead++;
+    if (++sparkTick >= SPARK_EVERY) {
+      sparkTick = 0;
+      sparkW[sparkHead] = w; sparkWe[sparkHead] = params.we ? wE : 0;
+      sparkHead = (sparkHead + 1) % SPARK_LEN;
+    }
     if (phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
   }
 
   drawTrace();
   drawPhase();
+  drawSpark(sparkCvs.w, sparkW, COL.NEG, document.getElementById('mean-w'));
+  if (params.we) drawSpark(sparkCvs.we, sparkWe, COL.POS, document.getElementById('mean-we'));
 
   document.getElementById('legend-state-dot').style.background = COL.OP;
 
@@ -818,6 +883,7 @@ function applyPreset(name) {
   V = E_L; w = 0; wE = 0; spiking = false; pulseLeft = 0;
   vHistory.fill(E_L); wHistory.fill(0); weHistory.fill(0); pHistory.fill(0);
   phaseV.fill(E_L);   phaseW.fill(0);   phaseWe.fill(0);
+  sparkW.fill(0); sparkWe.fill(0);
   traceHead = 0; traceFull = false;
   phaseHead = 0; phaseFull = false;
   resetRanges();
@@ -852,7 +918,8 @@ function setWe(on, fromPreset) {
   const tg = document.getElementById('tg-we');
   tg.classList.toggle('on-pos', on);
   tg.setAttribute('aria-pressed', String(on));
-  document.getElementById('pulse-btns').hidden = !on;
+  document.getElementById('we-sliders').classList.toggle('open', on);
+  if (!on) sparkWe.fill(0);
   document.querySelectorAll('.we-show').forEach(el => { el.hidden = !on; });
   setPP(on ? 'we' : 'w');
   resetRanges();
@@ -870,6 +937,9 @@ function setPP(mode) {
   delete wRangePhase.hi; delete wRangePhase.lo;
 }
 document.getElementById('tg-we').addEventListener('click', () => setWe(!params.we, false));
+document.getElementById('tg-we').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setWe(!params.we, false); }
+});
 document.getElementById('pp-btns').addEventListener('click', e => {
   const b = e.target.closest('[data-pp]'); if (b) setPP(b.dataset.pp);
 });
