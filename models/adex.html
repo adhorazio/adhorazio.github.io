@@ -249,7 +249,8 @@ vHistory.fill(E_L); wHistory.fill(0);
 let traceHead   = 0;
 let traceFull   = false;
 
-const PHASE_LEN = 600;
+const PHASE_LEN = 12000;  // buffer; how much of it is drawn depends on speed (see phaseShow)
+let phaseShow = 600;       // samples drawn = ~0.5 s of real time, so the trail doesn't strobe at high speed
 const phaseV    = new Float32Array(PHASE_LEN);
 const phaseW    = new Float32Array(PHASE_LEN);
 phaseV.fill(E_L); phaseW.fill(0);
@@ -342,6 +343,25 @@ function step() {
 
 // ── Drawing: trace (left-to-right oscilloscope, min/max V envelope) ───────
 
+// ── Steady axis ranges ─────────────────────────────────────────────────────
+// The w axes follow the data, but recomputing them every frame made the plots
+// jump/flicker during fast spiking. Ranges are rounded outward to steps of
+// 20 pA, grow at once, and only shrink when the data has clearly settled
+// lower (hysteresis), so they stay still while the neuron fires.
+const W_STEP = 20;
+const wRangeTrace = {}, wRangePhase = {};
+function steadyRange(st, lo, hi) {
+  const nHi = Math.ceil(hi / W_STEP) * W_STEP;
+  const nLo = Math.floor(lo / W_STEP) * W_STEP;
+  if (st.hi === undefined || nHi > st.hi || nHi < st.hi - 3 * W_STEP) st.hi = nHi;
+  if (st.lo === undefined || nLo < st.lo || nLo > st.lo + 3 * W_STEP) st.lo = nLo;
+  return st;
+}
+function resetRanges() {
+  delete wRangeTrace.hi; delete wRangeTrace.lo;
+  delete wRangePhase.hi; delete wRangePhase.lo;
+}
+
 function drawTrace() {
   const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
   tctx.clearRect(0, 0, W, traceCanvas._lh);
@@ -358,8 +378,8 @@ function drawTrace() {
     if (wHistory[i] > wHi) wHi = wHistory[i];
     if (wHistory[i] < wLo) wLo = wHistory[i];
   }
-  wHi = Math.max(wHi * 1.2, 20);
-  wLo = Math.min(wLo - 5, -5);
+  steadyRange(wRangeTrace, Math.min(wLo - 5, -5), Math.max(wHi * 1.2, 20));
+  wHi = wRangeTrace.hi; wLo = wRangeTrace.lo;
   const wH   = H - splitY - 4;
   const mapWY = wv => splitY + 4 + wH * (1 - (wv - wLo) / (wHi - wLo));
 
@@ -450,13 +470,17 @@ function drawPhase() {
   const { I_ext, a, V_r, b } = params;
 
   // Dynamic w range
+  // only the part of the buffer that is drawn
+  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, phaseShow);
+  const tIdx = i => (phaseHead - tLen + i + PHASE_LEN) % PHASE_LEN; // i = 0 oldest
   let wHiDyn = 10, wLoDyn = 0;
-  for (let i = 0; i < PHASE_LEN; i++) {
-    if (phaseW[i] > wHiDyn) wHiDyn = phaseW[i];
-    if (phaseW[i] < wLoDyn) wLoDyn = phaseW[i];
+  for (let i = 0; i < tLen; i++) {
+    const wv = phaseW[tIdx(i)];
+    if (wv > wHiDyn) wHiDyn = wv;
+    if (wv < wLoDyn) wLoDyn = wv;
   }
-  const wHi = Math.max(wHiDyn * 1.2, 80);
-  const wLo = Math.min(wLoDyn - 5, -10);
+  steadyRange(wRangePhase, Math.min(wLoDyn - 5, -10), Math.max(wHiDyn * 1.2, 80));
+  const wHi = wRangePhase.hi, wLo = wRangePhase.lo;
   const vLo = E_L - 8, vHi = V_peak + 8;
 
   const xv = v  => ml + (v  - vLo) / (vHi - vLo) * cW;
@@ -474,7 +498,10 @@ function drawPhase() {
 
   // Grid lines
   pctx.lineWidth = 0.5;
-  const wTicks = [Math.round(wHi * 0.35), Math.round(wHi * 0.70)].filter(v => v > wLo && v < wHi);
+  // round tick values so the labels stay put too
+  const tStep = [10, 20, 25, 50, 100, 200, 250, 500].find(t => (wHi - wLo) / t <= 4) || 1000;
+  const wTicks = [];
+  for (let t = Math.ceil((wLo + 1) / tStep) * tStep; t < wHi; t += tStep) if (t > 0) wTicks.push(t);
   wTicks.forEach(wg => {
     pctx.strokeStyle = '#2c2c2c';
     pctx.beginPath(); pctx.moveTo(ml, yw(wg)); pctx.lineTo(ml + cW, yw(wg)); pctx.stroke();
@@ -537,12 +564,11 @@ function drawPhase() {
   pctx.stroke();
 
   // ── Phase trajectory ───────────────────────────────────────────────────
-  const tLen = phaseFull ? PHASE_LEN : phaseHead;
   if (tLen > 1) {
     pctx.lineWidth = 1;
     // One stroke per run of segments sharing an opacity (same look, far fewer
     // strokes); spike resets (big jumps) are skipped, as before
-    const RUN = 40;
+    const RUN = Math.max(40, Math.ceil(tLen / 30)); // ~30 strokes per frame whatever the trail length
     for (let i0 = 1; i0 < tLen; i0 += RUN) {
       const i1 = Math.min(i0 + RUN, tLen);
       const alpha = 0.06 + 0.55 * (((i0 + i1) / 2) / tLen);
@@ -550,8 +576,8 @@ function drawPhase() {
       pctx.beginPath();
       let penDown = false;
       for (let i = i0; i < i1; i++) {
-        const idx  = phaseFull ? (phaseHead + i) % PHASE_LEN : i;
-        const idx0 = phaseFull ? (phaseHead + i - 1) % PHASE_LEN : i - 1;
+        const idx  = tIdx(i);
+        const idx0 = tIdx(i - 1);
         const Vv0 = phaseV[idx0], wv0 = phaseW[idx0];
         const Vv1 = phaseV[idx],  wv1 = phaseW[idx];
         if (Math.abs(Vv1 - Vv0) > 30 || Math.abs(wv1 - wv0) > 200) { penDown = false; continue; }
@@ -580,6 +606,8 @@ function loop() {
   lastFrameTime = now;
 
   const steps = Math.max(1, Math.round((dtReal / DT) * speed));
+  // trail length follows the speed: always ~30 frames (~0.5 s) of history
+  phaseShow = Math.max(600, Math.min(PHASE_LEN, Math.round(((16.7 / DT) * speed) * 30)));
   for (let s = 0; s < steps; s++) {
     step();
     vHistory[traceHead] = V;
@@ -633,6 +661,7 @@ function applyPreset(name) {
   phaseV.fill(E_L);   phaseW.fill(0);
   traceHead = 0; traceFull = false;
   phaseHead = 0; phaseFull = false;
+  resetRanges();
   lastSpikeStep = null; simISI = null;
 
   const setSlider = (id, val) => { document.getElementById(id).value = val; };
