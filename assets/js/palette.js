@@ -59,3 +59,43 @@ function drawStateDot(ctx, x, y, r) {
   }
   ctx.restore();
 }
+
+// ── Equilibria (fixed points) in phase planes ─────────────────────────────
+// Standard notation (Strogatz; Izhikevich, Dynamical Systems in Neuroscience):
+//   stable    ●  filled dot       unstable    ○  empty dot
+//   saddle    □  empty square     saddle-node ◐  half-filled (a stable point
+//                                 and a saddle merging: the bifurcation)
+const EQ_COL = '#dcdcdc';
+function classifyEq(tr, det) {            // from the Jacobian at the point
+  if (det < 0) return 'saddle';
+  return tr < 0 ? 'stable' : 'unstable';
+}
+function drawEquilibrium(ctx, x, y, type) {
+  const r = 4.5, bg = '#1e1e1e';
+  ctx.save();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = EQ_COL; ctx.setLineDash([]);
+  if (type === 'saddle') {
+    ctx.fillStyle = bg;
+    ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    ctx.strokeRect(x - r, y - r, 2 * r, 2 * r);
+  } else {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = type === 'stable' ? EQ_COL : bg;
+    ctx.fill(); ctx.stroke();
+    if (type === 'saddle-node') {          // left half filled
+      ctx.beginPath(); ctx.arc(x, y, r, Math.PI / 2, Math.PI * 1.5); ctx.closePath();
+      ctx.fillStyle = EQ_COL; ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+// pts: [{x, y, type}] in canvas px. Two points closer than 8 px are drawn as
+// one saddle-node (they are about to merge and vanish).
+function drawEquilibria(ctx, pts, W, H) {
+  const inside = pts.filter(p => p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H);
+  if (inside.length === 2 && Math.hypot(inside[0].x - inside[1].x, inside[0].y - inside[1].y) < 8) {
+    drawEquilibrium(ctx, (inside[0].x + inside[1].x) / 2, (inside[0].y + inside[1].y) / 2, 'saddle-node');
+    return;
+  }
+  inside.forEach(p => drawEquilibrium(ctx, p.x, p.y, p.type));
+}

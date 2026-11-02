@@ -40,7 +40,9 @@ current (V-nullcline, which shifts with I; rheobase on the f-I curve); red = neg
 feedback; yellow = voltage thresholds (V_theta, V_T); orange = current reset after a spike (u+d, w+b); purple = voltage reset
 (c, V_r); grey = rest (V_rest, E_L) and V_peak;
 white dot = where the neuron is now (phase-plane state, f-I operating point).
-Phase planes: nullclines thin and faint (~55% opacity), trajectory bright. Slider values stay yellow text (UI, not data).
+Phase planes: nullclines thin and faint (~55% opacity), trajectory bright.
+Equilibria (nullcline crossings) use the textbook symbols via drawEquilibria():
+filled = stable, empty = unstable, square = saddle, half-filled = saddle-node. Slider values stay yellow text (UI, not data).
 
 ## Before committing
 Page loads without console errors, links work, `sitemap.xml` and the home

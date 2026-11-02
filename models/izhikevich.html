@@ -33,6 +33,7 @@
     }
 
     .legend-dot.dot { width: 8px; height: 8px; border-radius: 50%; }
+    .eq-icon { width: 11px; height: 11px; flex-shrink: 0; }
     .eq-reset { padding: 0.55rem 1rem; color: #b0b0b0; }
     .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
 
@@ -131,6 +132,13 @@
         <div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div>
         <span>du/dt = 0 (u-nullcline)</span>
       </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Equilibria</div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>stable (rest)</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>unstable</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>saddle</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#dcdcdc" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 0 6 10.5 Z" fill="#dcdcdc"/></svg><span>saddle-node (bifurcation)</span></div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">Reset</div>
@@ -350,6 +358,23 @@ function drawPhase() {
     }
     pctx.stroke();
   }
+  // Equilibria: where the nullclines cross, u = b v and 0.04 v^2 + 5 v + 140 - u + I = 0
+  //   -> 0.04 v^2 + (5 - b) v + 140 + I = 0 ; stability from the Jacobian
+  {
+    const qa = 0.04, qb = 5 - params.b, qc = 140 + params.I;
+    const disc = qb * qb - 4 * qa * qc;
+    const eqs = [];
+    if (disc >= 0) {
+      const sq = Math.sqrt(disc);
+      for (const ve of [(-qb - sq) / (2 * qa), (-qb + sq) / (2 * qa)]) {
+        const tr  = 0.08 * ve + 5 - params.a;
+        const det = params.a * (params.b - 0.08 * ve - 5);
+        eqs.push({ x: mx(ve), y: mu(params.b * ve), type: classifyEq(tr, det) });
+      }
+    }
+    drawEquilibria(pctx, eqs, W, H);
+  }
+
   drawStateDot(pctx, mx(v), mu(u), 4.5);
 }
 
