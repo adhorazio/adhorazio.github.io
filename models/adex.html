@@ -468,7 +468,10 @@ function drawPhase() {
     if (wv > wHiDyn) wHiDyn = wv;
     if (wv < wLoDyn) wLoDyn = wv;
   }
-  steadyRange(wRangePhase, Math.min(wLoDyn - 5, -10), Math.max(wHiDyn * 1.2, 80));
+  // keep the bottom of the V-nullcline (its minimum is at V = V_T) inside the
+  // plot, so the curve never leaves the frame when the input current is high
+  const wNullMin = vNullcline(V_T);
+  steadyRange(wRangePhase, Math.min(wLoDyn - 5, -10, wNullMin - 20), Math.max(wHiDyn * 1.2, 80, wNullMin + 60));
   const wHi = wRangePhase.hi, wLo = wRangePhase.lo;
   const vLo = E_L - 8, vHi = V_peak + 8;
 
