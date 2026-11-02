@@ -11,7 +11,8 @@
 //   IRESET current reset after a spike: u + d, w + b          orange
 //   Gating variables (conductance-based models, e.g. HH) are probabilities,
 //   not currents, so they get their own colours, grouped by ion channel:
-//   Na+ gates in sky / ice blue, K+ gate in bordeaux.
+//   Na+ gates in sky / ice blue, K+ gate in bordeaux (GeoDataViz values:
+//   #99D7F0 from bivariate b1/b3, #B10026 = darkest step of sequential m3).
 //   GATE_M Na+ activation m (predominant)                     sky / ice
 //   GATE_H Na+ inactivation h: same colour as m, lighter       sky 60%
 //   GATE_N K+ activation n                                    bordeaux
@@ -26,9 +27,9 @@ const COL = {
   THRESH: '#FFC61E',
   RESET:  '#AF58BA',
   IRESET: '#F28522',
-  GATE_M: '#9AD1F5',
-  GATE_N: '#B0283C',
-  GATE_H: '#9AD1F599',
+  GATE_M: '#99D7F0',
+  GATE_N: '#B10026',
+  GATE_H: '#99D7F099',
   REST:   '#888888',
   OP:     '#FFFFFF',
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha
