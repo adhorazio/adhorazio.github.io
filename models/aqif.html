@@ -33,11 +33,13 @@
     .win-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
     /* Feedback toggles (positive feedback = green) and input pulses (input = yellow) */
     .fb-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .win-btn.on-pos { border-color: var(--c-pos); color: var(--c-pos); background: rgba(0, 205, 108, 0.12); }
     /* Pulse buttons: input = yellow text and border; flash green (excite) / red (inhibit) */
     .win-btn.pulse-btn { border-color: rgba(255, 198, 30, 0.45); color: var(--c-in); }
     .win-btn.pulse-btn.fired[data-pulse="1"]  { background: rgba(0, 205, 108, 0.22); }
     .win-btn.pulse-btn.fired[data-pulse="-1"] { background: rgba(255, 31, 91, 0.22); }
     @media (hover: hover) {
+      .win-btn.on-pos:hover    { border-color: var(--c-pos); color: var(--c-pos); }
       .win-btn.pulse-btn:hover { border-color: var(--c-in);  color: var(--c-in); }
     }
     [hidden] { display: none !important; }
@@ -106,9 +108,12 @@
     <button class="preset-btn"         data-preset="MEMORY">Working memory</button>
   </div>
 
-  <div class="win-row we-show" hidden>
-    <span class="win-label">Input pulse</span>
-    <div class="fb-btns" id="pulse-btns">
+  <div class="win-row">
+    <span class="win-label">Feedback</span>
+    <div class="fb-btns">
+      <button class="win-btn" id="tg-we-btn" aria-pressed="false">+ self-excitation w<sub>e</sub></button>
+    </div>
+    <div class="fb-btns we-show" id="pulse-btns" hidden>
       <button class="win-btn pulse-btn" data-pulse="1">Excite pulse</button>
       <button class="win-btn pulse-btn" data-pulse="-1">Inhibit pulse</button>
     </div>
@@ -918,6 +923,9 @@ function setWe(on, fromPreset) {
   const tg = document.getElementById('tg-we');
   tg.classList.toggle('on-pos', on);
   tg.setAttribute('aria-pressed', String(on));
+  const tb = document.getElementById('tg-we-btn');           // same switch, button under the presets
+  tb.classList.toggle('on-pos', on);
+  tb.setAttribute('aria-pressed', String(on));
   document.getElementById('we-sliders').classList.toggle('open', on);
   if (!on) sparkWe.fill(0);
   document.querySelectorAll('.we-show').forEach(el => { el.hidden = !on; });
@@ -937,6 +945,7 @@ function setPP(mode) {
   delete wRangePhase.hi; delete wRangePhase.lo;
 }
 document.getElementById('tg-we').addEventListener('click', () => setWe(!params.we, false));
+document.getElementById('tg-we-btn').addEventListener('click', () => setWe(!params.we, false));
 document.getElementById('tg-we').addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setWe(!params.we, false); }
 });
