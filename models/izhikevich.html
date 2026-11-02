@@ -226,7 +226,8 @@ function step(I) {
     v += dv * 0.5;
     u += du * 0.5;
   }
-  if (v >= 30) { lastSpikeU = u; v = params.c; u += params.d; }
+  if (v >= 30) { lastSpikeU = u; v = params.c; u += params.d; return true; }
+  return false;
 }
 
 function drawTrace() {
@@ -347,8 +348,9 @@ function drawPhase() {
 function loop() {
   const speed = parseInt(document.getElementById('sl-spd').value, 10);
   for (let s = 0; s < speed; s++) {
-    step(params.I);
-    vHistory[traceHead] = v; uHistory[traceHead] = u;
+    const spiked = step(params.I);
+    // draw the spike up to its 30 mV peak (v is reset in the same step)
+    vHistory[traceHead] = spiked ? 30 : v; uHistory[traceHead] = u;
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
     phaseV[phaseHead] = v; phaseU[phaseHead] = u;
