@@ -298,9 +298,10 @@ const PRESETS = {
   ADAPTING: { I_ext: 200, a: 0, b:  40, tau_w: 150, V_r: -70, window: 1000 },
   IBURST:   { I_ext: 180, a: 2, b:  20, tau_w: 300, V_r: -58, window: 1000 },
   BURST:    { I_ext: 200, a: 0, b: 120, tau_w:  50, V_r: -50, window: 1000 },
-  // Working memory (paper): no adaptation, self-excitation on; bistable rest /
-  // persistent firing, switched by the Excite / Inhibit pulses
-  MEMORY:   { I_ext:  70, a: 0, b:   0, tau_w:  20, V_r: -70, window: 2000,
+  // Working memory (eQIF paper: SI Table I, a = 10 nS as in Fig. 2, I_base = 65 pA
+  // from SI B): no adaptation, self-excitation on; bistable rest / persistent
+  // firing, switched by the Excite / Inhibit pulses
+  MEMORY:   { I_ext:  65, a: 0, b:   0, tau_w:  20, V_r: -70, window: 2000,
               we: true, a_e: 10, b_e: 100, tau_e: 20 },
 };
 // Self-excitation w_e: same form as the paper's I_w (the adaptation current
