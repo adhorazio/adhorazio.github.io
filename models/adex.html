@@ -170,8 +170,8 @@
     <div class="legend-section">
       <div class="legend-section-title">Phase portrait (V, w)</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-v); opacity: .55;"></div>
-        <span>V-nullcline</span>
+        <div class="legend-dot" style="background: var(--c-in);"></div>
+        <span>V-nullcline (set by I)</span>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div>
@@ -544,7 +544,7 @@ function drawPhase() {
   pctx.textAlign = 'left';
 
   // ── V-nullcline ────────────────────────────────────────────────────────
-  pctx.strokeStyle = COL.V + '88'; pctx.lineWidth = 1.2; pctx.setLineDash([]); // nullclines faint, trajectory bright (all models)
+  pctx.strokeStyle = COL.IN + 'aa'; pctx.lineWidth = 1.2; pctx.setLineDash([]); // V-nullcline: shifts with the input current I
   pctx.beginPath();
   let firstVnull = true;
   for (let px = 0; px <= cW; px++) {

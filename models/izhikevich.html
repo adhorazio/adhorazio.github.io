@@ -124,8 +124,8 @@
         <span>state (v, u)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-v); opacity: .55;"></div>
-        <span>dv/dt = 0 (v-nullcline)</span>
+        <div class="legend-dot" style="background: var(--c-in);"></div>
+        <span>dv/dt = 0 (v-nullcline, set by I)</span>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div>
@@ -292,7 +292,7 @@ function drawPhase() {
   pctx.fillText('v', W - 12, H - 6);
   pctx.fillText('u', 4, 13);
 
-  pctx.strokeStyle = COL.V + '88'; pctx.lineWidth = 1.2;  // v-nullcline (nullclines faint, trajectory bright)
+  pctx.strokeStyle = COL.IN + 'aa'; pctx.lineWidth = 1.2;  // v-nullcline: shifts with the input current I
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) {
     const ui = 0.04*vi*vi + 5*vi + 140 + params.I;

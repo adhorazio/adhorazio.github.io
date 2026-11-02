@@ -123,7 +123,7 @@
         <span>f(I) analytical</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
+        <div class="legend-dot" style="background: var(--c-in);"></div>
         <span>rheobase I<sub>th</sub></span>
       </div>
       <div class="legend-item">
@@ -330,7 +330,7 @@ function drawFICurve() {
 
   // Rheobase dashed line
   if (dVth > 0 && dVth <= I_MAX) {
-    fctx.strokeStyle = COL.THRESH + '66'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+    fctx.strokeStyle = COL.IN + 'aa'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]); // rheobase current
     fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
     fctx.setLineDash([]);
   }
