@@ -383,9 +383,9 @@ function drawTrace() {
   const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
   tctx.clearRect(0, 0, W, traceCanvas._lh);
 
-  const splitY = H * 0.76;
+  const splitY = H; // V uses the full height; w is overlaid (same style as Izhikevich u)
 
-  const vMin = E_L - 15, vMax = V_peak + 15;
+  const vMin = E_L - 55, vMax = V_peak + 15;   // extra room below rest for the w band
   const mapVY = v => splitY * (1 - (v - vMin) / (vMax - vMin));
 
   // Dynamic w range from current buffer pass
@@ -397,14 +397,10 @@ function drawTrace() {
   }
   steadyRange(wRangeTrace, Math.min(wLo - 5, -5), Math.max(wHi * 1.2, 20));
   wHi = wRangeTrace.hi; wLo = wRangeTrace.lo;
-  const wH   = H - splitY - 4;
-  const mapWY = wv => splitY + 4 + wH * (1 - (wv - wLo) / (wHi - wLo));
+  // w (negative feedback) in the shared bottom band, under the resting level
+  const mapWY = fbBandMap(H, wLo, wHi);
 
   tctx.font = '10px monospace';
-
-  // Separator
-  tctx.strokeStyle = '#2e2e2e'; tctx.lineWidth = 1; tctx.setLineDash([]);
-  tctx.beginPath(); tctx.moveTo(0, splitY + 2); tctx.lineTo(W, splitY + 2); tctx.stroke();
 
   // Reference lines
   tctx.strokeStyle = COL.REST + '55'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
@@ -442,13 +438,10 @@ function drawTrace() {
     tctx.globalAlpha = 1;
   };
 
-  if (traceFull) drawV(traceHead, traceEff, 0.14);
-  drawV(0, traceHead, 1.0);
-
-  // ── w polyline, two passes ─────────────────────────────────────────────
+  // ── w (negative feedback) first, so V is drawn on top ────────────────────
   const drawW = (fromIdx, toIdx, alpha) => {
     if (toIdx <= fromIdx) return;
-    tctx.strokeStyle = COL.NEG; tctx.lineWidth = 2; tctx.globalAlpha = alpha;
+    tctx.strokeStyle = COL.NEG; tctx.lineWidth = FB_TRACE.width; tctx.globalAlpha = alpha;
     tctx.beginPath();
     const step = Math.max(1, Math.floor((toIdx - fromIdx) / W));
     let first = true;
@@ -460,16 +453,12 @@ function drawTrace() {
     tctx.stroke();
     tctx.globalAlpha = 1;
   };
+  if (traceFull) drawW(traceHead, traceEff, FB_TRACE.alphaOld);
+  drawW(0, traceHead, FB_TRACE.alpha);
 
-  if (traceFull) drawW(traceHead, traceEff, 0.14);
-  drawW(0, traceHead, 0.85);
+  if (traceFull) drawV(traceHead, traceEff, 0.14);
+  drawV(0, traceHead, 1.0);
 
-  // w = 0 baseline
-  tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([2, 4]);
-  tctx.beginPath(); tctx.moveTo(0, mapWY(0)); tctx.lineTo(W, mapWY(0)); tctx.stroke();
-  tctx.setLineDash([]);
-  tctx.fillStyle = '#555';
-  tctx.fillText('w', 4, mapWY(0) - 3);
 
   drawTimeAxis(tctx, W, H, windowMs);
 }

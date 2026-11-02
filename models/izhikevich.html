@@ -245,10 +245,11 @@ function step(I) {
   return false;
 }
 
+const uRange = {};
 function drawTrace() {
   const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
   tctx.clearRect(0, 0, W, traceCanvas._lh);
-  const vMin = -90, vMax = 40;
+  const vMin = -130, vMax = 40;   // extra room below rest for the u band
   const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
 
   tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1;
@@ -259,7 +260,6 @@ function drawTrace() {
     tctx.fillText(yv + ' mV', 4, y - 3);
   });
 
-  const uScale = (vMax - vMin) / 200;
   const cursorX = Math.round((traceHead / TRACE_LEN) * W);
 
   const drawSeg = (arr, from, to, color, lw, alpha, yFn) => {
@@ -273,14 +273,20 @@ function drawTrace() {
     tctx.stroke(); tctx.globalAlpha = 1;
   };
 
-  const yU = val => mapY(val * uScale - 65 + 5);
+  // u (negative feedback) in the shared bottom band, steady range
+  let uLo = Infinity, uHi = -Infinity;
+  const uEnd = traceFull ? TRACE_LEN : traceHead;
+  for (let i = 0; i < uEnd; i++) { const x = uHistory[i]; if (x < uLo) uLo = x; if (x > uHi) uHi = x; }
+  if (!isFinite(uLo)) { uLo = u - 1; uHi = u + 1; }
+  fbSteadyRange(uRange, uLo - 1, uHi + 1, 5);
+  const yU = fbBandMap(H, uRange.lo, uRange.hi);
   const yV = val => mapY(val);
 
   if (traceFull) {
-    drawSeg(uHistory, traceHead, TRACE_LEN, COL.NEG, 1,   0.12, yU);
+    drawSeg(uHistory, traceHead, TRACE_LEN, COL.NEG, FB_TRACE.width, FB_TRACE.alphaOld, yU);
     drawSeg(vHistory, traceHead, TRACE_LEN, COL.V, 1.8, 0.12, yV);
   }
-  drawSeg(uHistory, 0, traceHead, COL.NEG, 1,   0.5, yU);
+  drawSeg(uHistory, 0, traceHead, COL.NEG, FB_TRACE.width, FB_TRACE.alpha, yU);
   drawSeg(vHistory, 0, traceHead, COL.V, 1.8, 1.0, yV);
 
   tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
@@ -415,6 +421,7 @@ function applyPreset(name) {
   v = -65; u = params.b * v;
   vHistory.fill(-65); uHistory.fill(params.b * v);
   traceHead = 0; traceFull = false; lastSpikeU = null;
+  delete uRange.lo; delete uRange.hi;
   document.getElementById('sl-a').value = p.a;
   document.getElementById('sl-b').value = p.b;
   document.getElementById('sl-c').value = p.c;

@@ -42,6 +42,8 @@ feedback; yellow = voltage thresholds (V_theta, V_T); orange = current reset aft
 white dot = where the neuron is now (phase-plane state, f-I operating point).
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current
 curve (V-nullcline, rheobase) always uses styleInputCurve() and is clipped, never flattened.
+Spike plots: the negative-feedback trace (u, w) is red, drawn under V in the shared
+bottom band (FB_TRACE, fbBandMap, fbSteadyRange in palette.js), same panel, no separator.
 Equilibria (nullcline crossings) use the textbook symbols via drawEquilibria():
 filled = stable, empty = unstable, square = saddle, half-filled = saddle-node. Slider values stay yellow text (UI, not data).
 
