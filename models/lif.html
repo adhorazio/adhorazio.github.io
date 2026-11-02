@@ -8,6 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
   <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/palette.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -103,26 +104,30 @@
     <div class="legend-section">
       <div class="legend-section-title">Trace</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>V (membrane potential)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q1); opacity: .6;"></div>
+        <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
         <span>V<sub>&theta;</sub> (spike threshold)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-rest); opacity: .8;"></div>
+        <span>V<sub>rest</sub> (rest &amp; reset)</span>
       </div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">f&ndash;I curve</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>f(I) analytical</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3); opacity: .35;"></div>
+        <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
         <span>rheobase I<sub>th</sub></span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot dot" style="background: var(--gdv-q5);"></div>
+        <div class="legend-dot dot" style="background: var(--c-state);"></div>
         <span>operating point</span>
       </div>
     </div>
@@ -245,9 +250,9 @@ function drawTrace() {
   });
 
   // V_rest and V_thresh marker lines
-  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: GDV.q[0] + '99' }].forEach(({ v, label, color }) => {
+  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: COL.THRESH + 'cc' }].forEach(({ v, label, color }) => {
     const isThresh = v === Vth;
-    tctx.strokeStyle = isThresh ? GDV.q[0] + '55' : '#4a4a4a';
+    tctx.strokeStyle = isThresh ? COL.THRESH + '66' : '#4a4a4a';
     tctx.lineWidth = 1; tctx.setLineDash(isThresh ? [4, 4] : [2, 4]);
     tctx.beginPath(); tctx.moveTo(0, mapY(v)); tctx.lineTo(W, mapY(v)); tctx.stroke();
     tctx.setLineDash([]);
@@ -263,7 +268,7 @@ function drawTrace() {
   // V trace helper
   const drawSeg = (from, to, alpha) => {
     if (to <= from) return;
-    tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
+    tctx.strokeStyle = COL.V; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
     tctx.beginPath();
     for (let i = from; i < to; i++) {
       const x = (i / (TRACE_LEN - 1)) * W;
@@ -325,13 +330,13 @@ function drawFICurve() {
 
   // Rheobase dashed line
   if (dVth > 0 && dVth <= I_MAX) {
-    fctx.strokeStyle = GDV.q[2] + '55'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+    fctx.strokeStyle = COL.THRESH + '66'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
     fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
     fctx.setLineDash([]);
   }
 
   // f-I curve
-  fctx.strokeStyle = GDV.q[2]; fctx.lineWidth = 1.5;
+  fctx.strokeStyle = COL.V; fctx.lineWidth = 1.5;
   fctx.beginPath();
   fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(Math.min(dVth, I_MAX)), yf(0));
   let started = false;
@@ -347,7 +352,7 @@ function drawFICurve() {
   const op_f = fiFreq(params.I_eff);
   fctx.beginPath();
   fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
-  fctx.fillStyle = GDV.q[4]; fctx.fill();
+  fctx.fillStyle = COL.STATE; fctx.fill();
 
 }
 

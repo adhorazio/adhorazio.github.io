@@ -12,6 +12,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `assets/css/site.css` — shared tokens and styles for `index.html` and `tools/*`.
   Pages only keep page-specific CSS inline.
 - `index.html` — home page (cards).
+- `assets/js/palette.js` — shared colour code `COL` for the neuron models.
 - `assets/js/time-axis.js` — shared `drawTimeAxis()` for neuron traces (strip under the plot, t in ms/s).
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
@@ -30,6 +31,14 @@ Presets -> big plots -> controls (sliders) right under the plots ->
 reference. Keep explanations out of the space between plots and controls.
 Plots large; legend sections in the same order as the plots they describe.
 Lissajous: figure centred, full-width waveforms (full 4 s span) below it.
+
+## Colour code (all neuron models)
+Use `COL` (assets/js/palette.js) in canvas code and `--c-*` (site.css) in legends,
+never raw GDV colours: blue = V / V-nullcline / f-I; red = negative feedback
+(recovery/adaptation u, w, their nullcline, u+d / w+b); green = positive
+feedback; yellow = thresholds (V_theta, V_T, rheobase); purple = reset value
+(c, V_r); grey = rest (V_rest, E_L) and V_peak; white = trajectory, state dot,
+operating point. Slider values stay yellow text (UI, not data).
 
 ## Before committing
 Page loads without console errors, links work, `sitemap.xml` and the home

@@ -8,6 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
   <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/palette.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -103,37 +104,37 @@
     <div class="legend-section">
       <div class="legend-section-title">Trace</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>v (membrane potential)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+        <div class="legend-dot" style="background: var(--c-neg);"></div>
         <span>u (recovery variable)</span>
       </div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">Phase plane (v, u)</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+        <div class="legend-dot" style="background: var(--c-state); opacity: .7;"></div>
         <span>phase trajectory</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q5); opacity: .6;"></div>
+        <div class="legend-dot" style="background: var(--c-v); opacity: .6;"></div>
         <span>dv/dt = 0 (v-nullcline)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q1); opacity: .6;"></div>
+        <div class="legend-dot" style="background: var(--c-neg); opacity: .6;"></div>
         <span>du/dt = 0 (u-nullcline)</span>
       </div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">Reset</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q4);"></div>
+        <div class="legend-dot" style="background: var(--c-reset);"></div>
         <span>c (v reset)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q6);"></div>
+        <div class="legend-dot" style="background: var(--c-neg);"></div>
         <span>u + d (recovery after spike)</span>
       </div>
     </div>
@@ -263,11 +264,11 @@ function drawTrace() {
   const yV = val => mapY(val);
 
   if (traceFull) {
-    drawSeg(uHistory, traceHead, TRACE_LEN, GDV.q[0], 1,   0.12, yU);
-    drawSeg(vHistory, traceHead, TRACE_LEN, GDV.q[2], 1.8, 0.12, yV);
+    drawSeg(uHistory, traceHead, TRACE_LEN, COL.NEG, 1,   0.12, yU);
+    drawSeg(vHistory, traceHead, TRACE_LEN, COL.V, 1.8, 0.12, yV);
   }
-  drawSeg(uHistory, 0, traceHead, GDV.q[0], 1,   0.5, yU);
-  drawSeg(vHistory, 0, traceHead, GDV.q[2], 1.8, 1.0, yV);
+  drawSeg(uHistory, 0, traceHead, COL.NEG, 1,   0.5, yU);
+  drawSeg(vHistory, 0, traceHead, COL.V, 1.8, 1.0, yV);
 
   tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
@@ -286,14 +287,14 @@ function drawPhase() {
   pctx.fillText('v', W - 12, H - 6);
   pctx.fillText('u', 4, 13);
 
-  pctx.strokeStyle = GDV.q[4] + '66'; pctx.lineWidth = 1;
+  pctx.strokeStyle = COL.V + '88'; pctx.lineWidth = 1;  // v-nullcline
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) {
     const ui = 0.04*vi*vi + 5*vi + 140 + params.I;
     vi === vMin ? pctx.moveTo(mx(vi), mu(ui)) : pctx.lineTo(mx(vi), mu(ui));
   }
   pctx.stroke();
-  pctx.strokeStyle = GDV.q[0] + '66';
+  pctx.strokeStyle = COL.NEG + '88';  // u-nullcline
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) pctx.lineTo(mx(vi), mu(params.b * vi));
   pctx.stroke();
@@ -301,7 +302,7 @@ function drawPhase() {
   pctx.setLineDash([3, 3]);
   pctx.lineWidth = 1;
 
-  pctx.strokeStyle = GDV.q[3] + 'aa';
+  pctx.strokeStyle = COL.RESET + 'aa';
   pctx.beginPath(); pctx.moveTo(mx(params.c), 0); pctx.lineTo(mx(params.c), H); pctx.stroke();
 
   pctx.setLineDash([]);
@@ -309,7 +310,7 @@ function drawPhase() {
   // Horizontal line at u = lastSpikeU + d
   if (lastSpikeU !== null) {
     pctx.setLineDash([3, 3]);
-    pctx.strokeStyle = GDV.q[5] + 'aa';
+    pctx.strokeStyle = COL.NEG + 'aa';
     pctx.lineWidth = 1;
     pctx.beginPath(); pctx.moveTo(0, mu(lastSpikeU + params.d)); pctx.lineTo(W, mu(lastSpikeU + params.d)); pctx.stroke();
     pctx.setLineDash([]);
@@ -334,7 +335,7 @@ function drawPhase() {
   pctx.lineJoin = 'round';
   for (let i0 = 0; i0 < PHASE_LEN - 1; i0 += RUN) {
     const i1 = Math.min(i0 + RUN, PHASE_LEN - 1);
-    pctx.strokeStyle = `rgba(255,197,30,${((i0 + i1) / 2 / PHASE_LEN) * 0.75})`;
+    pctx.strokeStyle = `rgba(${COL.TRAJ},${((i0 + i1) / 2 / PHASE_LEN) * 0.75})`;
     pctx.beginPath();
     for (let i = i0; i <= i1; i++) {
       const idx = (phaseHead + i) % PHASE_LEN;
@@ -344,8 +345,8 @@ function drawPhase() {
     pctx.stroke();
   }
   pctx.beginPath();
-  pctx.arc(mx(v), mu(u), 3, 0, Math.PI * 2);
-  pctx.fillStyle = GDV.q[2]; pctx.fill();
+  pctx.arc(mx(v), mu(u), 3.5, 0, Math.PI * 2);
+  pctx.fillStyle = COL.STATE; pctx.fill();
 }
 
 function loop() {

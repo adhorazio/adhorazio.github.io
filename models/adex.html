@@ -8,6 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
   <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/palette.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -146,26 +147,34 @@
     <div class="legend-section">
       <div class="legend-section-title">Trace</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>V (membrane potential)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q4); opacity:.8;"></div>
+        <div class="legend-dot" style="background: var(--c-neg);"></div>
         <span>w (adaptation current)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q5); opacity:.7;"></div>
+        <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
         <span>V<sub>T</sub> (rheobase threshold)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-reset); opacity: .8;"></div>
+        <span>V<sub>r</sub> (reset potential)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-rest); opacity: .8;"></div>
+        <span>E<sub>L</sub> (rest)</span>
       </div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">Phase portrait (V, w)</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>V-nullcline</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--gdv-q5);"></div>
+        <div class="legend-dot" style="background: var(--c-neg);"></div>
         <span>w-nullcline</span>
       </div>
       <div class="legend-item">
@@ -173,11 +182,11 @@
         <span>V<sub>peak</sub> (spike &amp; reset)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: rgba(255,255,255,0.4);"></div>
+        <div class="legend-dot" style="background: var(--c-state); opacity: .6;"></div>
         <span>trajectory</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot dot" id="legend-state-dot" style="background: var(--gdv-q2);"></div>
+        <div class="legend-dot dot" id="legend-state-dot" style="background: var(--c-state);"></div>
         <span>state (V, w)</span>
       </div>
     </div>
@@ -390,19 +399,19 @@ function drawTrace() {
   tctx.beginPath(); tctx.moveTo(0, splitY + 2); tctx.lineTo(W, splitY + 2); tctx.stroke();
 
   // Reference lines
-  tctx.strokeStyle = GDV.q[5] + '33'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
+  tctx.strokeStyle = COL.REST + '55'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
   tctx.beginPath(); tctx.moveTo(0, mapVY(E_L)); tctx.lineTo(W, mapVY(E_L)); tctx.stroke();
   tctx.setLineDash([]);
-  tctx.fillStyle = GDV.q[5] + '66';
+  tctx.fillStyle = COL.REST + '99';
   tctx.fillText('EL', 4, mapVY(E_L) - 3);
 
-  tctx.strokeStyle = GDV.q[4] + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
+  tctx.strokeStyle = COL.THRESH + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
   tctx.beginPath(); tctx.moveTo(0, mapVY(V_T)); tctx.lineTo(W, mapVY(V_T)); tctx.stroke();
   tctx.setLineDash([]);
-  tctx.fillStyle = GDV.q[4] + 'cc';
+  tctx.fillStyle = COL.THRESH + 'cc';
   tctx.fillText('VT ' + V_T + ' mV', 4, mapVY(V_T) - 3);
 
-  tctx.strokeStyle = GDV.q[0] + '33'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
+  tctx.strokeStyle = COL.RESET + '55'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
   tctx.beginPath(); tctx.moveTo(0, mapVY(params.V_r)); tctx.lineTo(W, mapVY(params.V_r)); tctx.stroke();
   tctx.setLineDash([]);
 
@@ -414,7 +423,7 @@ function drawTrace() {
   // ── V polyline, two passes (old faded / new bright) ──────────────────────
   const drawV = (fromIdx, toIdx, alpha) => {
     if (toIdx <= fromIdx) return;
-    tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 2.2; tctx.globalAlpha = alpha;
+    tctx.strokeStyle = COL.V; tctx.lineWidth = 2.2; tctx.globalAlpha = alpha;
     tctx.beginPath();
     for (let i = fromIdx; i < toIdx; i++) {
       const x = (i / (traceEff - 1)) * W;
@@ -431,7 +440,7 @@ function drawTrace() {
   // ── w polyline, two passes ─────────────────────────────────────────────
   const drawW = (fromIdx, toIdx, alpha) => {
     if (toIdx <= fromIdx) return;
-    tctx.strokeStyle = GDV.q[3]; tctx.lineWidth = 2; tctx.globalAlpha = alpha;
+    tctx.strokeStyle = COL.NEG; tctx.lineWidth = 2; tctx.globalAlpha = alpha;
     tctx.beginPath();
     const step = Math.max(1, Math.floor((toIdx - fromIdx) / W));
     let first = true;
@@ -510,18 +519,18 @@ function drawPhase() {
   });
 
   // V_T dashed marker
-  pctx.strokeStyle = GDV.q[4] + '55'; pctx.lineWidth = 1; pctx.setLineDash([3, 3]);
+  pctx.strokeStyle = COL.THRESH + '55'; pctx.lineWidth = 1; pctx.setLineDash([3, 3]);
   pctx.beginPath(); pctx.moveTo(xv(V_T), mt); pctx.lineTo(xv(V_T), mt + cH); pctx.stroke();
   pctx.setLineDash([]);
 
   // E_L dashed marker
-  pctx.strokeStyle = GDV.q[5] + '33'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
+  pctx.strokeStyle = COL.REST + '55'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
   pctx.beginPath(); pctx.moveTo(xv(E_L), mt); pctx.lineTo(xv(E_L), mt + cH); pctx.stroke();
   pctx.setLineDash([]);
 
   // V_r marker (thin red dashed)
   if (V_r >= vLo && V_r <= vHi) {
-    pctx.strokeStyle = GDV.q[0] + '55'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
+    pctx.strokeStyle = COL.RESET + '77'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
     pctx.beginPath(); pctx.moveTo(xv(V_r), mt); pctx.lineTo(xv(V_r), mt + cH); pctx.stroke();
     pctx.setLineDash([]);
   }
@@ -535,7 +544,7 @@ function drawPhase() {
   pctx.textAlign = 'left';
 
   // ── V-nullcline ────────────────────────────────────────────────────────
-  pctx.strokeStyle = GDV.q[2]; pctx.lineWidth = 1.8; pctx.setLineDash([]);
+  pctx.strokeStyle = COL.V; pctx.lineWidth = 1.8; pctx.setLineDash([]);
   pctx.beginPath();
   let firstVnull = true;
   for (let px = 0; px <= cW; px++) {
@@ -550,7 +559,7 @@ function drawPhase() {
   pctx.stroke();
 
   // ── w-nullcline ────────────────────────────────────────────────────────
-  pctx.strokeStyle = GDV.q[4]; pctx.lineWidth = 1.5;
+  pctx.strokeStyle = COL.NEG; pctx.lineWidth = 1.5;
   pctx.beginPath();
   let firstWnull = true;
   for (let px = 0; px <= cW; px++) {
@@ -572,7 +581,7 @@ function drawPhase() {
     for (let i0 = 1; i0 < tLen; i0 += RUN) {
       const i1 = Math.min(i0 + RUN, tLen);
       const alpha = 0.06 + 0.55 * (((i0 + i1) / 2) / tLen);
-      pctx.strokeStyle = `rgba(210,210,210,${alpha.toFixed(2)})`;
+      pctx.strokeStyle = `rgba(${COL.TRAJ},${alpha.toFixed(2)})`;
       pctx.beginPath();
       let penDown = false;
       for (let i = i0; i < i1; i++) {
@@ -593,7 +602,7 @@ function drawPhase() {
   const sW = Math.max(wLo, Math.min(wHi, w));
   pctx.beginPath();
   pctx.arc(xv(sV), yw(sW), 4, 0, Math.PI * 2);
-  pctx.fillStyle = GDV.q[1]; pctx.fill();
+  pctx.fillStyle = COL.STATE; pctx.fill();
 }
 
 // ── Animation loop ─────────────────────────────────────────────────────────
@@ -623,7 +632,7 @@ function loop() {
   drawTrace();
   drawPhase();
 
-  document.getElementById('legend-state-dot').style.background = GDV.q[1];
+  document.getElementById('legend-state-dot').style.background = COL.STATE;
 
   requestAnimationFrame(loop);
 }
