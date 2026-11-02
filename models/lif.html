@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/time-axis.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -227,8 +228,8 @@ function fiFreq(I_eff) {
 // ── Drawing ───────────────────────────────────────────────────────────────────
 
 function drawTrace() {
-  const W = traceCanvas._lw, H = traceCanvas._lh;
-  tctx.clearRect(0, 0, W, H);
+  const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
+  tctx.clearRect(0, 0, W, traceCanvas._lh);
   const Vr  = params.V_rest;
   const Vth = params.V_thresh;
   const vMin = -95, vMax = -20;
@@ -273,6 +274,8 @@ function drawTrace() {
 
   if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
   drawSeg(0, traceHead, 1.0);
+
+  drawTimeAxis(tctx, W, H, TRACE_LEN); // 1 sample = 1 ms
 }
 
 function drawFICurve() {

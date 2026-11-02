@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/time-axis.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -231,8 +232,8 @@ function step(I) {
 }
 
 function drawTrace() {
-  const W = traceCanvas._lw, H = traceCanvas._lh;
-  tctx.clearRect(0, 0, W, H);
+  const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
+  tctx.clearRect(0, 0, W, traceCanvas._lh);
   const vMin = -90, vMax = 40;
   const mapY = val => H * (1 - (val - vMin) / (vMax - vMin));
 
@@ -270,6 +271,8 @@ function drawTrace() {
 
   tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
+
+  drawTimeAxis(tctx, W, H, TRACE_LEN); // 1 sample = 2 x 0.5 ms = 1 ms
 }
 
 function drawPhase() {
