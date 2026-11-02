@@ -139,8 +139,10 @@ canvas { display: block; border-radius: 6px; background: var(--canvas); }
   color: var(--text-dim);
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
 }
-.control-group label span { color: var(--gdv-q5); font-variant-numeric: tabular-nums; }
+.control-group label span[id] { color: var(--gdv-q5); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 input[type="range"] {
   -webkit-appearance: none;

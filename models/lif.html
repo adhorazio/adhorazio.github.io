@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LIF Neuron</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <style>
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
+
+    /* Membrane trace (main plot) left, f-I curve right; stacked on phones */
+    .plots {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 1rem;
+    }
+    #canvas-wrap { position: relative; min-width: 0; }
+    #trace { width: 100%; height: 300px; }
+    #fi { width: 300px; height: 300px; }
+
+    /* "What is what" under the controls, sections side by side from the left,
+       in the same order as the plots: trace first, then f-I curve */
+    .legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .legend-dot.dot { width: 8px; height: 8px; border-radius: 50%; }
+    .freq-display {
+      font-size: 0.68rem;
+      color: var(--gdv-q5);
+      font-variant-numeric: tabular-nums;
+      margin-top: 0.1rem;
+    }
+
+    .eq-reset { padding: 0.55rem 1rem; color: #b0b0b0; }
+    .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
+
+    @media (max-width: 760px) {
+      .plots { grid-template-columns: 1fr; }
+      #trace { height: 200px; }
+      #fi { width: 100%; max-width: 360px; height: auto; aspect-ratio: 1; justify-self: center; }
+    }
+    @media (max-width: 600px) {
+      .legend { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>LIF Neuron</h1>
+  <a href="../index.html">&larr; Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Real-time simulation</div>
+
+  <div class="presets" id="presets">
+    <button class="preset-btn active" data-preset="SUB">Sub-threshold</button>
+    <button class="preset-btn" data-preset="TONIC">Tonic spiking</button>
+    <button class="preset-btn" data-preset="FAST">Fast spiking</button>
+  </div>
+
+  <!-- Plots first, controls right under them, explanations last -->
+  <div class="plots">
+    <div id="canvas-wrap">
+      <canvas id="trace" height="300"></canvas>
+    </div>
+    <canvas id="fi" width="300" height="300"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label><span>&tau;<sub>m</sub> &mdash; membrane time constant</span><span id="val-tau">100 ms</span></label>
+      <input type="range" id="sl-tau" min="5" max="500" step="5" value="100" />
+    </div>
+    <div class="control-group">
+      <label><span>V<sub>rest</sub> &mdash; resting potential</span><span id="val-vrest">-70 mV</span></label>
+      <input type="range" id="sl-vrest" min="-85" max="-55" step="1" value="-70" />
+    </div>
+    <div class="control-group">
+      <label><span>V<sub>&theta;</sub> &mdash; spike threshold</span><span id="val-vthresh">-50 mV</span></label>
+      <input type="range" id="sl-vthresh" min="-65" max="-30" step="1" value="-50" />
+    </div>
+    <div class="control-group">
+      <label><span>I<sub>eff</sub> &mdash; effective input</span><span id="val-I">30 mV</span></label>
+      <input type="range" id="sl-I" min="0" max="55" step="1" value="30" />
+    </div>
+    <div class="control-group">
+      <label><span>speed</span><span id="val-spd">&frac14;&times;</span></label>
+      <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.25" />
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <div class="legend-section">
+      <div class="legend-section-title">Trace</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <span>V (membrane potential)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q1); opacity: .6;"></div>
+        <span>V<sub>&theta;</sub> (spike threshold)</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">f&ndash;I curve</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <span>f(I) analytical</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3); opacity: .35;"></div>
+        <span>rheobase I<sub>th</sub></span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot dot" style="background: var(--gdv-q5);"></div>
+        <span>operating point</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Firing rate</div>
+      <div class="freq-display" id="freq-display">&mdash;</div>
+    </div>
+  </div>
+</div>
+
+<div class="equations">
+  <div class="eq-label">Model equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-reset" id="eq2"></div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="footer-ref">
+    <span class="ref-label">Reference</span>
+    Lapicque, L. Recherches quantitatives sur l'excitation &eacute;lectrique des nerfs trait&eacute;e comme une polarisation.
+    <em>J. Physiol. Pathol. G&eacute;n.</em> <strong>9</strong>, 620&ndash;635 (1907).
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
+
+const PRESETS = {
+  SUB:   { tau_m: 100, V_rest: -70, V_thresh: -50, I_eff: 30 },
+  TONIC: { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 25 },
+  FAST:  { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 45 },
+};
+
+let params = { ...PRESETS.SUB };
+
+const TRACE_LEN = 600;
+const vHistory  = new Float32Array(TRACE_LEN);
+vHistory.fill(params.V_rest);
+let traceHead = 0;
+let traceFull = false;
+
+let V             = params.V_rest;
+let simStep       = 0;
+let lastSpikeStep = null;
+let simISI        = null;
+let lastFrameTime = null;
+
+const traceCanvas = document.getElementById('trace');
+const tctx        = traceCanvas.getContext('2d');
+const fiCanvas    = document.getElementById('fi');
+const fctx        = fiCanvas.getContext('2d');
+
+// HiDPI: match canvas pixels exactly to the on-screen size at the current
+// pixel ratio (Windows scaling / browser zoom), and follow layout changes.
+function fitCanvas(c, ctx) {
+  const r = c.getBoundingClientRect();
+  const w = r.width || c.width, h = r.height || c.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
+  c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
+}
+function resizeCanvases() {
+  fitCanvas(traceCanvas, tctx);
+  fitCanvas(fiCanvas, fctx);
+}
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(resizeCanvases);
+  ro.observe(traceCanvas); ro.observe(fiCanvas);
+}
+resizeCanvases();
+
+// ── Simulation ────────────────────────────────────────────────────────────────
+
+function step() {
+  simStep++;
+  V += (-(V - params.V_rest) + params.I_eff) / params.tau_m; // dt = 1 ms
+  if (V >= params.V_thresh) {
+    if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
+    lastSpikeStep = simStep;
+    V = params.V_rest;
+  }
+}
+
+// Analytical f-I curve: f = 1 / (τ_m · ln(I / (I − ΔVθ)))
+function fiFreq(I_eff) {
+  const dVth = params.V_thresh - params.V_rest;
+  if (dVth <= 0 || I_eff <= dVth) return 0;
+  const t_spike = params.tau_m * Math.log(I_eff / (I_eff - dVth));
+  return t_spike > 0 ? 1000 / t_spike : 0;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+
+function drawTrace() {
+  const W = traceCanvas._lw, H = traceCanvas._lh;
+  tctx.clearRect(0, 0, W, H);
+  const Vr  = params.V_rest;
+  const Vth = params.V_thresh;
+  const vMin = -95, vMax = -20;
+  const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
+
+  // Horizontal grid — fixed reference lines
+  tctx.font = '10px monospace';
+  [-80, -60, -40].forEach(yv => {
+    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
+    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
+    tctx.fillStyle = '#555';
+    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
+  });
+
+  // V_rest and V_thresh marker lines
+  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: GDV.q[0] + '99' }].forEach(({ v, label, color }) => {
+    const isThresh = v === Vth;
+    tctx.strokeStyle = isThresh ? GDV.q[0] + '55' : '#4a4a4a';
+    tctx.lineWidth = 1; tctx.setLineDash(isThresh ? [4, 4] : [2, 4]);
+    tctx.beginPath(); tctx.moveTo(0, mapY(v)); tctx.lineTo(W, mapY(v)); tctx.stroke();
+    tctx.setLineDash([]);
+    tctx.fillStyle = color;
+    tctx.fillText(label + ' ' + v + ' mV', 4, mapY(v) - 3);
+  });
+
+  // Cursor
+  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
+
+  // V trace helper
+  const drawSeg = (from, to, alpha) => {
+    if (to <= from) return;
+    tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
+    tctx.beginPath();
+    for (let i = from; i < to; i++) {
+      const x = (i / (TRACE_LEN - 1)) * W;
+      i === from ? tctx.moveTo(x, mapY(vHistory[i])) : tctx.lineTo(x, mapY(vHistory[i]));
+    }
+    tctx.stroke(); tctx.globalAlpha = 1;
+  };
+
+  if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
+  drawSeg(0, traceHead, 1.0);
+}
+
+function drawFICurve() {
+  const W = fiCanvas._lw, H = fiCanvas._lh;
+  const ml = 34, mt = 14, mr = 10, mb = 32;
+  const cW = W - ml - mr, cH = H - mt - mb;
+
+  fctx.clearRect(0, 0, W, H);
+  fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
+
+  const dVth  = params.V_thresh - params.V_rest;
+  const I_MAX = 60;
+  // Frequency axis follows the curve (it used to be clipped at 30 Hz)
+  const fTop  = Math.max(fiFreq(I_MAX), params.I_eff > I_MAX ? fiFreq(params.I_eff) : 0, 10);
+  const fStep = [5, 10, 20, 25, 50, 100, 200].find(s => fTop / s <= 4) || 500;
+  const F_MAX = Math.ceil(fTop / fStep) * fStep;
+  const fTicks = [];
+  for (let f = fStep; f <= F_MAX; f += fStep) fTicks.push(f);
+  const xi = I => ml + (I / I_MAX) * cW;
+  const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
+
+  // Grid
+  fctx.lineWidth = 0.5;
+  fTicks.forEach(f => {
+    fctx.strokeStyle = '#333';
+    fctx.beginPath(); fctx.moveTo(ml, yf(f)); fctx.lineTo(ml + cW, yf(f)); fctx.stroke();
+    fctx.fillStyle = '#555'; fctx.font = '11px monospace';
+    fctx.fillText(f, 4, yf(f) + 4);
+  });
+  [20, 40, 60].forEach(I => {
+    fctx.strokeStyle = '#333'; fctx.lineWidth = 0.5;
+    fctx.beginPath(); fctx.moveTo(xi(I), mt); fctx.lineTo(xi(I), mt + cH); fctx.stroke();
+    fctx.fillStyle = '#555'; fctx.font = '11px monospace';
+    fctx.fillText(I, xi(I) - 7, mt + cH + 16);
+  });
+
+  // Axes
+  fctx.strokeStyle = '#555'; fctx.lineWidth = 1;
+  fctx.beginPath();
+  fctx.moveTo(ml, mt); fctx.lineTo(ml, mt + cH); fctx.lineTo(ml + cW, mt + cH);
+  fctx.stroke();
+
+  // Axis labels
+  fctx.fillStyle = '#666'; fctx.font = '11px monospace';
+  fctx.fillText('f (Hz)', ml + 4, mt + 11);
+  fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 62, mt + cH + 28);
+
+  // Rheobase dashed line
+  if (dVth > 0 && dVth <= I_MAX) {
+    fctx.strokeStyle = GDV.q[2] + '55'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+    fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
+    fctx.setLineDash([]);
+  }
+
+  // f-I curve
+  fctx.strokeStyle = GDV.q[2]; fctx.lineWidth = 1.5;
+  fctx.beginPath();
+  fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(Math.min(dVth, I_MAX)), yf(0));
+  let started = false;
+  for (let I = Math.max(dVth, 0); I <= I_MAX; I += I_MAX / 200) {
+    const f = fiFreq(I);
+    const x = xi(I), y = yf(f);
+    started ? fctx.lineTo(x, y) : (fctx.moveTo(x, y), started = true);
+  }
+  fctx.stroke();
+
+  // Operating point
+  const op_I = Math.min(params.I_eff, I_MAX);
+  const op_f = fiFreq(params.I_eff);
+  fctx.beginPath();
+  fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
+  fctx.fillStyle = GDV.q[4]; fctx.fill();
+
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+
+function loop() {
+  const now = performance.now();
+  const speed = parseFloat(document.getElementById('sl-spd').value);
+  const dtReal = lastFrameTime !== null ? Math.min(now - lastFrameTime, 100) : 16.7;
+  lastFrameTime = now;
+  const steps = Math.round(dtReal * speed); // 1 sim-ms per real-ms at speed=1
+  for (let s = 0; s < steps; s++) {
+    step();
+    vHistory[traceHead] = V;
+    traceHead++;
+    if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
+  }
+  drawTrace();
+  drawFICurve();
+
+  const freqEl = document.getElementById('freq-display');
+  const theorF = fiFreq(params.I_eff);
+  const theorStr = theorF > 0 ? theorF.toFixed(1) + ' Hz' : '—';
+  const obsF = (simISI !== null && (simStep - lastSpikeStep) < 3000)
+    ? (1000 / simISI).toFixed(1) + ' Hz' : '—';
+  freqEl.innerHTML = `<span style="opacity:.6">theory</span> ${theorStr}<br><span style="opacity:.6">observed</span> ${obsF}`;
+
+  requestAnimationFrame(loop);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+
+[
+  ['tau_m',    'sl-tau',     'val-tau',     0, v => v + ' ms'],
+  ['V_rest',   'sl-vrest',   'val-vrest',   0, v => v + ' mV'],
+  ['V_thresh', 'sl-vthresh', 'val-vthresh', 0, v => v + ' mV'],
+  ['I_eff',    'sl-I',       'val-I',       0, v => v + ' mV'],
+].forEach(([key, slId, valId, dec, fmt]) => {
+  const sl = document.getElementById(slId);
+  document.getElementById(valId).textContent = fmt(parseFloat(sl.value).toFixed(dec));
+  sl.addEventListener('input', () => {
+    let val = parseFloat(sl.value);
+    if (key === 'V_rest'   && val >= params.V_thresh - 5) { val = params.V_thresh - 5; sl.value = val; }
+    if (key === 'V_thresh' && val <= params.V_rest  + 5) { val = params.V_rest  + 5; sl.value = val; }
+    params[key] = val;
+    document.getElementById(valId).textContent = fmt(val.toFixed(dec));
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    lastSpikeStep = null; simISI = null;
+  });
+});
+
+document.getElementById('sl-spd').addEventListener('input', function () {
+  const v = parseFloat(this.value);
+  const label = v === 0.25 ? '¼×' : v === 0.5 ? '½×' : v === 0.75 ? '¾×' : v + '×';
+  document.getElementById('val-spd').textContent = label;
+});
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  params = { ...p };
+  V = p.V_rest;
+  vHistory.fill(p.V_rest); traceHead = 0; traceFull = false;
+  lastSpikeTime = null; realISI = null;
+
+  document.getElementById('sl-tau').value     = p.tau_m;
+  document.getElementById('sl-vrest').value   = p.V_rest;
+  document.getElementById('sl-vthresh').value = p.V_thresh;
+  document.getElementById('sl-I').value       = p.I_eff;
+
+  document.getElementById('val-tau').textContent     = p.tau_m   + ' ms';
+  document.getElementById('val-vrest').textContent   = p.V_rest  + ' mV';
+  document.getElementById('val-vthresh').textContent = p.V_thresh + ' mV';
+  document.getElementById('val-I').textContent       = p.I_eff   + ' mV';
+
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === name);
+  });
+}
+
+document.getElementById('presets').addEventListener('click', e => {
+  if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
+});
+
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  if (!window.katex) return; // equations are optional (KaTeX CDN unreachable)
+  katex.render(
+    String.raw`\tau_m \frac{dV}{dt} = -(V - V_{\text{rest}}) + I_{\text{eff}}`,
+    document.getElementById('eq1'), { displayMode: false }
+  );
+  katex.render(
+    String.raw`\text{if } V \geq V_\theta \;:\quad V \leftarrow V_{\text{rest}}`,
+    document.getElementById('eq2'), { displayMode: false }
+  );
+});
+</script>
+
+</body>
+</html>
