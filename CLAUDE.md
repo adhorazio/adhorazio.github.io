@@ -44,6 +44,9 @@ feedback; yellow = voltage thresholds (V_theta, V_T); orange = current reset aft
 by ion channel: Na+ m sky/ice (predominant), Na+ h same colour lighter, K+ n bordeaux; purple = voltage reset
 (c, V_r); grey = rest (V_rest, E_L) and V_peak;
 white dot = where the neuron is now (phase-plane state, f-I operating point).
+Extended palette: `PALETTE_EXT` in palette.js lists every colour in use or kept for reference: GDV 6a,
+extra tones picked from the GDV ramps, the full GDV ramps, and legacy sets (old Clione Open Color, old HH gates).
+Use it when many series need colours and telling them apart matters less; meaning still comes from COL / 6a.
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current
 curve (V-nullcline, rheobase) always uses styleInputCurve() and is clipped, never flattened.
 Spike plots are stacked scopes (assets/js/scope.js): one scope per signal (V on top,
