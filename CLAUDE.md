@@ -34,7 +34,7 @@ Lissajous: figure centred, full-width waveforms (full 4 s span) below it.
 
 ## Colour code (all neuron models)
 Use `COL` (assets/js/palette.js) in canvas code and `--c-*` (site.css) in legends,
-never raw GDV colours: blue = V / f-I / phase trajectory; orange = input
+never raw GDV colours: blue = V / f-I / phase trajectory; yellow = input
 current (V-nullcline, which shifts with I; rheobase on the f-I curve); red = negative feedback
 (recovery/adaptation u, w, their nullcline, u+d / w+b); green = positive
 feedback; yellow = voltage thresholds (V_theta, V_T); purple = reset value

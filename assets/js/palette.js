@@ -4,7 +4,7 @@
 //   NEG    negative feedback: recovery / adaptation (u, w),   red
 //          its nullcline and the spike-triggered jump (u+d, w+b)
 //   POS    positive feedback (e.g. self-excitation)           green
-//   IN     input current: curves set by I (V-nullcline, which  orange
+//   IN     input current: curves set by I (V-nullcline, which  yellow
 //          shifts with I), rheobase current on the f-I curve
 //   THRESH voltage thresholds: V_theta, V_T                   yellow
 //   RESET  reset value: c, V_r                                purple
@@ -15,7 +15,7 @@ const COL = {
   V:      '#009ADE',
   NEG:    '#FF1F5B',
   POS:    '#00CD6C',
-  IN:     '#F28522',
+  IN:     '#FFC61E',
   THRESH: '#FFC61E',
   RESET:  '#AF58BA',
   REST:   '#888888',
