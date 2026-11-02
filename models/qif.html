@@ -427,6 +427,14 @@ function steadyRange(st, lo, hi, stepv = W_STEP) {
   if (st.lo === undefined || nLo < st.lo || nLo > st.lo + 3 * stepv) st.lo = nLo;
   return st;
 }
+// Phase views: grow-only ranges (they never shrink while the neuron runs, so
+// the axes stay put); reset on preset, switch or view change.
+function growRange(st, lo, hi, stepv = W_STEP) {
+  const nHi = Math.ceil(hi / stepv) * stepv, nLo = Math.floor(lo / stepv) * stepv;
+  if (st.hi === undefined || nHi > st.hi) st.hi = nHi;
+  if (st.lo === undefined || nLo < st.lo) st.lo = nLo;
+  return st;
+}
 const R = { tm: {}, tp: {}, ph: {}, px: {}, py: {} };
 const resetRanges = () => Object.values(R).forEach(o => { delete o.hi; delete o.lo; });
 
@@ -565,9 +573,9 @@ function drawPhaseLine() {
   const { W, H, cW, cH } = frame();
   const [vLo, vHi] = vRange();
   const f = Vv => (Iion(Vv) + Iin()) / C_m;                 // mV/ms
-  const vMinY = f((E_L + V_T) / 2);
-  steadyRange(R.ph, Math.min(-0.5, vMinY * 1.4), Math.max(1.5, Math.abs(vMinY) * 1.6), 0.5);
-  const yLo = R.ph.lo, yHi = R.ph.hi;
+  // fixed axes: the parabola's lowest point (I − I_SN)/C stays inside for I in 0–400 pA,
+  // so moving I (or a pulse) slides the curve up and down without rescaling
+  const yLo = -1, yHi = 2;
   const xv = v => PM.ml + (v - vLo) / (vHi - vLo) * cW;
   const ys = y => PM.mt + cH - (y - yLo) / (yHi - yLo) * cH;
   hGrid(niceTicks(yLo, yHi, 4).filter(t => t > yLo && t < yHi), ys, cW);
@@ -605,9 +613,9 @@ function drawVPlane(which) {
   const { tLen, tIdx } = trailIdx();
   let lo = 0, hi = 10;
   for (let i = 0; i < tLen; i++) { const v = yb[tIdx(i)]; if (v > hi) hi = v; if (v < lo) lo = v; }
-  const vert = vNull((E_L + V_T) / 2);
-  if (isM) steadyRange(R.ph, Math.min(lo - 5, -10, vert - 20), Math.max(hi * 1.2, 80, vert + 60));
-  else     steadyRange(R.ph, Math.min(lo - 5, -20), Math.max(hi * 1.2, 80, vert + 40));
+  const vert = vNull((E_L + V_T) / 2) - curPulse * PULSE_AMP * (isM ? 1 : -1);   // vertex without the pulse
+  if (isM) growRange(R.ph, Math.min(lo - 5, -10, vert - 20), Math.max(hi * 1.1, 80, vert + 60));
+  else     growRange(R.ph, Math.min(lo - 5, -20), Math.max(hi * 1.1, 80, vert + 40));
   const yLo = R.ph.lo, yHi = R.ph.hi;
   const xv = v => PM.ml + (v - vLo) / (vHi - vLo) * cW;
   const ys = y => PM.mt + cH - (y - yLo) / (yHi - yLo) * cH;
@@ -653,9 +661,9 @@ function drawSlowPlane() {
     if (phM[k] < xLo) xLo = phM[k]; if (phM[k] > xHi) xHi = phM[k];
     if (phP[k] < yLo) yLo = phP[k]; if (phP[k] > yHi) yHi = phP[k];
   }
-  const off = I_SN - Iin();
-  steadyRange(R.px, Math.min(xLo - 5, -10), Math.max(xHi * 1.2, 60));
-  steadyRange(R.py, Math.min(yLo - 5, -10, off - 20), Math.max(yHi * 1.2, 60, off + 40));
+  const off = I_SN - Iin(), off0 = I_SN - params.I_ext;     // range from the base input
+  growRange(R.px, Math.min(xLo - 5, -10), Math.max(xHi * 1.1, 60));
+  growRange(R.py, Math.min(yLo - 5, -10, off0 - 20), Math.max(yHi * 1.1, 60, off0 + 40));
   const x0 = R.px.lo, x1 = R.px.hi, y0 = R.py.lo, y1 = R.py.hi;
   const xs = v => PM.ml + (v - x0) / (x1 - x0) * cW;
   const ys = v => PM.mt + cH - (v - y0) / (y1 - y0) * cH;
@@ -831,6 +839,10 @@ sliders.forEach(([key, slId, valId, fmt]) => {
     document.getElementById(valId).textContent = fmt(sl.value);
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   });
+});
+// after moving I, let the phase axes refit once (on release, not while dragging)
+document.getElementById('sl-I').addEventListener('change', () => {
+  delete R.ph.hi; delete R.ph.lo; delete R.px.hi; delete R.px.lo; delete R.py.hi; delete R.py.lo;
 });
 document.getElementById('sl-spd').addEventListener('input', function () {
   document.getElementById('val-spd').textContent = SPD_LABELS[parseInt(this.value) - 1];
