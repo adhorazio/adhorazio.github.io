@@ -169,7 +169,7 @@
         <span>w-nullcline</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: rgba(255,255,255,0.45);"></div>
+        <div class="legend-dot" style="background: rgba(255,255,255,0.3);"></div>
         <span>V<sub>peak</sub> (spike &amp; reset)</span>
       </div>
       <div class="legend-item">
@@ -500,10 +500,10 @@ function drawPhase() {
   }
 
   // V_peak marker: crossing this line = spike, then reset to (V_r, w + b)
-  pctx.strokeStyle = 'rgba(255,255,255,0.45)'; pctx.lineWidth = 1; pctx.setLineDash([4, 3]);
+  pctx.strokeStyle = 'rgba(255,255,255,0.2)'; pctx.lineWidth = 1; pctx.setLineDash([3, 3]); // same weight as V_T / E_L / V_r
   pctx.beginPath(); pctx.moveTo(xv(V_peak), mt); pctx.lineTo(xv(V_peak), mt + cH); pctx.stroke();
   pctx.setLineDash([]);
-  pctx.fillStyle = 'rgba(255,255,255,0.6)'; pctx.textAlign = 'right';
+  pctx.fillStyle = '#666'; pctx.textAlign = 'right';
   pctx.fillText('Vpeak', xv(V_peak) - 4, mt + 11);
   pctx.textAlign = 'left';
 
