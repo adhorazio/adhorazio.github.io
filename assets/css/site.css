@@ -147,13 +147,15 @@ canvas { display: block; border-radius: 6px; background: var(--canvas); }
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 0.8rem 1.2rem;
 }
-.control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+/* sliders of one row line up: each group fills its grid row and sits at the bottom,
+   so a label wrapping to two lines grows upwards instead of pushing its slider down */
+.control-group { display: flex; flex-direction: column; justify-content: flex-end; gap: 0.3rem; }
 .control-group label {
   font-size: 0.75rem;
   color: var(--text-dim);
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: last baseline;   /* value sits on the label's last line, next to the slider */
   gap: 0.5rem;
 }
 .control-group label span[id] { color: var(--gdv-q5); font-variant-numeric: tabular-nums; white-space: nowrap; }
