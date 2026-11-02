@@ -31,16 +31,17 @@ const COL = {
 //   'glow'     small white dot with a soft halo
 //   'ring'     hollow white ring
 //   'knockout' white dot with a thin dark gap, so it separates from any line
-COL.DOT_STYLE = 'plain';
+COL.DOT_STYLE = 'glow';
 function drawStateDot(ctx, x, y, r) {
   const st = COL.DOT_STYLE;
   ctx.save();
   if (st === 'glow') {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
-    g.addColorStop(0, 'rgba(255,255,255,0.35)');
+    // small, light halo (kept subtle on purpose)
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+    g.addColorStop(0, 'rgba(255,255,255,0.28)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = COL.OP;
     ctx.beginPath(); ctx.arc(x, y, r * 0.75, 0, Math.PI * 2); ctx.fill();
   } else if (st === 'ring') {
