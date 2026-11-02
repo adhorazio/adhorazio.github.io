@@ -57,6 +57,10 @@
     #canvas-wrap { position: relative; min-width: 0; }
     #trace { width: 100%; height: 300px; }
     #phase { width: 300px; height: 300px; }
+    .phase-wrap { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+    /* one-line guide under the phase view: what to look at, what to try */
+    .pp-hint { max-width: 300px; font-size: 0.7rem; line-height: 1.45; color: var(--text-dim); }
+    .pp-hint b { color: var(--text); font-weight: 500; }
 
     /* "What is what" under the controls, in plot order: trace, phase portrait */
     .legend {
@@ -84,7 +88,9 @@
     @media (max-width: 760px) {
       .plots { grid-template-columns: 1fr; }
       #trace { height: 220px; }
-      #phase { width: 100%; max-width: 360px; height: auto; aspect-ratio: 1; justify-self: center; }
+      .phase-wrap { width: 100%; max-width: 360px; justify-self: center; }
+      #phase { width: 100%; height: auto; aspect-ratio: 1; }
+      .pp-hint { max-width: none; }
     }
     @media (max-width: 600px) {
       .legend { flex-direction: column; gap: 1rem; }
@@ -139,7 +145,10 @@
     <div id="canvas-wrap">
       <canvas id="trace" height="300"></canvas>
     </div>
-    <canvas id="phase" width="300" height="300"></canvas>
+    <div class="phase-wrap">
+      <canvas id="phase" width="300" height="300"></canvas>
+      <div class="pp-hint" id="pp-hint"></div>
+    </div>
   </div>
 
   <div class="controls">
@@ -329,6 +338,7 @@ phV.fill(E_L);
 let phaseHead = 0, phaseFull = false;
 
 let V = E_L, wm = 0, wp = 0, spiking = false, lastFrameTime = null;
+let lastM = null, lastP = null;               // w⁻, w⁺ just before the last reset (for the reset guides)
 let pulseSign = 0, pulseLeft = 0, curPulse = 0;
 let ppMode = 'v';                              // v: (V, dV/dt) · m: (V, w⁻) · p: (V, w⁺) · mp: (w⁻, w⁺)
 
@@ -365,6 +375,7 @@ const Iin  = () => params.I_ext + curPulse * PULSE_AMP;      // input, incl. a p
 function step() {
   if (spiking) {
     spiking = false;
+    lastM = wm; lastP = wp;
     V = params.V_r;
     if (params.adapt) wm += params.b_m;
     if (params.excit) wp += params.b_p;
@@ -541,7 +552,11 @@ function vMarkers(xv, cH, vLo, vHi) {
   };
   mark(V_T, COL.THRESH + '55', [3, 3]);
   mark(E_L, COL.REST + '55', [2, 4]);
-  mark(params.V_r, COL.RESET + 'cc', [3, 3]);
+  mark(params.V_r, COL.RESET, [3, 3]);
+  if (params.V_r >= vLo && params.V_r <= vHi) {
+    pctx.fillStyle = COL.RESET; pctx.font = '10px monospace'; pctx.textAlign = 'left';
+    pctx.fillText('Vr', xv(params.V_r) + 3, PM.mt + cH - 4);
+  }
   mark(V_peak, 'rgba(255,255,255,0.2)', [3, 3]);
   pctx.fillStyle = '#666'; pctx.font = '11px monospace'; pctx.textAlign = 'right';
   pctx.fillText('Vspike', xv(V_peak) - 4, PM.mt + 11); pctx.textAlign = 'left';
@@ -596,7 +611,14 @@ function drawPhaseLine() {
   pctx.beginPath();
   for (let px = 0; px <= cW; px++) { const v = vLo + px / cW * (vHi - vLo); px ? pctx.lineTo(PM.ml + px, ys(f(v))) : pctx.moveTo(PM.ml, ys(f(v))); }
   pctx.stroke(); pctx.restore();
-  drawEquilibria(pctx, eqList().map(e => ({ x: xv(e.Ve), y: ys(0), type: e.type })), W, H);
+  const eqs = eqList();
+  drawEquilibria(pctx, eqs.map(e => ({ x: xv(e.Ve), y: ys(0), type: e.type })), W, H);
+  if (eqs.length === 2 && Math.abs(xv(eqs[1].Ve) - xv(eqs[0].Ve)) > 14) {
+    pctx.fillStyle = '#888'; pctx.font = '10px monospace'; pctx.textAlign = 'center';
+    pctx.fillText('rest', xv(eqs[0].Ve), ys(0) + 16);
+    pctx.fillText('threshold', xv(eqs[1].Ve), ys(0) + 16);
+    pctx.textAlign = 'left';
+  }
   drawStateDot(pctx, xv(Math.max(vLo, Math.min(vHi, V))), ys(Math.max(yLo, Math.min(yHi, f(V)))), 4.5);
 }
 
@@ -646,6 +668,22 @@ function drawVPlane(which) {
   }
   pctx.stroke();
   trail(xv, y => ys(Math.max(yLo, Math.min(yHi, y))), phV, yb, true);
+  // reset guides (as on the Izhikevich page): orange line where the slow current lands
+  // after the last spike (w + b), dashed path of the jump (V_spike, w) → (V_r, w + b)
+  const last = isM ? lastM : lastP, bb = isM ? params.b_m : params.b_p;
+  if (last !== null && bb > 0) {
+    const clampY = y => ys(Math.max(yLo, Math.min(yHi, y)));
+    const yJ = clampY(last + bb);
+    pctx.save();
+    pctx.setLineDash([3, 3]); pctx.lineWidth = 1; pctx.strokeStyle = COL.IRESET + 'aa';
+    pctx.beginPath(); pctx.moveTo(PM.ml, yJ); pctx.lineTo(PM.ml + cW, yJ); pctx.stroke();
+    pctx.setLineDash([2, 2]); pctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    pctx.beginPath(); pctx.moveTo(xv(V_peak), clampY(last)); pctx.lineTo(xv(params.V_r), clampY(last)); pctx.lineTo(xv(params.V_r), yJ); pctx.stroke();
+    pctx.setLineDash([]);
+    pctx.fillStyle = COL.IRESET; pctx.font = '10px monospace'; pctx.textAlign = 'right';
+    pctx.fillText(isM ? 'w⁻ + b⁻' : 'w⁺ + b⁺', PM.ml + cW - 4, yJ - 4);
+    pctx.restore();
+  }
   drawEquilibria(pctx, eqList().map(e => ({ x: xv(e.Ve), y: ys(slope * (e.Ve - E_L)), type: e.type })), W, H);
   drawStateDot(pctx, xv(Math.max(vLo, Math.min(vHi, V))), ys(Math.max(yLo, Math.min(yHi, yNow))), 4.5);
 }
@@ -688,6 +726,22 @@ function drawSlowPlane() {
   pctx.fillText('can rest', PM.ml + cW - 4, PM.mt + cH - 6);
   pctx.textAlign = 'left';
   trail(xs, ys, phM, phP, false);
+  // last spike's jump: (w⁻, w⁺) → (w⁻ + b⁻, w⁺ + b⁺), orange like the current resets
+  if (lastM !== null) {
+    const ax = xs(lastM), ay = ys(lastP), bx = xs(lastM + params.b_m), by = ys(lastP + params.b_p);
+    const L = Math.hypot(bx - ax, by - ay);
+    if (L > 6) {
+      const ux = (bx - ax) / L, uy = (by - ay) / L;
+      pctx.save();
+      pctx.strokeStyle = COL.IRESET + 'cc'; pctx.fillStyle = COL.IRESET + 'cc'; pctx.lineWidth = 1; pctx.setLineDash([3, 3]);
+      pctx.beginPath(); pctx.moveTo(ax, ay); pctx.lineTo(bx - 5 * ux, by - 5 * uy); pctx.stroke();
+      pctx.setLineDash([]);
+      pctx.beginPath(); pctx.moveTo(bx, by); pctx.lineTo(bx - 6 * ux - 3 * uy, by - 6 * uy + 3 * ux); pctx.lineTo(bx - 6 * ux + 3 * uy, by - 6 * uy - 3 * ux); pctx.closePath(); pctx.fill();
+      pctx.font = '10px monospace'; pctx.textAlign = 'left';
+      pctx.fillText('+ (b⁻, b⁺)', bx + 5, by - 2);
+      pctx.restore();
+    }
+  }
   drawEquilibria(pctx, eqList().map(e => ({ x: xs(params.a_m * (e.Ve - E_L)), y: ys(params.a_p * (e.Ve - E_L)), type: e.type })), W, H);
   drawStateDot(pctx, xs(Math.max(x0, Math.min(x1, wm))), ys(Math.max(y0, Math.min(y1, wp))), 4.5);
 }
@@ -760,6 +814,13 @@ const PP = {
   p:  ['(V, w<sup>+</sup>)',   'Phase portrait (V, w<sup>+</sup>)'],
   mp: ['(w<sup>−</sup>, w<sup>+</sup>)', 'Slow plane (w<sup>−</sup>, w<sup>+</sup>)'],
 };
+// One-line guide under the phase view: what to look at, what to try
+const HINT = {
+  v:  'The neuron <b>rests</b> where the curve crosses zero on the left; the right crossing is the <b>threshold</b>. Raise I: the parabola lifts off the axis, the two points merge (saddle-node) and the neuron fires.',
+  m:  'At each spike V resets to V<sub>r</sub> and w<sup>−</sup> jumps up by b<sup>−</sup> (orange line). A higher w<sup>−</sup> brings the trajectory closer to the V-nullcline, so the next spike comes later: <b>adaptation</b>.',
+  p:  'Upside-down parabola: each spike adds b<sup>+</sup> to w<sup>+</sup> (orange line). If the kicks keep w<sup>+</sup> high, firing sustains itself: <b>working memory</b>. Try Excite, then Inhibit.',
+  mp: 'V is fast, so only w<sup>+</sup> − w<sup>−</sup> matters: above the yellow line the neuron <b>must fire</b>, below it <b>can rest</b>. Each spike pushes the state by (b<sup>−</sup>, b<sup>+</sup>).',
+};
 function ppOptions() {
   const o = [];
   if (!params.adapt && !params.excit) o.push('v');
@@ -781,7 +842,14 @@ function setPP(mode) {
     p:  li('var(--c-in)', 'V-nullcline (set by I)') + li('var(--c-pos)', 'w<sup>+</sup>-nullcline', .55) + vs + tj + dot('state (V, w<sup>+</sup>)'),
     mp: li('var(--c-in)', 'spiking line I + w<sup>+</sup> − w<sup>−</sup> = I<sub>SN</sub> (set by I; fires above)') + tj + dot('state (w<sup>−</sup>, w<sup>+</sup>)'),
   }[mode];
-  document.getElementById('pp-legend').innerHTML = `<div class="legend-section-title">${PP[mode][1]}</div>` + L;
+  const reset = {
+    v:  '',
+    m:  li('var(--c-reset)', 'V<sub>r</sub> (voltage reset)') + li('var(--c-ireset)', 'w<sup>−</sup> + b<sup>−</sup> (current reset after a spike)') + li('rgba(255,255,255,0.35)', 'last reset jump'),
+    p:  li('var(--c-reset)', 'V<sub>r</sub> (voltage reset)') + li('var(--c-ireset)', 'w<sup>+</sup> + b<sup>+</sup> (current reset after a spike)') + li('rgba(255,255,255,0.35)', 'last reset jump'),
+    mp: li('var(--c-ireset)', 'jump at each spike (+b<sup>−</sup>, +b<sup>+</sup>)'),
+  }[mode];
+  document.getElementById('pp-legend').innerHTML = `<div class="legend-section-title">${PP[mode][1]}</div>` + L + reset;
+  document.getElementById('pp-hint').innerHTML = HINT[mode];
   delete R.ph.hi; delete R.ph.lo; delete R.px.hi; delete R.px.lo; delete R.py.hi; delete R.py.lo;
 }
 function refreshFeedbackUI(prefer) {
@@ -850,7 +918,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
-  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0;
+  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
   vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0);
   phV.fill(E_L); phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false; phaseHead = 0; phaseFull = false;
