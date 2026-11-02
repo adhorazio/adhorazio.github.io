@@ -31,7 +31,7 @@
   --c-ireset: var(--gdv-q6);  /* current reset after a spike: u + d, w + b */
   --c-gate-m: #FF8C42;        /* gating: Na+ activation m (Na+ gates warm) */
   --c-gate-n: #B07CE8;        /* gating: K+ activation n (violet) */
-  --c-gate-h: #FFC09F;        /* gating: Na+ inactivation h */
+  --c-gate-h: rgba(255, 140, 66, 0.6); /* gating: Na+ inactivation h (m's orange, lighter) */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
   --c-op:     #ffffff;        /* where the neuron is now: state dot, operating point */
 }

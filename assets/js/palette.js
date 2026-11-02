@@ -13,7 +13,7 @@
 //   not currents, so they get their own colours, grouped by ion channel:
 //   Na+ gates warm (orange family), K+ gate violet.
 //   GATE_M Na+ activation m                                   orange
-//   GATE_H Na+ inactivation h                                 light peach
+//   GATE_H Na+ inactivation h: same orange as m, lighter       orange 60%
 //   GATE_N K+ activation n                                    violet
 //   REST   rest: V_rest, E_L                                  grey
 //   OP     where the neuron is now: state dot in the phase    white
@@ -28,7 +28,7 @@ const COL = {
   IRESET: '#F28522',
   GATE_M: '#FF8C42',
   GATE_N: '#B07CE8',
-  GATE_H: '#FFC09F',
+  GATE_H: '#FF8C4299',
   REST:   '#888888',
   OP:     '#FFFFFF',
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha
