@@ -1249,13 +1249,13 @@ const VLBLS = ['N1','N2','N3','N4','N5','N6'];
 // Cases are coloured by structure, not by index:
 //  - 8 stable limit cycles (one neuron per antipodal pair): 6a + two GDV ramp tones
 //  - 'Xto135' convergence runs reuse their starting cycle's colour, tinted lighter
-//  - All Cycles (AC1) near-white, Catastrophic Stops CS1 red, CS2 green
+//  - All Cycles AC1 purple, Catastrophic Stops CS1 red, CS2 green (original colours)
 const ATTRACTOR_COLS = {
   '135':'#009ADE', '136':'#FF1F5B', '146':'#F28522', '246':'#FFC61E',
   '145':'#00CD6C', '245':'#AF58BA', '236':'#089099', '235':'#ED85B0'
 };
-// AC1 near-white; CS1 / CS2 keep their original red / green (legacy Open Color, see PALETTE_EXT.legacy)
-const NEUTRAL_COLS = { 17:'#F0F0F0', 16:'#e64980', 18:'#12b886' };  // AC1, CS1 red, CS2 green
+// AC1 / CS1 / CS2 keep their original purple / red / green (legacy Open Color, see PALETTE_EXT.legacy)
+const NEUTRAL_COLS = { 17:'#9775fa', 16:'#e64980', 18:'#12b886' };  // AC1 purple, CS1 red, CS2 green
 const TRANSITION_TINT = 0.45;   // mix toward white
 
 function tintHex(hex, t) {
