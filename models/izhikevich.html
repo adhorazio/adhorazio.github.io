@@ -116,7 +116,7 @@
     <div class="legend-section">
       <div class="legend-section-title">Phase plane (v, u)</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-state); opacity: .7;"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>phase trajectory</span>
       </div>
       <div class="legend-item">
@@ -124,11 +124,11 @@
         <span>state (v, u)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-v); opacity: .6;"></div>
+        <div class="legend-dot" style="background: var(--c-v); opacity: .55;"></div>
         <span>dv/dt = 0 (v-nullcline)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-neg); opacity: .6;"></div>
+        <div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div>
         <span>du/dt = 0 (u-nullcline)</span>
       </div>
     </div>
@@ -292,7 +292,7 @@ function drawPhase() {
   pctx.fillText('v', W - 12, H - 6);
   pctx.fillText('u', 4, 13);
 
-  pctx.strokeStyle = COL.V + '88'; pctx.lineWidth = 1;  // v-nullcline
+  pctx.strokeStyle = COL.V + '88'; pctx.lineWidth = 1.2;  // v-nullcline (nullclines faint, trajectory bright)
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi++) {
     const ui = 0.04*vi*vi + 5*vi + 140 + params.I;

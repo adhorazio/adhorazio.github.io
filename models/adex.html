@@ -170,11 +170,11 @@
     <div class="legend-section">
       <div class="legend-section-title">Phase portrait (V, w)</div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-v);"></div>
+        <div class="legend-dot" style="background: var(--c-v); opacity: .55;"></div>
         <span>V-nullcline</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-neg);"></div>
+        <div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div>
         <span>w-nullcline</span>
       </div>
       <div class="legend-item">
@@ -182,7 +182,7 @@
         <span>V<sub>peak</sub> (spike &amp; reset)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-state); opacity: .6;"></div>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
         <span>trajectory</span>
       </div>
       <div class="legend-item">
@@ -544,7 +544,7 @@ function drawPhase() {
   pctx.textAlign = 'left';
 
   // ── V-nullcline ────────────────────────────────────────────────────────
-  pctx.strokeStyle = COL.V; pctx.lineWidth = 1.8; pctx.setLineDash([]);
+  pctx.strokeStyle = COL.V + '88'; pctx.lineWidth = 1.2; pctx.setLineDash([]); // nullclines faint, trajectory bright (all models)
   pctx.beginPath();
   let firstVnull = true;
   for (let px = 0; px <= cW; px++) {
@@ -559,7 +559,7 @@ function drawPhase() {
   pctx.stroke();
 
   // ── w-nullcline ────────────────────────────────────────────────────────
-  pctx.strokeStyle = COL.NEG; pctx.lineWidth = 1.5;
+  pctx.strokeStyle = COL.NEG + '88'; pctx.lineWidth = 1.2;
   pctx.beginPath();
   let firstWnull = true;
   for (let px = 0; px <= cW; px++) {
@@ -580,7 +580,7 @@ function drawPhase() {
     const RUN = Math.max(40, Math.ceil(tLen / 30)); // ~30 strokes per frame whatever the trail length
     for (let i0 = 1; i0 < tLen; i0 += RUN) {
       const i1 = Math.min(i0 + RUN, tLen);
-      const alpha = 0.06 + 0.55 * (((i0 + i1) / 2) / tLen);
+      const alpha = 0.08 + 0.72 * (((i0 + i1) / 2) / tLen);
       pctx.strokeStyle = `rgba(${COL.TRAJ},${alpha.toFixed(2)})`;
       pctx.beginPath();
       let penDown = false;

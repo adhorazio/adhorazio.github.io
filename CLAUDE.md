@@ -34,11 +34,12 @@ Lissajous: figure centred, full-width waveforms (full 4 s span) below it.
 
 ## Colour code (all neuron models)
 Use `COL` (assets/js/palette.js) in canvas code and `--c-*` (site.css) in legends,
-never raw GDV colours: blue = V / V-nullcline / f-I; red = negative feedback
+never raw GDV colours: blue = V / V-nullcline / f-I / phase trajectory; red = negative feedback
 (recovery/adaptation u, w, their nullcline, u+d / w+b); green = positive
 feedback; yellow = thresholds (V_theta, V_T, rheobase); purple = reset value
-(c, V_r); grey = rest (V_rest, E_L) and V_peak; white = phase trajectory;
-yellow dot = where the neuron is now (phase-plane state, f-I operating point). Slider values stay yellow text (UI, not data).
+(c, V_r); grey = rest (V_rest, E_L) and V_peak;
+yellow dot = where the neuron is now (phase-plane state, f-I operating point).
+Phase planes: nullclines thin and faint (~55% opacity), trajectory bright. Slider values stay yellow text (UI, not data).
 
 ## Before committing
 Page loads without console errors, links work, `sitemap.xml` and the home
