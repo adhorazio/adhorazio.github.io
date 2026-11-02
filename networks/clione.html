@@ -17,15 +17,13 @@
     --muted:    #888888;
     --accent:   #009ADE;
 
-    --n1: #ff6b6b;
-    --n2: #ffa94d;
-    --n3: #c9a800;
-    --n4: #69db7c;
-    --n5: #4dabf7;
-    --n6: #cc5de8;
-
-    --c1: #ff4f4f;
-    --c2: #ff8f30;
+    /* Neurons N1..N6: GeoDataViz qualitative 6a (same hue order as before) */
+    --n1: #FF1F5B;
+    --n2: #F28522;
+    --n3: #FFC61E;
+    --n4: #00CD6C;
+    --n5: #009ADE;
+    --n6: #AF58BA;
     --edge-r: 224; --edge-g: 224; --edge-b: 224;
   }
 
@@ -721,7 +719,7 @@
   .case-dropdown-item.case-toggle-item.active {
     background: var(--case-color, var(--accent));
     border-color: transparent;
-    color: #fff;
+    color: var(--case-ink, #fff);
   }
 
   .case-dropdown-item.case-toggle-item::after {
@@ -1244,16 +1242,45 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '-') cycleSpeed(-1);
 });
 
-const VCOLS = ['#ff6b6b','#ffa94d','#c9a800','#69db7c','#4dabf7','#cc5de8'];
+// Colours (GeoDataViz toolkit). Neurons: qualitative 6a, same hue order as before.
+const VCOLS = ['#FF1F5B','#F28522','#FFC61E','#00CD6C','#009ADE','#AF58BA'];
 const VLBLS = ['N1','N2','N3','N4','N5','N6'];
-const CASE_COLS = [
-  '#7c6cfc', '#ff6b6b', '#ffa94d', '#c9a800', '#69db7c', '#4dabf7',
-  '#cc5de8', '#20c997', '#f06595', '#845ef7', '#15aabf', '#fab005',
-  '#ff922b', '#51cf66', '#339af0', '#e64980', '#9775fa', '#12b886'
-];
 
+// Cases are coloured by structure, not by index:
+//  - 8 stable limit cycles (one neuron per antipodal pair): 6a + two GDV ramp tones
+//  - 'Xto135' convergence runs reuse their starting cycle's colour, tinted lighter
+//  - All Cycles (AC1) near-white, Catastrophic Stops (CS1, CS2) greys
+const ATTRACTOR_COLS = {
+  '135':'#009ADE', '136':'#FF1F5B', '146':'#F28522', '246':'#FFC61E',
+  '145':'#00CD6C', '245':'#AF58BA', '236':'#089099', '235':'#ED85B0'
+};
+const NEUTRAL_COLS = { 17:'#F0F0F0', 16:'#A8A8A8', 18:'#787878' };  // AC1, CS1, CS2
+const TRANSITION_TINT = 0.45;   // mix toward white
+
+function tintHex(hex, t) {
+  const c = hexToRgb(hex);
+  const m = v => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0');
+  return '#' + m(c.r) + m(c.g) + m(c.b);
+}
+
+// Dark label on light case colours (tints, yellow, near-white), white otherwise
+function caseInk(hex) {
+  const c = hexToRgb(hex);
+  return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) > 170 ? '#1e1e1e' : '#fff';
+}
+
+const caseColorCache = new Map();
 function getCaseColor(caseIndex) {
-  return CASE_COLS[caseIndex % CASE_COLS.length];
+  if (caseColorCache.has(caseIndex)) return caseColorCache.get(caseIndex);
+  const name = String((CASES[caseIndex] && CASES[caseIndex].name) || '').trim();
+  let col;
+  const tr = name.match(/^(\d{3})to\d{3}$/);
+  if (ATTRACTOR_COLS[name]) col = ATTRACTOR_COLS[name];
+  else if (tr && ATTRACTOR_COLS[tr[1]]) col = tintHex(ATTRACTOR_COLS[tr[1]], TRANSITION_TINT);
+  else if (NEUTRAL_COLS[Number(CASES[caseIndex] && CASES[caseIndex].id)]) col = NEUTRAL_COLS[Number(CASES[caseIndex].id)];
+  else col = VCOLS[caseIndex % VCOLS.length];
+  caseColorCache.set(caseIndex, col);
+  return col;
 }
 
 // 6-vertex regular prism layout in 3D (two stacked triangles)
@@ -1552,6 +1579,7 @@ function buildCaseSelector(openGroupName = null) {
       item.className = 'case-dropdown-item case-toggle-item';
       item.dataset.caseIndex = String(i);
       item.style.setProperty('--case-color', getCaseColor(i));
+      item.style.setProperty('--case-ink', caseInk(getCaseColor(i)));
       item.setAttribute('aria-pressed', String(activeSet.has(i)));
       item.textContent = caseLabel(c);
       item.title = `${groupName}: ${caseLabel(c)}`;
@@ -2091,9 +2119,9 @@ function draw() {
 
   // The three world axes rotated by current qRot
   const axes = [
-    { v: rot3([1,0,0]), label:'X', col:'#ff6b6b' },
-    { v: rot3([0,1,0]), label:'Y', col:'#69db7c' },
-    { v: rot3([0,0,1]), label:'Z', col:'#4dabf7' },
+    { v: rot3([1,0,0]), label:'X', col:'#FF1F5B' },
+    { v: rot3([0,1,0]), label:'Y', col:'#00CD6C' },
+    { v: rot3([0,0,1]), label:'Z', col:'#009ADE' },
   ];
 
   // Draw back-facing axes first (dimmer), then front-facing on top
@@ -2159,6 +2187,7 @@ function draw() {
       }
 
       CASES = window.NEURAL_PHASE_SIMPLEX_CASES || CASES || [];
+      caseColorCache.clear();
 
       // Add metadata to each case
       CASES.forEach(c => {
