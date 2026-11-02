@@ -37,8 +37,8 @@ Use `COL` (assets/js/palette.js) in canvas code and `--c-*` (site.css) in legend
 never raw GDV colours: blue = V / V-nullcline / f-I; red = negative feedback
 (recovery/adaptation u, w, their nullcline, u+d / w+b); green = positive
 feedback; yellow = thresholds (V_theta, V_T, rheobase); purple = reset value
-(c, V_r); grey = rest (V_rest, E_L) and V_peak; white = trajectory, state dot,
-operating point. Slider values stay yellow text (UI, not data).
+(c, V_r); grey = rest (V_rest, E_L) and V_peak; white = trajectory, state dot;
+yellow dot = operating point on the f-I curve. Slider values stay yellow text (UI, not data).
 
 ## Before committing
 Page loads without console errors, links work, `sitemap.xml` and the home

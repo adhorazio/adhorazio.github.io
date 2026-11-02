@@ -7,7 +7,8 @@
 //   THRESH thresholds: V_theta, V_T, rheobase                 yellow
 //   RESET  reset value: c, V_r                                purple
 //   REST   rest: V_rest, E_L                                  grey
-//   STATE  phase trajectory, current state dot, operating pt  white
+//   STATE  phase trajectory, current state dot               white
+//   OP     operating point on the f-I curve                   yellow
 const COL = {
   V:      '#009ADE',
   NEG:    '#FF1F5B',
@@ -16,5 +17,6 @@ const COL = {
   RESET:  '#AF58BA',
   REST:   '#888888',
   STATE:  '#E8E8E8',
+  OP:     '#FFC61E',
   TRAJ:   '220,220,220'   // rgb triplet, used with a varying alpha
 };

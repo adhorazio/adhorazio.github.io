@@ -127,7 +127,7 @@
         <span>rheobase I<sub>th</sub></span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot dot" style="background: var(--c-state);"></div>
+        <div class="legend-dot dot" style="background: var(--c-op);"></div>
         <span>operating point</span>
       </div>
     </div>
@@ -352,7 +352,7 @@ function drawFICurve() {
   const op_f = fiFreq(params.I_eff);
   fctx.beginPath();
   fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
-  fctx.fillStyle = COL.STATE; fctx.fill();
+  fctx.fillStyle = COL.OP; fctx.fill();
 
 }
 
