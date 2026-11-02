@@ -168,19 +168,29 @@ input[type="range"] {
   border-radius: 3px;
   background: var(--border);
   cursor: pointer;
+  /* Thumb: a small visible dot inside a larger invisible grab area. The thumb box
+     keeps its size (17 px, 26 px on touch screens); --dot sets how much of it is
+     drawn. Hover / drag add a soft halo inside the same box. */
+  --dot: 62%;
+  --thumb-bg:  radial-gradient(circle closest-side, var(--accent) 0 var(--dot), transparent calc(var(--dot) + 5%));
+  --thumb-bg-on: radial-gradient(circle closest-side, var(--accent) 0 var(--dot), var(--accent-soft) calc(var(--dot) + 5%) 100%);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 17px; height: 17px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--thumb-bg);
   border: none;
-  transition: transform 120ms var(--ease), box-shadow var(--dur) var(--ease);
+  transition: transform 120ms var(--ease);
 }
-input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); box-shadow: 0 0 0 7px var(--accent-soft); }
-input[type="range"]:active::-moz-range-thumb     { transform: scale(1.15); box-shadow: 0 0 0 7px var(--accent-soft); }
+input[type="range"]::-moz-range-thumb {
+  width: 17px; height: 17px; border-radius: 50%;
+  background: var(--thumb-bg); border: none;
+  transition: transform 120ms var(--ease);
+}
+input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); background: var(--thumb-bg-on); }
+input[type="range"]:active::-moz-range-thumb     { transform: scale(1.15); background: var(--thumb-bg-on); }
 input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--border); }
-input[type="range"]::-moz-range-thumb { width: 17px; height: 17px; border-radius: 50%; background: var(--accent); border: none; transition: transform 120ms var(--ease), box-shadow var(--dur) var(--ease); }
 
 /* ── Feedback-current sections (design of the main-site aLIF page) ──
    One box per slow current: header = toggle pill + name + sparkline with its
@@ -267,7 +277,8 @@ footer a:hover { color: var(--accent); }
 
 /* ── Blue highlight on hover (mouse / trackpad only, so taps don't stick) ── */
 @media (hover: hover) {
-  input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px var(--accent-soft); }
+  input[type="range"]:hover::-webkit-slider-thumb { background: var(--thumb-bg-on); }
+  input[type="range"]:hover::-moz-range-thumb     { background: var(--thumb-bg-on); }
   .card:hover {
     border-color: var(--accent);
     background: rgba(0, 154, 222, 0.08);
@@ -289,6 +300,7 @@ footer a:hover { color: var(--accent); }
 @media (pointer: coarse) {
   .preset-btn { min-height: 40px; }
   input[type="range"] { height: 8px; }
+  input[type="range"] { --dot: 50%; }   /* same 13 px dot, bigger finger area */
   input[type="range"]::-webkit-slider-thumb { width: 26px; height: 26px; }
   input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; }
   .control-group { gap: 0.6rem; }
