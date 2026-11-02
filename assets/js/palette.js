@@ -7,8 +7,9 @@
 //   THRESH thresholds: V_theta, V_T, rheobase                 yellow
 //   RESET  reset value: c, V_r                                purple
 //   REST   rest: V_rest, E_L                                  grey
-//   STATE  phase trajectory, current state dot               white
-//   OP     operating point on the f-I curve                   yellow
+//   STATE  phase trajectory                                  white
+//   OP     where the neuron is now: state dot in the phase    yellow
+//          plane, operating point on the f-I curve
 const COL = {
   V:      '#009ADE',
   NEG:    '#FF1F5B',

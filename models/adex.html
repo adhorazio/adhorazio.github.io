@@ -186,7 +186,7 @@
         <span>trajectory</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot dot" id="legend-state-dot" style="background: var(--c-state);"></div>
+        <div class="legend-dot dot" id="legend-state-dot" style="background: var(--c-op);"></div>
         <span>state (V, w)</span>
       </div>
     </div>
@@ -602,7 +602,7 @@ function drawPhase() {
   const sW = Math.max(wLo, Math.min(wHi, w));
   pctx.beginPath();
   pctx.arc(xv(sV), yw(sW), 4, 0, Math.PI * 2);
-  pctx.fillStyle = COL.STATE; pctx.fill();
+  pctx.fillStyle = COL.OP; pctx.fill();
 }
 
 // ── Animation loop ─────────────────────────────────────────────────────────
@@ -632,7 +632,7 @@ function loop() {
   drawTrace();
   drawPhase();
 
-  document.getElementById('legend-state-dot').style.background = COL.STATE;
+  document.getElementById('legend-state-dot').style.background = COL.OP;
 
   requestAnimationFrame(loop);
 }

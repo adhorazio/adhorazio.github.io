@@ -32,6 +32,7 @@
       border-top: 1px solid var(--border);
     }
 
+    .legend-dot.dot { width: 8px; height: 8px; border-radius: 50%; }
     .eq-reset { padding: 0.55rem 1rem; color: #b0b0b0; }
     .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
 
@@ -117,6 +118,10 @@
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-state); opacity: .7;"></div>
         <span>phase trajectory</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot dot" style="background: var(--c-op);"></div>
+        <span>state (v, u)</span>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-v); opacity: .6;"></div>
@@ -346,7 +351,7 @@ function drawPhase() {
   }
   pctx.beginPath();
   pctx.arc(mx(v), mu(u), 3.5, 0, Math.PI * 2);
-  pctx.fillStyle = COL.STATE; pctx.fill();
+  pctx.fillStyle = COL.OP; pctx.fill();
 }
 
 function loop() {

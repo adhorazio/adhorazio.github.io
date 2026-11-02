@@ -28,8 +28,8 @@
   --c-thresh: var(--gdv-q5);  /* thresholds: V_theta, V_T, rheobase */
   --c-reset:  var(--gdv-q4);  /* reset value: c, V_r */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
-  --c-state:  #e8e8e8;        /* trajectory, state dot */
-  --c-op:     var(--gdv-q5);  /* operating point on the f-I curve */
+  --c-state:  #e8e8e8;        /* phase trajectory */
+  --c-op:     var(--gdv-q5);  /* where the neuron is now: state dot, operating point */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
