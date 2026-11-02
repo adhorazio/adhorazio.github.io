@@ -8,6 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
   <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/scope.js"></script>
   <script src="../assets/js/palette.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
@@ -237,50 +238,37 @@ function drawTrace() {
   tctx.clearRect(0, 0, W, traceCanvas._lh);
   const Vr  = params.V_rest;
   const Vth = params.V_thresh;
+
+  // Oscilloscope with a single V scope (same frame as the other models)
+  const [rV] = scopeRects(W, H, [1]);
   const vMin = -95, vMax = -20;
-  const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
+  const yV = scopeY(rV, vMin, vMax);
+  drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V, [-90, -80, -70, -60, -50, -40, -30, -20]);
 
-  // Horizontal grid — fixed reference lines
-  tctx.font = '10px monospace';
-  [-80, -60, -40].forEach(yv => {
-    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
-    tctx.fillStyle = '#555';
-    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
-  });
+  scopeRefLine(tctx, rV, yV(Vr), '#4a4a4a', [2, 4], 'V_rest ' + Vr + ' mV', '#666');
+  scopeRefLine(tctx, rV, yV(Vth), COL.THRESH + '66', [4, 4], 'Vθ ' + Vth + ' mV', COL.THRESH + 'cc');
 
-  // V_rest and V_thresh marker lines
-  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: COL.THRESH + 'cc' }].forEach(({ v, label, color }) => {
-    const isThresh = v === Vth;
-    tctx.strokeStyle = isThresh ? COL.THRESH + '66' : '#4a4a4a';
-    tctx.lineWidth = 1; tctx.setLineDash(isThresh ? [4, 4] : [2, 4]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(v)); tctx.lineTo(W, mapY(v)); tctx.stroke();
-    tctx.setLineDash([]);
-    tctx.fillStyle = color;
-    tctx.fillText(label + ' ' + v + ' mV', 4, mapY(v) - 3);
-  });
-
-  // Cursor
-  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
-  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
-
-  // V trace helper
+  const xOf = scopeX(rV, TRACE_LEN);
   const drawSeg = (from, to, alpha) => {
     if (to <= from) return;
-    tctx.strokeStyle = COL.V; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
-    tctx.beginPath();
-    for (let i = from; i < to; i++) {
-      const x = (i / (TRACE_LEN - 1)) * W;
-      i === from ? tctx.moveTo(x, mapY(vHistory[i])) : tctx.lineTo(x, mapY(vHistory[i]));
-    }
-    tctx.stroke(); tctx.globalAlpha = 1;
+    inScope(tctx, rV, () => {
+      tctx.strokeStyle = COL.V; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
+      tctx.beginPath();
+      for (let i = from; i < to; i++) {
+        i === from ? tctx.moveTo(xOf(i), yV(vHistory[i])) : tctx.lineTo(xOf(i), yV(vHistory[i]));
+      }
+      tctx.stroke();
+    });
   };
-
   if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
   drawSeg(0, traceHead, 1.0);
 
-  drawTimeAxis(tctx, W, H, TRACE_LEN); // 1 sample = 1 ms
+  // sweep cursor
+  const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cx, rV.y); tctx.lineTo(cx, rV.y + rV.h); tctx.stroke();
+
+  drawTimeAxis(tctx, W, H, TRACE_LEN, SCOPE.ML); // 1 sample = 1 ms
 }
 
 function drawFICurve() {

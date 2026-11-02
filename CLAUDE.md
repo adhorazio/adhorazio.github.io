@@ -13,6 +13,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
   Pages only keep page-specific CSS inline.
 - `index.html` — home page (cards).
 - `assets/js/palette.js` — shared colour code `COL` for the neuron models.
+- `assets/js/scope.js` — oscilloscope layout: scopeRects, drawScope (y axis), inScope, scopeRefLine.
 - `assets/js/time-axis.js` — shared `drawTimeAxis()` for neuron traces (strip under the plot, t in ms/s).
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
@@ -42,8 +43,9 @@ feedback; yellow = voltage thresholds (V_theta, V_T); orange = current reset aft
 white dot = where the neuron is now (phase-plane state, f-I operating point).
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current
 curve (V-nullcline, rheobase) always uses styleInputCurve() and is clipped, never flattened.
-Spike plots: the negative-feedback trace (u, w) is red, drawn under V in the shared
-bottom band (FB_TRACE, fbBandMap, fbSteadyRange in palette.js), same panel, no separator.
+Spike plots are oscilloscopes (assets/js/scope.js): one scope per signal (V on top,
+the red negative-feedback u / w below), each with its own y axis in the left margin,
+all sharing the time axis (drawTimeAxis with x0 = SCOPE.ML).
 Equilibria (nullcline crossings) use the textbook symbols via drawEquilibria():
 filled = stable, empty = unstable, square = saddle, half-filled = saddle-node. Slider values stay yellow text (UI, not data).
 

@@ -8,6 +8,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="../assets/css/site.css" />
   <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/scope.js"></script>
   <script src="../assets/js/palette.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
@@ -383,12 +384,12 @@ function drawTrace() {
   const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
   tctx.clearRect(0, 0, W, traceCanvas._lh);
 
-  const splitY = H; // V uses the full height; w is overlaid (same style as Izhikevich u)
+  // Oscilloscope: V scope on top, w scope below, shared time axis
+  const [rV, rW] = scopeRects(W, H, [0.66, 0.34]);
+  const vMin = E_L - 15, vMax = V_peak + 15;
+  const yV = scopeY(rV, vMin, vMax);
 
-  const vMin = E_L - 55, vMax = V_peak + 15;   // extra room below rest for the w band
-  const mapVY = v => splitY * (1 - (v - vMin) / (vMax - vMin));
-
-  // Dynamic w range from current buffer pass
+  // w scope: steady auto-range (rounded to 20 pA, no jumping)
   const scanEnd = traceFull ? traceEff : traceHead;
   let wHi = 20, wLo = -5;
   for (let i = 0; i < scanEnd; i++) {
@@ -397,70 +398,52 @@ function drawTrace() {
   }
   steadyRange(wRangeTrace, Math.min(wLo - 5, -5), Math.max(wHi * 1.2, 20));
   wHi = wRangeTrace.hi; wLo = wRangeTrace.lo;
-  // w (negative feedback) in the shared bottom band, under the resting level
-  const mapWY = fbBandMap(H, wLo, wHi);
+  const yW = scopeY(rW, wLo, wHi);
 
-  tctx.font = '10px monospace';
+  drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V);
+  drawScope(tctx, rW, wLo, wHi, 'w (pA)', COL.NEG);
 
-  // Reference lines
-  tctx.strokeStyle = COL.REST + '55'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
-  tctx.beginPath(); tctx.moveTo(0, mapVY(E_L)); tctx.lineTo(W, mapVY(E_L)); tctx.stroke();
-  tctx.setLineDash([]);
-  tctx.fillStyle = COL.REST + '99';
-  tctx.fillText('EL', 4, mapVY(E_L) - 3);
+  // reference lines in the V scope, w = 0 in the w scope
+  scopeRefLine(tctx, rV, yV(E_L), COL.REST + '55', [2, 5], 'EL', COL.REST + '99');
+  scopeRefLine(tctx, rV, yV(V_T), COL.THRESH + '66', [4, 4], 'VT ' + V_T + ' mV', COL.THRESH + 'cc');
+  scopeRefLine(tctx, rV, yV(params.V_r), COL.RESET + '99', [3, 4], null);
+  if (wLo < 0 && wHi > 0) scopeRefLine(tctx, rW, yW(0), '#3a3a3a', [2, 4], null);
 
-  tctx.strokeStyle = COL.THRESH + '66'; tctx.lineWidth = 1; tctx.setLineDash([4, 4]);
-  tctx.beginPath(); tctx.moveTo(0, mapVY(V_T)); tctx.lineTo(W, mapVY(V_T)); tctx.stroke();
-  tctx.setLineDash([]);
-  tctx.fillStyle = COL.THRESH + 'cc';
-  tctx.fillText('VT ' + V_T + ' mV', 4, mapVY(V_T) - 3);
-
-  tctx.strokeStyle = COL.RESET + '99'; tctx.lineWidth = 1; tctx.setLineDash([3, 4]);
-  tctx.beginPath(); tctx.moveTo(0, mapVY(params.V_r)); tctx.lineTo(W, mapVY(params.V_r)); tctx.stroke();
-  tctx.setLineDash([]);
-
-  // Cursor
-  const cursorX = Math.round((traceHead / traceEff) * W);
-  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, splitY); tctx.stroke();
-
-  // ── V polyline, two passes (old faded / new bright) ──────────────────────
+  const xOf = scopeX(rV, traceEff);
   const drawV = (fromIdx, toIdx, alpha) => {
     if (toIdx <= fromIdx) return;
-    tctx.strokeStyle = COL.V; tctx.lineWidth = 2.2; tctx.globalAlpha = alpha;
-    tctx.beginPath();
-    for (let i = fromIdx; i < toIdx; i++) {
-      const x = (i / (traceEff - 1)) * W;
-      const y = mapVY(vHistory[i]);
-      if (i === fromIdx) { tctx.moveTo(x, y); } else { tctx.lineTo(x, y); }
-    }
-    tctx.stroke();
-    tctx.globalAlpha = 1;
+    inScope(tctx, rV, () => {
+      tctx.strokeStyle = COL.V; tctx.lineWidth = 2.2; tctx.globalAlpha = alpha;
+      tctx.beginPath();
+      for (let i = fromIdx; i < toIdx; i++) {
+        i === fromIdx ? tctx.moveTo(xOf(i), yV(vHistory[i])) : tctx.lineTo(xOf(i), yV(vHistory[i]));
+      }
+      tctx.stroke();
+    });
   };
-
-  // ── w (negative feedback) first, so V is drawn on top ────────────────────
   const drawW = (fromIdx, toIdx, alpha) => {
     if (toIdx <= fromIdx) return;
-    tctx.strokeStyle = COL.NEG; tctx.lineWidth = FB_TRACE.width; tctx.globalAlpha = alpha;
-    tctx.beginPath();
-    const step = Math.max(1, Math.floor((toIdx - fromIdx) / W));
-    let first = true;
-    for (let i = fromIdx; i < toIdx; i += step) {
-      const x = (i / (traceEff - 1)) * W;
-      const y = mapWY(wHistory[i]);
-      if (first) { tctx.moveTo(x, y); first = false; } else { tctx.lineTo(x, y); }
-    }
-    tctx.stroke();
-    tctx.globalAlpha = 1;
+    inScope(tctx, rW, () => {
+      tctx.strokeStyle = COL.NEG; tctx.lineWidth = FB_TRACE.width; tctx.globalAlpha = alpha;
+      tctx.beginPath();
+      const step = Math.max(1, Math.floor((toIdx - fromIdx) / rW.w));
+      let first = true;
+      for (let i = fromIdx; i < toIdx; i += step) {
+        if (first) { tctx.moveTo(xOf(i), yW(wHistory[i])); first = false; } else { tctx.lineTo(xOf(i), yW(wHistory[i])); }
+      }
+      tctx.stroke();
+    });
   };
-  if (traceFull) drawW(traceHead, traceEff, FB_TRACE.alphaOld);
+  if (traceFull) { drawV(traceHead, traceEff, 0.14); drawW(traceHead, traceEff, FB_TRACE.alphaOld); }
+  drawV(0, traceHead, 1.0);
   drawW(0, traceHead, FB_TRACE.alpha);
 
-  if (traceFull) drawV(traceHead, traceEff, 0.14);
-  drawV(0, traceHead, 1.0);
+  // sweep cursor through both scopes
+  const cx = Math.round(rV.x + (traceHead / traceEff) * rV.w) + 0.5;
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cx, rV.y); tctx.lineTo(cx, rW.y + rW.h); tctx.stroke();
 
-
-  drawTimeAxis(tctx, W, H, windowMs);
+  drawTimeAxis(tctx, W, H, windowMs, SCOPE.ML);
 }
 
 // ── Drawing: phase portrait ────────────────────────────────────────────────

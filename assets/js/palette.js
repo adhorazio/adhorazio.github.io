@@ -25,16 +25,10 @@ const COL = {
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha
 };
 
-// Negative-feedback trace (u, w) in the spike plot: overlaid on the voltage
-// (drawn underneath it), same look on every model.
-// It lives in a band at the bottom of the plot, just under the resting level,
-// so the spikes never hide it. Its range is "steady": rounded to `step`,
-// grows at once, shrinks only when clearly too big (no jumping).
-const FB_TRACE = { width: 1.5, alpha: 0.8, alphaOld: 0.15, bandTop: 0.76, bandBottom: 0.97 };
-function fbBandMap(H, lo, hi) {
-  const top = H * FB_TRACE.bandTop, h = H * (FB_TRACE.bandBottom - FB_TRACE.bandTop);
-  return x => top + h * (1 - (x - lo) / (hi - lo));
-}
+// Negative-feedback trace (u, w): drawn in its own scope under V (see
+// scope.js), same look on every model. fbSteadyRange keeps its y range
+// steady: rounded to `step`, grows at once, shrinks only when clearly too big.
+const FB_TRACE = { width: 1.5, alpha: 0.85, alphaOld: 0.15 };
 function fbSteadyRange(st, lo, hi, step) {
   const nHi = Math.ceil(hi / step) * step, nLo = Math.floor(lo / step) * step;
   if (st.hi === undefined || nHi > st.hi || nHi < st.hi - 3 * step) st.hi = nHi;
