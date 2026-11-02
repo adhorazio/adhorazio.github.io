@@ -96,14 +96,14 @@
     <div class="legend-section">
       <div class="legend-section-title">Traces</div>
       <div class="legend-item"><div class="legend-dot" style="background: var(--c-v);"></div><span>V (membrane potential)</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background: var(--c-pos);"></div><span>m (Na⁺ activation, positive feedback)</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background: var(--c-neg); opacity: .6;"></div><span>h (Na⁺ inactivation, negative feedback)</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background: var(--c-neg);"></div><span>n (K⁺ activation, negative feedback)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-m);"></div><span>m (Na⁺ activation)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-h);"></div><span>h (Na⁺ inactivation)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-n);"></div><span>n (K⁺ activation)</span></div>
     </div>
     <div class="legend-section">
       <div class="legend-section-title">Phase plane (V, n)</div>
       <div class="legend-item"><div class="legend-dot" style="background: var(--c-in);"></div><span>V-nullcline (set by I)</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div><span>n-nullcline</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-n); opacity: .7;"></div><span>n-nullcline</span></div>
       <div class="legend-item"><div class="legend-dot" style="background: var(--c-v);"></div><span>trajectory</span></div>
       <div class="legend-item"><div class="legend-dot dot" style="background: var(--c-op);"></div><span>state (V, n)</span></div>
     </div>
@@ -324,9 +324,9 @@ function drawTrace() {
   const vMin = -90, vMax = 50;
   const yV = scopeY(rV, vMin, vMax);
   drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V, [-65, -40, 0, 40]);
-  drawScope(tctx, rM, 0, 1, 'm', COL.POS, [0.5]);
-  drawScope(tctx, rH, 0, 1, 'h', COL.NEG + '99', [0.5]);
-  drawScope(tctx, rN, 0, 1, 'n', COL.NEG, [0.5]);
+  drawScope(tctx, rM, 0, 1, 'm', COL.GATE_M, [0.5]);
+  drawScope(tctx, rH, 0, 1, 'h', COL.GATE_H, [0.5]);
+  drawScope(tctx, rN, 0, 1, 'n', COL.GATE_N, [0.5]);
 
   const xOf = scopeX(rV, TRACE_LEN);
   const drawSeg = (r, arr, from, to, color, lw, alpha, yFn) => {
@@ -340,12 +340,12 @@ function drawTrace() {
   };
   const rows = [
     [rV, vHistory, COL.V,           1.8, yV],
-    [rM, mHistory, COL.POS,         1.5, scopeY(rM, 0, 1)],
-    [rH, hHistory, COL.NEG,         1.5, scopeY(rH, 0, 1)],
-    [rN, nHistory, COL.NEG,         1.5, scopeY(rN, 0, 1)],
+    [rM, mHistory, COL.GATE_M,      1.5, scopeY(rM, 0, 1)],
+    [rH, hHistory, COL.GATE_H,      1.5, scopeY(rH, 0, 1)],
+    [rN, nHistory, COL.GATE_N,      1.5, scopeY(rN, 0, 1)],
   ];
   rows.forEach(([r, arr, col, lw, yF], k) => {
-    const a = k === 2 ? 0.6 : 1;                     // h a bit lighter than n
+    const a = 1;
     if (traceFull) drawSeg(r, arr, traceHead, TRACE_LEN, col, lw, 0.12 * a, yF);
     drawSeg(r, arr, 0, traceHead, col, lw, (k === 0 ? 1 : FB_TRACE.alpha) * a, yF);
   });
@@ -393,8 +393,8 @@ function drawPhase() {
   pctx.stroke();
   pctx.restore();
 
-  // n-nullcline: n = n∞(V) (recovery, faint red)
-  pctx.strokeStyle = COL.NEG + '88'; pctx.lineWidth = 1.2; pctx.setLineDash([]);
+  // n-nullcline: n = n∞(V), in the colour of n
+  pctx.strokeStyle = COL.GATE_N + 'bb'; pctx.lineWidth = 1.2; pctx.setLineDash([]);  // n-nullcline in n's colour
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi += 0.5) {
     const yv = my(xinf(alphaN, betaN, vi));

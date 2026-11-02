@@ -9,6 +9,12 @@
 //   THRESH voltage thresholds: V_theta, V_T                   yellow
 //   RESET  voltage reset: c, V_r                              purple
 //   IRESET current reset after a spike: u + d, w + b          orange
+//   Gating variables (conductance-based models, e.g. HH) are probabilities,
+//   not currents, so they get their own colours: activation gates in an
+//   aquamarine family, inactivation in amber.
+//   GATE_M fast activation (Na+ m)                            aquamarine
+//   GATE_N slow activation (K+ n)                             deep teal
+//   GATE_H inactivation (Na+ h)                               amber
 //   REST   rest: V_rest, E_L                                  grey
 //   OP     where the neuron is now: state dot in the phase    white
 //          plane, operating point on the f-I curve
@@ -20,6 +26,9 @@ const COL = {
   THRESH: '#FFC61E',
   RESET:  '#AF58BA',
   IRESET: '#F28522',
+  GATE_M: '#2EC4B6',
+  GATE_N: '#1A8C83',
+  GATE_H: '#F2A65A',
   REST:   '#888888',
   OP:     '#FFFFFF',
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha

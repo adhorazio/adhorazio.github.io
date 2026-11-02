@@ -29,6 +29,9 @@
   --c-thresh: var(--gdv-q5);  /* voltage thresholds: V_theta, V_T */
   --c-reset:  var(--gdv-q4);  /* voltage reset: c, V_r */
   --c-ireset: var(--gdv-q6);  /* current reset after a spike: u + d, w + b */
+  --c-gate-m: #2EC4B6;        /* gating: fast activation (Na+ m) */
+  --c-gate-n: #1A8C83;        /* gating: slow activation (K+ n) */
+  --c-gate-h: #F2A65A;        /* gating: inactivation (Na+ h) */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
   --c-op:     #ffffff;        /* where the neuron is now: state dot, operating point */
 }
