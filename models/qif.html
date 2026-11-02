@@ -326,11 +326,7 @@ const vHist = new Float32Array(TRACE_LEN), mHist = new Float32Array(TRACE_LEN);
 const pHist = new Float32Array(TRACE_LEN), uHist = new Int8Array(TRACE_LEN);   // u = input pulse sign
 vHist.fill(E_L);
 let traceHead = 0, traceFull = false;
-const PHASE_LEN = 30000;                       // 3 s of history
-// Trail windows (model time): V views keep ≥ 300 ms (more at high speed, ~1 s real
-// time, so spikes don't strobe); the slow plane keeps 2.5 s so whole slow cycles
-// (bursts, adaptation loops) stay visible whatever the speed.
-const V_TRAIL_MIN = 3000, SLOW_TRAIL = 25000;
+const PHASE_LEN = 12000;
 let phaseShow = 1200;
 const phV = new Float32Array(PHASE_LEN), phM = new Float32Array(PHASE_LEN), phP = new Float32Array(PHASE_LEN);
 phV.fill(E_L);
@@ -562,8 +558,7 @@ function frame() {
   return { W, H, cW: W - PM.ml - PM.mr, cH: H - PM.mt - PM.mb };
 }
 function trailIdx() {
-  const want = ppMode === 'mp' ? SLOW_TRAIL : Math.max(phaseShow, V_TRAIL_MIN);
-  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, want);
+  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, phaseShow);
   return { tLen, tIdx: i => (phaseHead - tLen + i + PHASE_LEN) % PHASE_LEN };
 }
 function axesLabels(cW, cH, yLab, xLab) {
@@ -706,23 +701,6 @@ function drawVPlane(which) {
   }
   pctx.stroke();
   trail(xv, y => ys(Math.max(yLo, Math.min(yHi, y))), phV, yb, true);
-  // where the plotted current is heading (average over spikes): dashed line in its
-  // colour, small arrow at the left edge from the present value to it
-  {
-    const h = hdNow(), tgt = isM ? h.m : h.p;
-    const yT = ys(Math.max(yLo, Math.min(yHi, tgt))), yN = ys(Math.max(yLo, Math.min(yHi, yNow)));
-    pctx.save();
-    pctx.strokeStyle = col + '77'; pctx.lineWidth = 1; pctx.setLineDash([6, 4]);
-    pctx.beginPath(); pctx.moveTo(PM.ml, yT); pctx.lineTo(PM.ml + cW, yT); pctx.stroke();
-    pctx.setLineDash([]);
-    if (Math.abs(yT - yN) > 8) {
-      const ax = PM.ml + 9, dir = Math.sign(yT - yN);
-      pctx.strokeStyle = col + 'cc'; pctx.fillStyle = col + 'cc';
-      pctx.beginPath(); pctx.moveTo(ax, yN); pctx.lineTo(ax, yT - 5 * dir); pctx.stroke();
-      pctx.beginPath(); pctx.moveTo(ax, yT); pctx.lineTo(ax - 3.5, yT - 6 * dir); pctx.lineTo(ax + 3.5, yT - 6 * dir); pctx.closePath(); pctx.fill();
-    }
-    pctx.restore();
-  }
   // reset guides (as on the Izhikevich page): orange line where the slow current lands
   // after the last spike (w + b), dashed path of the jump (V_spike, w) → (V_r, w + b)
   const last = isM ? lastM : lastP, bb = isM ? params.b_m : params.b_p;
@@ -780,26 +758,7 @@ function drawSlowPlane() {
   pctx.fillText('fires', PM.ml + cW - 4, PM.mt + 24);
   pctx.fillText('can rest', PM.ml + cW - 4, PM.mt + cH - 6);
   pctx.textAlign = 'left';
-  // averaged slow flow (grey arrows) and where the state is heading (hollow diamond)
-  pctx.save();
-  pctx.strokeStyle = '#4a4a4a'; pctx.fillStyle = '#4a4a4a'; pctx.lineWidth = 1;
-  const sx = cW / (x1 - x0), sy = cH / (y1 - y0);
-  for (let gi = 1; gi < 9; gi++) for (let gj = 1; gj < 9; gj++) {
-    const wmv = x0 + (x1 - x0) * gi / 9, wpv = y0 + (y1 - y0) * gj / 9, h = heading(wmv, wpv);
-    const dx = (h.m - wmv) / params.tau_m * sx, dy = -(h.p - wpv) / params.tau_p * sy, L = Math.hypot(dx, dy);
-    if (L < 1e-6) continue;
-    const ux = dx / L, uy = dy / L, px = xs(wmv), py = ys(wpv);
-    pctx.beginPath(); pctx.moveTo(px - 5 * ux, py - 5 * uy); pctx.lineTo(px + 4 * ux, py + 4 * uy); pctx.stroke();
-    pctx.beginPath(); pctx.moveTo(px + 6 * ux, py + 6 * uy); pctx.lineTo(px + 2 * ux - 2.5 * uy, py + 2 * uy + 2.5 * ux); pctx.lineTo(px + 2 * ux + 2.5 * uy, py + 2 * uy - 2.5 * ux); pctx.closePath(); pctx.fill();
-  }
-  {
-    const h = hdNow(), tx = xs(Math.max(x0, Math.min(x1, h.m))), ty = ys(Math.max(y0, Math.min(y1, h.p)));
-    pctx.strokeStyle = 'rgba(255,255,255,0.3)'; pctx.setLineDash([2, 3]);
-    pctx.beginPath(); pctx.moveTo(xs(Math.max(x0, Math.min(x1, wm))), ys(Math.max(y0, Math.min(y1, wp)))); pctx.lineTo(tx, ty); pctx.stroke();
-    pctx.setLineDash([]); pctx.strokeStyle = 'rgba(255,255,255,0.8)'; pctx.lineWidth = 1.3;
-    pctx.beginPath(); pctx.moveTo(tx, ty - 5); pctx.lineTo(tx + 5, ty); pctx.lineTo(tx, ty + 5); pctx.lineTo(tx - 5, ty); pctx.closePath(); pctx.stroke();
-  }
-  pctx.restore();
+
   trail(xs, ys, phM, phP, false);
   // last spike's jump: (w⁻, w⁺) → (w⁻ + b⁻, w⁺ + b⁺), orange like the current resets
   if (lastM !== null) {
@@ -913,11 +872,9 @@ function setPP(mode) {
   }[mode];
   const reset = {
     v:  '',
-    m:  li('var(--c-neg)', 'where w<sup>−</sup> is heading (average over spikes)', .6) + li('var(--c-reset)', 'V<sub>r</sub> (voltage reset)') + li('var(--c-ireset)', 'w<sup>−</sup> + b<sup>−</sup> (current reset after a spike)') + li('rgba(255,255,255,0.35)', 'last reset jump'),
-    p:  li('var(--c-pos)', 'where w<sup>+</sup> is heading (average over spikes)', .6) + li('var(--c-reset)', 'V<sub>r</sub> (voltage reset)') + li('var(--c-ireset)', 'w<sup>+</sup> + b<sup>+</sup> (current reset after a spike)') + li('rgba(255,255,255,0.35)', 'last reset jump'),
-    mp: li('var(--c-ireset)', 'jump at each spike (+b<sup>−</sup>, +b<sup>+</sup>)')
-        + '<div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><path d="M6 1.5 L10.5 6 L6 10.5 L1.5 6 Z" fill="none" stroke="#ccc" stroke-width="1.3"/></svg><span>where the state is heading (average over spikes)</span></div>'
-        + li('#5a5a5a', 'averaged slow flow'),
+    m:  li('var(--c-reset)', 'V<sub>r</sub> (voltage reset)') + li('var(--c-ireset)', 'w<sup>−</sup> + b<sup>−</sup> (current reset after a spike)') + li('rgba(255,255,255,0.35)', 'last reset jump'),
+    p:  li('var(--c-reset)', 'V<sub>r</sub> (voltage reset)') + li('var(--c-ireset)', 'w<sup>+</sup> + b<sup>+</sup> (current reset after a spike)') + li('rgba(255,255,255,0.35)', 'last reset jump'),
+    mp: li('var(--c-ireset)', 'jump at each spike (+b<sup>−</sup>, +b<sup>+</sup>)'),
   }[mode];
   document.getElementById('pp-legend').innerHTML = `<div class="legend-section-title">${PP[mode][1]}</div>` + L + reset;
   delete R.ph.hi; delete R.ph.lo; delete R.px.hi; delete R.px.lo; delete R.py.hi; delete R.py.lo;
