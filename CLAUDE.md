@@ -41,7 +41,7 @@ never raw GDV colours: blue = V / f-I / phase trajectory; yellow = input
 current (V-nullcline, which shifts with I; rheobase on the f-I curve); red = negative feedback
 (recovery/adaptation u, w, their nullcline); green = positive
 feedback; yellow = voltage thresholds (V_theta, V_T); orange = current reset after a spike (u+d, w+b); gating variables (HH):
-by ion channel: Na+ m orange (predominant), Na+ h same orange lighter, K+ n violet; purple = voltage reset
+by ion channel: Na+ m sky/ice (predominant), Na+ h same colour lighter, K+ n bordeaux; purple = voltage reset
 (c, V_r); grey = rest (V_rest, E_L) and V_peak;
 white dot = where the neuron is now (phase-plane state, f-I operating point).
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current

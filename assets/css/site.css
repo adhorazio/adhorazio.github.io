@@ -29,9 +29,9 @@
   --c-thresh: var(--gdv-q5);  /* voltage thresholds: V_theta, V_T */
   --c-reset:  var(--gdv-q4);  /* voltage reset: c, V_r */
   --c-ireset: var(--gdv-q6);  /* current reset after a spike: u + d, w + b */
-  --c-gate-m: #FF8C42;        /* gating: Na+ activation m (Na+ gates warm) */
-  --c-gate-n: #B07CE8;        /* gating: K+ activation n (violet) */
-  --c-gate-h: rgba(255, 140, 66, 0.6); /* gating: Na+ inactivation h (m's orange, lighter) */
+  --c-gate-m: #9AD1F5;        /* gating: Na+ activation m (sky / ice) */
+  --c-gate-n: #B0283C;        /* gating: K+ activation n (bordeaux) */
+  --c-gate-h: rgba(154, 209, 245, 0.6); /* gating: Na+ inactivation h (m's colour, lighter) */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
   --c-op:     #ffffff;        /* where the neuron is now: state dot, operating point */
 }
