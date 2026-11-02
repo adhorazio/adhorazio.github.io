@@ -326,7 +326,11 @@ const vHist = new Float32Array(TRACE_LEN), mHist = new Float32Array(TRACE_LEN);
 const pHist = new Float32Array(TRACE_LEN), uHist = new Int8Array(TRACE_LEN);   // u = input pulse sign
 vHist.fill(E_L);
 let traceHead = 0, traceFull = false;
-const PHASE_LEN = 12000;
+const PHASE_LEN = 30000;                       // 3 s of history
+// Trail windows (model time): V views keep ≥ 300 ms (more at high speed, ~1 s real
+// time, so spikes don't strobe); the slow plane keeps 2.5 s so whole slow cycles
+// (bursts, adaptation loops) stay visible whatever the speed.
+const V_TRAIL_MIN = 3000, SLOW_TRAIL = 25000;
 let phaseShow = 1200;
 const phV = new Float32Array(PHASE_LEN), phM = new Float32Array(PHASE_LEN), phP = new Float32Array(PHASE_LEN);
 phV.fill(E_L);
@@ -428,6 +432,18 @@ function heading(wmv, wpv) {
   return { f, m: params.a_m * (Vb - E_L) + params.b_m * f * params.tau_m,
               p: params.a_p * (Vb - E_L) + params.b_p * f * params.tau_p };
 }
+
+// Smoothed heading (model-time average over ~50 ms): the raw target jumps at every
+// spike; the shown target follows the slow motion only.
+const HD_TAU = 50;
+let hdM = null, hdP = null, hdTick = 0;
+function updateHeading() {
+  const h = heading(wm, wp);
+  if (hdM === null) { hdM = h.m; hdP = h.p; return; }
+  const k = 10 * DT / HD_TAU;
+  hdM += k * (h.m - hdM); hdP += k * (h.p - hdP);
+}
+const hdNow = () => (hdM === null ? heading(wm, wp) : { m: hdM, p: hdP });
 
 function classify(Ve) {
   const s1 = g_L * (2 * Ve - E_L - V_T);   // dI_ion/dV
@@ -546,7 +562,8 @@ function frame() {
   return { W, H, cW: W - PM.ml - PM.mr, cH: H - PM.mt - PM.mb };
 }
 function trailIdx() {
-  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, phaseShow);
+  const want = ppMode === 'mp' ? SLOW_TRAIL : Math.max(phaseShow, V_TRAIL_MIN);
+  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, want);
   return { tLen, tIdx: i => (phaseHead - tLen + i + PHASE_LEN) % PHASE_LEN };
 }
 function axesLabels(cW, cH, yLab, xLab) {
@@ -586,14 +603,15 @@ function trail(xs, ys, xb, yb, skipJumps) {
   const { tLen, tIdx } = trailIdx();
   if (tLen < 2) return;
   pctx.lineWidth = 1;
-  const RUN = Math.max(40, Math.ceil(tLen / 30));
-  for (let i0 = 1; i0 < tLen; i0 += RUN) {
+  const st = skipJumps ? 1 : Math.max(1, Math.ceil(tLen / 5000));   // long slow trails: thin out
+  const RUN = Math.max(40, Math.ceil(tLen / 30 / st) * st);
+  for (let i0 = st; i0 < tLen; i0 += RUN) {
     const i1 = Math.min(i0 + RUN, tLen);
     pctx.strokeStyle = `rgba(${COL.TRAJ},${(0.12 + 0.70 * (((i0 + i1) / 2) / tLen)).toFixed(2)})`;
     pctx.beginPath();
     let pen = false;
-    for (let i = i0; i < i1; i++) {
-      const k0 = tIdx(i - 1), k1 = tIdx(i);
+    for (let i = i0; i < i1; i += st) {
+      const k0 = tIdx(i - st), k1 = tIdx(i);
       if (skipJumps && Math.abs(phV[k1] - phV[k0]) > 30) { pen = false; continue; }
       if (!pen) { pctx.moveTo(xs(xb[k0]), ys(yb[k0])); pen = true; }
       pctx.lineTo(xs(xb[k1]), ys(yb[k1]));
@@ -691,7 +709,7 @@ function drawVPlane(which) {
   // where the plotted current is heading (average over spikes): dashed line in its
   // colour, small arrow at the left edge from the present value to it
   {
-    const h = heading(wm, wp), tgt = isM ? h.m : h.p;
+    const h = hdNow(), tgt = isM ? h.m : h.p;
     const yT = ys(Math.max(yLo, Math.min(yHi, tgt))), yN = ys(Math.max(yLo, Math.min(yHi, yNow)));
     pctx.save();
     pctx.strokeStyle = col + '77'; pctx.lineWidth = 1; pctx.setLineDash([6, 4]);
@@ -775,7 +793,7 @@ function drawSlowPlane() {
     pctx.beginPath(); pctx.moveTo(px + 6 * ux, py + 6 * uy); pctx.lineTo(px + 2 * ux - 2.5 * uy, py + 2 * uy + 2.5 * ux); pctx.lineTo(px + 2 * ux + 2.5 * uy, py + 2 * uy - 2.5 * ux); pctx.closePath(); pctx.fill();
   }
   {
-    const h = heading(wm, wp), tx = xs(Math.max(x0, Math.min(x1, h.m))), ty = ys(Math.max(y0, Math.min(y1, h.p)));
+    const h = hdNow(), tx = xs(Math.max(x0, Math.min(x1, h.m))), ty = ys(Math.max(y0, Math.min(y1, h.p)));
     pctx.strokeStyle = 'rgba(255,255,255,0.3)'; pctx.setLineDash([2, 3]);
     pctx.beginPath(); pctx.moveTo(xs(Math.max(x0, Math.min(x1, wm))), ys(Math.max(y0, Math.min(y1, wp)))); pctx.lineTo(tx, ty); pctx.stroke();
     pctx.setLineDash([]); pctx.strokeStyle = 'rgba(255,255,255,0.8)'; pctx.lineWidth = 1.3;
@@ -851,6 +869,7 @@ function loop() {
     if (++traceHead >= traceEff) { traceHead = 0; traceFull = true; }
     phV[phaseHead] = V; phM[phaseHead] = wm; phP[phaseHead] = wp;
     if (++phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
+    if ((params.adapt || params.excit) && ++hdTick >= 10) { hdTick = 0; updateHeading(); }
     if (++sparkTick >= SPARK_EVERY) {
       sparkTick = 0; sparkM[sparkHead] = wm; sparkP[sparkHead] = wp;
       sparkHead = (sparkHead + 1) % SPARK_LEN;
@@ -858,7 +877,7 @@ function loop() {
   }
   drawTrace();
   drawPhase();
-  const hd = (params.adapt || params.excit) ? heading(wm, wp) : null;
+  const hd = (params.adapt || params.excit) ? hdNow() : null;
   if (params.adapt) drawSpark('spark-m', sparkM, COL.NEG, 'mean-m', hd.m);
   if (params.excit) drawSpark('spark-p', sparkP, COL.POS, 'mean-p', hd.p);
   requestAnimationFrame(loop);
@@ -920,6 +939,7 @@ function refreshFeedbackUI(prefer) {
 }
 function toggle(key) {
   params[key] = !params[key];
+  hdM = null; hdP = null;
   if (!params.adapt) { wm = 0; sparkM.fill(0); }
   if (!params.excit) { wp = 0; pulseLeft = 0; sparkP.fill(0); }
   refreshFeedbackUI(key === 'excit' && params.excit ? 'p' : key === 'adapt' && params.adapt && !params.excit ? 'm' : null);
@@ -969,7 +989,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
-  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
+  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null; hdM = null; hdP = null;
   vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0);
   phV.fill(E_L); phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false; phaseHead = 0; phaseFull = false;
