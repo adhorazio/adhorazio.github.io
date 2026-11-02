@@ -186,7 +186,7 @@ const vHistory  = new Float32Array(TRACE_LEN);
 const uHistory  = new Float32Array(TRACE_LEN);
 let traceHead   = 0;
 let traceFull   = false;
-const PHASE_LEN = 800;
+const PHASE_LEN = 2000;  // phase-plane trail length (samples); longer = trail persists longer
 const phaseV    = new Float32Array(PHASE_LEN);
 const phaseU    = new Float32Array(PHASE_LEN);
 let phaseHead   = 0;
