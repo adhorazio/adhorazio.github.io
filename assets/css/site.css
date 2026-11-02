@@ -25,7 +25,6 @@
   --c-v:      var(--gdv-q3);  /* membrane potential, V-nullcline, f-I */
   --c-neg:    var(--gdv-q1);  /* negative feedback: u, w, their nullcline, u+d / w+b */
   --c-pos:    var(--gdv-q2);  /* positive feedback */
-  --c-in:     var(--gdv-q6);  /* input current: I_ext, I_0, I_eff */
   --c-thresh: var(--gdv-q5);  /* thresholds: V_theta, V_T, rheobase */
   --c-reset:  var(--gdv-q4);  /* reset value: c, V_r */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
@@ -175,16 +174,6 @@ input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); box-s
 input[type="range"]:active::-moz-range-thumb     { transform: scale(1.15); box-shadow: 0 0 0 7px var(--accent-soft); }
 input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--border); }
 input[type="range"]::-moz-range-thumb { width: 17px; height: 17px; border-radius: 50%; background: var(--accent); border: none; transition: transform 120ms var(--ease), box-shadow var(--dur) var(--ease); }
-
-/* Input-current slider: orange name + handle, linked by colour to the plots */
-.control-group.ctl-in label { color: var(--c-in); }
-.control-group.ctl-in input[type="range"]::-webkit-slider-thumb { background: var(--c-in); }
-.control-group.ctl-in input[type="range"]::-moz-range-thumb { background: var(--c-in); }
-.control-group.ctl-in input[type="range"]:active::-webkit-slider-thumb { box-shadow: 0 0 0 7px rgba(242, 133, 34, 0.18); }
-.control-group.ctl-in input[type="range"]:active::-moz-range-thumb { box-shadow: 0 0 0 7px rgba(242, 133, 34, 0.18); }
-@media (hover: hover) {
-  .control-group.ctl-in input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(242, 133, 34, 0.14); }
-}
 
 /* ── Legend ── */
 .legend { display: flex; flex-direction: column; gap: 1rem; font-size: 0.72rem; color: var(--text-dim); }
