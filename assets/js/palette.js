@@ -10,7 +10,7 @@
 //   RESET  voltage reset: c, V_r                              purple
 //   IRESET current reset after a spike: u + d, w + b          orange
 //   REST   rest: V_rest, E_L                                  grey
-//   OP     where the neuron is now: state dot in the phase    yellow
+//   OP     where the neuron is now: state dot in the phase    white
 //          plane, operating point on the f-I curve
 const COL = {
   V:      '#009ADE',
@@ -21,6 +21,6 @@ const COL = {
   RESET:  '#AF58BA',
   IRESET: '#F28522',
   REST:   '#888888',
-  OP:     '#FFC61E',
+  OP:     '#FFFFFF',
   TRAJ:   '0,154,222'     // = V blue as an rgb triplet, used with a varying alpha
 };

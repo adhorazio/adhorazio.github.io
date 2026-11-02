@@ -30,7 +30,7 @@
   --c-reset:  var(--gdv-q4);  /* voltage reset: c, V_r */
   --c-ireset: var(--gdv-q6);  /* current reset after a spike: u + d, w + b */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
-  --c-op:     var(--gdv-q5);  /* where the neuron is now: state dot, operating point */
+  --c-op:     #ffffff;        /* where the neuron is now: state dot, operating point */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
