@@ -26,13 +26,35 @@ const COL = {
 };
 
 // "Where the neuron is now" dot, same on every model (phase-plane state,
-// f-I operating point). DOT_RING = null for a plain dot.
-COL.DOT_FILL = COL.OP;
-COL.DOT_RING = null;
+// f-I operating point). Style is chosen once here:
+//   'plain'    solid white dot
+//   'glow'     small white dot with a soft halo
+//   'ring'     hollow white ring
+//   'knockout' white dot with a thin dark gap, so it separates from any line
+COL.DOT_STYLE = 'plain';
 function drawStateDot(ctx, x, y, r) {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = COL.DOT_FILL;
-  ctx.fill();
-  if (COL.DOT_RING) { ctx.lineWidth = 1.6; ctx.strokeStyle = COL.DOT_RING; ctx.stroke(); }
+  const st = COL.DOT_STYLE;
+  ctx.save();
+  if (st === 'glow') {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
+    g.addColorStop(0, 'rgba(255,255,255,0.35)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = COL.OP;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.75, 0, Math.PI * 2); ctx.fill();
+  } else if (st === 'ring') {
+    ctx.fillStyle = '#1e1e1e';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 1.6; ctx.strokeStyle = COL.OP; ctx.stroke();
+  } else if (st === 'knockout') {
+    ctx.fillStyle = '#1e1e1e';
+    ctx.beginPath(); ctx.arc(x, y, r + 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = COL.OP;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.85, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = COL.OP;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 }
