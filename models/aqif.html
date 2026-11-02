@@ -131,6 +131,7 @@
     <div class="fb-btns we-show" id="pp-btns" hidden>
       <button class="win-btn"        data-pp="w">(V, w)</button>
       <button class="win-btn active" data-pp="we">(V, w<sub>e</sub>)</button>
+      <button class="win-btn"        data-pp="ww">(w, w<sub>e</sub>)</button>
     </div>
   </div>
 
@@ -244,9 +245,13 @@
     </div>
     <div class="legend-section">
       <div class="legend-section-title" id="pp-title">Phase portrait (V, w)</div>
-      <div class="legend-item">
+      <div class="legend-item" id="leg-vnull">
         <div class="legend-dot" style="background: var(--c-in);"></div>
         <span>V-nullcline (set by I)</span>
+      </div>
+      <div class="legend-item" id="leg-snline" hidden>
+        <div class="legend-dot" style="background: var(--c-in);"></div>
+        <span>spiking line I + w<sub>e</sub> − w = I<sub>SN</sub> (set by I; fires above)</span>
       </div>
       <div class="legend-item" id="leg-wnull">
         <div class="legend-dot" style="background: var(--c-neg); opacity: .55;"></div>
@@ -256,7 +261,7 @@
         <div class="legend-dot" style="background: var(--c-pos); opacity: .55;"></div>
         <span>w<sub>e</sub>-nullcline</span>
       </div>
-      <div class="legend-item">
+      <div class="legend-item" id="leg-vspike">
         <div class="legend-dot" style="background: rgba(255,255,255,0.3);"></div>
         <span>V<sub>spike</sub> (spike &amp; reset)</span>
       </div>
@@ -622,7 +627,129 @@ function drawTrace() {
 
 // ── Drawing: phase portrait ────────────────────────────────────────────────
 
+// Equilibria: w = a (V - E_L), w_e = a_e (V - E_L) and dV/dt = 0, i.e. roots of
+// F(V) = vNullcline(V) - a (V - E_L) + a_e (V - E_L), found by scanning + bisection.
+// Stability: 2-D Jacobian (V, w), or 3-D (V, w, w_e) with Routh–Hurwitz.
+function eqList() {
+  const a = params.a, tw = params.tau_w;
+  const ae = params.we ? params.a_e : 0, te = params.tau_e;
+  const F = Vv => vNullcline(Vv) - a * (Vv - E_L) + ae * (Vv - E_L);
+  const lo = E_L - 60, hi = V_peak, N = 400, out = [];
+  let x0 = lo, f0 = F(lo);
+  for (let k = 1; k <= N; k++) {
+    const x1 = lo + (hi - lo) * k / N, f1 = F(x1);
+    if (f0 === 0 || f0 * f1 < 0) {
+      let l = x0, r = x1, fl = f0;
+      for (let it = 0; it < 40; it++) {
+        const m = (l + r) / 2, fm = F(m);
+        if (fl * fm <= 0) { r = m; } else { l = m; fl = fm; }
+      }
+      const Ve = (l + r) / 2, s1 = g_L * (2 * Ve - E_L - V_T);   // dI_ion/dV
+      let type;
+      if (!params.we) {
+        type = classifyEq(s1 / C_m - 1 / tw, (a - s1) / (C_m * tw));
+      } else {
+        const c1 = -(s1 / C_m - 1 / tw - 1 / te);
+        const c2 = (a - s1) / (C_m * tw) - (s1 + ae) / (C_m * te) + 1 / (tw * te);
+        const c3 = -(s1 - a + ae) / (C_m * tw * te);
+        type = c3 < 0 ? 'saddle' : (c1 > 0 && c1 * c2 > c3 ? 'stable' : 'unstable');
+      }
+      out.push({ Ve, type });
+    }
+    x0 = x1; f0 = f1;
+  }
+  return out;
+}
+
+// ── Slow plane (w, w_e) ─────────────────────────────────────────────────────
+// V is fast; both slow currents enter dV/dt only as w_e − w, so the neuron
+// feels I + w_e − w. A rest state exists while that is ≤ I_SN = g_L (V_T − E_L)²/4
+// (saddle-node of the quadratic): the boundary is the 45° line w_e = w + I_SN − I.
+const I_SN = g_L * (V_T - E_L) * (V_T - E_L) / 4;
+const rangeWWx = {}, rangeWWy = {};
+function drawSlowPlane() {
+  const W = phaseCanvas._lw, H = phaseCanvas._lh;
+  const ml = 36, mt = 14, mr = 10, mb = 28;
+  const cW = W - ml - mr, cH = H - mt - mb;
+  pctx.clearRect(0, 0, W, H);
+  pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
+
+  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, phaseShow);
+  const tIdx = i => (phaseHead - tLen + i + PHASE_LEN) % PHASE_LEN;
+  let xLo = 0, xHi = 20, yLo = 0, yHi = 20;
+  for (let i = 0; i < tLen; i++) {
+    const k = tIdx(i), xw = phaseW[k], ye = phaseWe[k];
+    if (xw < xLo) xLo = xw; if (xw > xHi) xHi = xw;
+    if (ye < yLo) yLo = ye; if (ye > yHi) yHi = ye;
+  }
+  const off = I_SN - (params.I_ext + curPulse * PULSE_AMP);     // line: w_e = w + off
+  steadyRange(rangeWWx, Math.min(xLo - 5, -10), Math.max(xHi * 1.2, 60));
+  steadyRange(rangeWWy, Math.min(yLo - 5, -10, off - 20), Math.max(yHi * 1.2, 60, off + 40));
+  const x0 = rangeWWx.lo, x1 = rangeWWx.hi, y0 = rangeWWy.lo, y1 = rangeWWy.hi;
+  const xs = v => ml + (v - x0) / (x1 - x0) * cW;
+  const ys = v => mt + cH - (v - y0) / (y1 - y0) * cH;
+
+  // grid + labels
+  pctx.font = '11px monospace'; pctx.lineWidth = 0.5;
+  niceTicks(y0, y1, 4).forEach(t => {
+    if (t <= y0 || t >= y1) return;
+    pctx.strokeStyle = '#2c2c2c'; pctx.beginPath(); pctx.moveTo(ml, ys(t)); pctx.lineTo(ml + cW, ys(t)); pctx.stroke();
+    pctx.fillStyle = '#555'; pctx.fillText(t, 2, ys(t) + 3);
+  });
+  pctx.textAlign = 'center';
+  niceTicks(x0, x1, 4).forEach(t => {
+    if (t <= x0 || t >= x1) return;
+    pctx.strokeStyle = '#2c2c2c'; pctx.beginPath(); pctx.moveTo(xs(t), mt); pctx.lineTo(xs(t), mt + cH); pctx.stroke();
+    pctx.fillStyle = '#555'; pctx.fillText(t, xs(t), mt + cH + 12);
+  });
+  pctx.textAlign = 'left';
+  pctx.strokeStyle = '#555'; pctx.lineWidth = 1;
+  pctx.beginPath(); pctx.moveTo(ml, mt); pctx.lineTo(ml, mt + cH); pctx.lineTo(ml + cW, mt + cH); pctx.stroke();
+  pctx.fillStyle = '#666';
+  pctx.fillText('we (pA)', ml + 4, mt + 11);
+  pctx.textAlign = 'right'; pctx.fillText('w (pA)', ml + cW - 2, mt + cH + 24); pctx.textAlign = 'left';
+
+  // spiking line (set by I) and a faint shade where the neuron has to fire
+  pctx.save();
+  pctx.beginPath(); pctx.rect(ml, mt, cW, cH); pctx.clip();
+  pctx.fillStyle = COL.IN + '0c';
+  pctx.beginPath();
+  pctx.moveTo(xs(x0), ys(x0 + off)); pctx.lineTo(xs(x1), ys(x1 + off));
+  pctx.lineTo(xs(x1), mt - 1); pctx.lineTo(xs(x0), mt - 1); pctx.closePath(); pctx.fill();
+  styleInputCurve(pctx);
+  pctx.beginPath(); pctx.moveTo(xs(x0), ys(x0 + off)); pctx.lineTo(xs(x1), ys(x1 + off)); pctx.stroke();
+  pctx.setLineDash([]);
+  pctx.restore();
+  pctx.fillStyle = '#666'; pctx.textAlign = 'right';
+  pctx.fillText('fires', ml + cW - 4, mt + 24);
+  pctx.fillText('can rest', ml + cW - 4, mt + cH - 6);
+  pctx.textAlign = 'left';
+
+  // trajectory: runs of equal opacity (no beads), spike jumps kept (they are real)
+  if (tLen > 1) {
+    pctx.lineWidth = 1;
+    const RUN = Math.max(40, Math.ceil(tLen / 30));
+    for (let i0 = 1; i0 < tLen; i0 += RUN) {
+      const i1 = Math.min(i0 + RUN, tLen);
+      pctx.strokeStyle = `rgba(${COL.TRAJ},${(0.12 + 0.70 * (((i0 + i1) / 2) / tLen)).toFixed(2)})`;
+      pctx.beginPath();
+      for (let i = i0 - 1; i < i1; i++) {
+        const k = tIdx(i), px = xs(phaseW[k]), py = ys(phaseWe[k]);
+        i === i0 - 1 ? pctx.moveTo(px, py) : pctx.lineTo(px, py);
+      }
+      pctx.stroke();
+    }
+  }
+
+  // rest equilibria of the full system, projected on (w, w_e)
+  const ae = params.a_e;
+  drawEquilibria(pctx, eqList().map(e => ({ x: xs(params.a * (e.Ve - E_L)), y: ys(ae * (e.Ve - E_L)), type: e.type })), W, H);
+
+  drawStateDot(pctx, xs(Math.max(x0, Math.min(x1, w))), ys(Math.max(y0, Math.min(y1, wE))), 4.5);
+}
+
 function drawPhase() {
+  if (params.we && ppMode === 'ww') { drawSlowPlane(); return; }
   const W = phaseCanvas._lw, H = phaseCanvas._lh;
   const ml = 36, mt = 14, mr = 10, mb = 28;
   const cW = W - ml - mr, cH = H - mt - mb;
@@ -772,43 +899,10 @@ function drawPhase() {
   // ── State dot ──────────────────────────────────────────────────────────
   const sV = Math.max(vLo, Math.min(vHi, V));
   const sW = Math.max(wLo, Math.min(wHi, yNow));
-  // Equilibria: where the V-nullcline meets the w-nullcline w = a (V - E_L).
-  // Roots of F(V) = vNullcline(V) - a (V - E_L), found by scanning + bisection;
-  // stability from the Jacobian of the aQIF equations.
-  {
-    const a = params.a, tw = params.tau_w;
-    const ae = params.we ? params.a_e : 0, te = params.tau_e;
-    // full system: w = a (V - E_L), w_e = a_e (V - E_L) at equilibrium
-    const F = Vv => vNullcline(Vv) - a * (Vv - E_L) + ae * (Vv - E_L);
-    const lo = E_L - 60, hi = V_peak, N = 400, eqs = [];
-    let x0 = lo, f0 = F(lo);
-    for (let k = 1; k <= N; k++) {
-      const x1 = lo + (hi - lo) * k / N, f1 = F(x1);
-      if (f0 === 0 || f0 * f1 < 0) {
-        let l = x0, r = x1, fl = f0;
-        for (let it = 0; it < 40; it++) {
-          const m = (l + r) / 2, fm = F(m);
-          if (fl * fm <= 0) { r = m; } else { l = m; fl = fm; }
-        }
-        const Ve = (l + r) / 2, s1 = g_L * (2 * Ve - E_L - V_T);   // dI_ion/dV
-        let type;
-        if (!params.we) {
-          const tr  = s1 / C_m - 1 / tw;
-          const det = (a - s1) / (C_m * tw);
-          type = classifyEq(tr, det);
-        } else {
-          // 3-D Jacobian (V, w, w_e): λ³ + c1 λ² + c2 λ + c3, Routh–Hurwitz
-          const c1 = -(s1 / C_m - 1 / tw - 1 / te);
-          const c2 = (a - s1) / (C_m * tw) - (s1 + ae) / (C_m * te) + 1 / (tw * te);
-          const c3 = -(s1 - a + ae) / (C_m * tw * te);
-          type = c3 < 0 ? 'saddle' : (c1 > 0 && c1 * c2 > c3 ? 'stable' : 'unstable');
-        }
-        eqs.push({ x: xv(Ve), y: yw((yE_ ? ae : a) * (Ve - E_L)), type });
-      }
-      x0 = x1; f0 = f1;
-    }
-    drawEquilibria(pctx, eqs, W, H);
-  }
+  // Equilibria of the full system (see eqList), shown in this plane
+  drawEquilibria(pctx, eqList().map(e => ({
+    x: xv(e.Ve), y: yw((yE_ ? (params.we ? params.a_e : 0) : params.a) * (e.Ve - E_L)), type: e.type
+  })), W, H);
 
   drawStateDot(pctx, xv(sV), yw(sW), 4.5);
 }
@@ -937,12 +1031,19 @@ function setWe(on, fromPreset) {
 function setPP(mode) {
   ppMode = mode;
   document.querySelectorAll('#pp-btns .win-btn').forEach(b => b.classList.toggle('active', b.dataset.pp === mode));
-  const e = params.we && mode === 'we';
-  document.getElementById('pp-title').innerHTML = e ? 'Phase portrait (V, w<sub>e</sub>)' : 'Phase portrait (V, w)';
-  document.getElementById('leg-state-txt').innerHTML = e ? 'state (V, w<sub>e</sub>)' : 'state (V, w)';
-  document.getElementById('leg-wnull').hidden = e;
-  document.getElementById('leg-wenull').hidden = !e;
+  const m = params.we ? mode : 'w';
+  const T = { w:  ['Phase portrait (V, w)', 'state (V, w)'],
+              we: ['Phase portrait (V, w<sub>e</sub>)', 'state (V, w<sub>e</sub>)'],
+              ww: ['Slow plane (w, w<sub>e</sub>)', 'state (w, w<sub>e</sub>)'] }[m];
+  document.getElementById('pp-title').innerHTML = T[0];
+  document.getElementById('leg-state-txt').innerHTML = T[1];
+  document.getElementById('leg-vnull').hidden   = m === 'ww';
+  document.getElementById('leg-vspike').hidden  = m === 'ww';
+  document.getElementById('leg-wnull').hidden   = m !== 'w';
+  document.getElementById('leg-wenull').hidden  = m !== 'we';
+  document.getElementById('leg-snline').hidden  = m !== 'ww';
   delete wRangePhase.hi; delete wRangePhase.lo;
+  delete rangeWWx.hi; delete rangeWWx.lo; delete rangeWWy.hi; delete rangeWWy.lo;
 }
 document.getElementById('tg-we').addEventListener('click', () => setWe(!params.we, false));
 document.getElementById('tg-we-btn').addEventListener('click', () => setWe(!params.we, false));
