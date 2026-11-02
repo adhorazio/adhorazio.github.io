@@ -58,9 +58,6 @@
     #trace { width: 100%; height: 300px; }
     #phase { width: 300px; height: 300px; }
     .phase-wrap { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
-    /* one-line guide under the phase view: what to look at, what to try */
-    .pp-hint { max-width: 300px; font-size: 0.7rem; line-height: 1.45; color: var(--text-dim); }
-    .pp-hint b { color: var(--text); font-weight: 500; }
 
     /* "What is what" under the controls, in plot order: trace, phase portrait */
     .legend {
@@ -90,7 +87,6 @@
       #trace { height: 220px; }
       .phase-wrap { width: 100%; max-width: 360px; justify-self: center; }
       #phase { width: 100%; height: auto; aspect-ratio: 1; }
-      .pp-hint { max-width: none; }
     }
     @media (max-width: 600px) {
       .legend { flex-direction: column; gap: 1rem; }
@@ -147,7 +143,6 @@
     </div>
     <div class="phase-wrap">
       <canvas id="phase" width="300" height="300"></canvas>
-      <div class="pp-hint" id="pp-hint"></div>
     </div>
   </div>
 
@@ -812,13 +807,6 @@ const PP = {
   p:  ['(V, w<sup>+</sup>)',   'Phase portrait (V, w<sup>+</sup>)'],
   mp: ['(w<sup>−</sup>, w<sup>+</sup>)', 'Slow plane (w<sup>−</sup>, w<sup>+</sup>)'],
 };
-// One-line guide under the phase view: what to look at, what to try
-const HINT = {
-  v:  'The neuron <b>rests</b> where the curve crosses zero on the left; the right crossing is the <b>threshold</b>. Raise I: the parabola lifts off the axis, the two points merge (saddle-node) and the neuron fires.',
-  m:  'At each spike V resets to V<sub>r</sub> and w<sup>−</sup> jumps up by b<sup>−</sup> (orange line). A higher w<sup>−</sup> brings the trajectory closer to the V-nullcline, so the next spike comes later: <b>adaptation</b>.',
-  p:  'Upside-down parabola: each spike adds b<sup>+</sup> to w<sup>+</sup> (orange line). If the kicks keep w<sup>+</sup> high, firing sustains itself: <b>working memory</b>. Try Excite, then Inhibit.',
-  mp: 'V is fast, so only w<sup>+</sup> − w<sup>−</sup> matters: above the yellow line the neuron <b>must fire</b>, below it <b>can rest</b>. Each spike pushes the state by (b<sup>−</sup>, b<sup>+</sup>).',
-};
 function ppOptions() {
   const o = [];
   if (!params.adapt && !params.excit) o.push('v');
@@ -847,7 +835,6 @@ function setPP(mode) {
     mp: li('var(--c-ireset)', 'jump at each spike (+b<sup>−</sup>, +b<sup>+</sup>)'),
   }[mode];
   document.getElementById('pp-legend').innerHTML = `<div class="legend-section-title">${PP[mode][1]}</div>` + L + reset;
-  document.getElementById('pp-hint').innerHTML = HINT[mode];
   delete R.ph.hi; delete R.ph.lo; delete R.px.hi; delete R.px.lo; delete R.py.hi; delete R.py.lo;
 }
 function refreshFeedbackUI(prefer) {
