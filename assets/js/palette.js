@@ -59,7 +59,9 @@ const PALETTE_EXT = {
     rose:     '#E95694',  // s3
     plum:     '#AB1866',  // m2
     bordeaux: '#B10026',  // m3 darkest
-    wine:     '#8F003B'   // s3 darkest
+    wine:     '#8F003B',  // s3 darkest
+    raspberry:'#D12959',  // m2; with tealCvd: a red / green pair that stays distinct
+    tealCvd:  '#00B3B8'   // for colour-blind viewers (used for Clione CS1 / CS2)
   },
 
   // Full GDV ramps (light -> dark, or one end -> other for diverging)
