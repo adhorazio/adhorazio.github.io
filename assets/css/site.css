@@ -23,11 +23,12 @@
 
   /* Shared colour code for the neuron models (see assets/js/palette.js) */
   --c-v:      var(--gdv-q3);  /* membrane potential, f-I curve, phase trajectory */
-  --c-neg:    var(--gdv-q1);  /* negative feedback: u, w, their nullcline, u+d / w+b */
+  --c-neg:    var(--gdv-q1);  /* negative feedback: u, w, their nullcline */
   --c-pos:    var(--gdv-q2);  /* positive feedback */
   --c-in:     var(--gdv-q5);  /* input current: V-nullcline (set by I), rheobase */
   --c-thresh: var(--gdv-q5);  /* voltage thresholds: V_theta, V_T */
-  --c-reset:  var(--gdv-q4);  /* reset value: c, V_r */
+  --c-reset:  var(--gdv-q4);  /* voltage reset: c, V_r */
+  --c-ireset: var(--gdv-q6);  /* current reset after a spike: u + d, w + b */
   --c-rest:   #888888;        /* rest: V_rest, E_L */
   --c-op:     var(--gdv-q5);  /* where the neuron is now: state dot, operating point */
 }

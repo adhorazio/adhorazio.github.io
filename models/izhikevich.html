@@ -139,7 +139,7 @@
         <span>c (v reset)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-dot" style="background: var(--c-neg);"></div>
+        <div class="legend-dot" style="background: var(--c-ireset);"></div>
         <span>u + d (recovery after spike)</span>
       </div>
     </div>
@@ -307,15 +307,16 @@ function drawPhase() {
   pctx.setLineDash([3, 3]);
   pctx.lineWidth = 1;
 
-  pctx.strokeStyle = COL.RESET + 'aa';
+  pctx.strokeStyle = COL.RESET; pctx.lineWidth = 1.4;  // voltage reset c
   pctx.beginPath(); pctx.moveTo(mx(params.c), 0); pctx.lineTo(mx(params.c), H); pctx.stroke();
+  pctx.lineWidth = 1;
 
   pctx.setLineDash([]);
 
   // Horizontal line at u = lastSpikeU + d
   if (lastSpikeU !== null) {
     pctx.setLineDash([3, 3]);
-    pctx.strokeStyle = COL.NEG + 'aa';
+    pctx.strokeStyle = COL.IRESET + 'aa';  // current reset u + d
     pctx.lineWidth = 1;
     pctx.beginPath(); pctx.moveTo(0, mu(lastSpikeU + params.d)); pctx.lineTo(W, mu(lastSpikeU + params.d)); pctx.stroke();
     pctx.setLineDash([]);

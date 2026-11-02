@@ -411,7 +411,7 @@ function drawTrace() {
   tctx.fillStyle = COL.THRESH + 'cc';
   tctx.fillText('VT ' + V_T + ' mV', 4, mapVY(V_T) - 3);
 
-  tctx.strokeStyle = COL.RESET + '55'; tctx.lineWidth = 1; tctx.setLineDash([2, 5]);
+  tctx.strokeStyle = COL.RESET + '99'; tctx.lineWidth = 1; tctx.setLineDash([3, 4]);
   tctx.beginPath(); tctx.moveTo(0, mapVY(params.V_r)); tctx.lineTo(W, mapVY(params.V_r)); tctx.stroke();
   tctx.setLineDash([]);
 
@@ -530,7 +530,7 @@ function drawPhase() {
 
   // V_r marker (thin red dashed)
   if (V_r >= vLo && V_r <= vHi) {
-    pctx.strokeStyle = COL.RESET + '77'; pctx.lineWidth = 1; pctx.setLineDash([2, 4]);
+    pctx.strokeStyle = COL.RESET + 'cc'; pctx.lineWidth = 1; pctx.setLineDash([3, 3]); // voltage reset V_r
     pctx.beginPath(); pctx.moveTo(xv(V_r), mt); pctx.lineTo(xv(V_r), mt + cH); pctx.stroke();
     pctx.setLineDash([]);
   }
