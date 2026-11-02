@@ -404,43 +404,6 @@ function eqList() {
   }
   return out;
 }
-// ── Where the slow currents are heading (average over spikes) ─────────────
-// V is fast: with w⁻, w⁺ frozen the QIF feels I_eff = I + w⁺ − w⁻ and either
-// rests (V̄ = rest point, f = 0) or fires with period T from V_r to V_spike,
-// both in closed form. Averaging the slow equations over one period:
-//   τ± dw̄±/dt = a±(V̄ − E_L) + b± τ± f − w̄±   →   target w±∞ = a±(V̄ − E_L) + b± τ± f.
-// (checked against the simulation: Adapting 72 vs 75 pA, both on 36/40 vs 33/33 pA)
-function heading(wmv, wpv) {
-  const Ie = Iin() + (params.excit ? wpv : 0) - (params.adapt ? wmv : 0);
-  const Vm = (E_L + V_T) / 2, D2 = ((V_T - E_L) / 2) ** 2, c = C_m / g_L;
-  const xr = params.V_r - Vm, xp = V_peak - Vm, d = Ie / g_L - D2;   // C dx/dt = g_L (x² + d)
-  let f = 0, Vb;
-  if (d > 1e-9) {
-    const k = Math.sqrt(d), A = Math.atan(xp / k) - Math.atan(xr / k), T0 = c * A / k;
-    f = 1 / (T0 + DT); Vb = c * (Vm * A / k + 0.5 * Math.log((xp * xp + d) / (xr * xr + d))) / T0;
-  } else {
-    const q = Math.sqrt(-d);
-    if (xr > q + 1e-6) {           // reset above the threshold point: fires even below I_SN
-      const L = Math.log(((xp - q) * (xr + q)) / ((xp + q) * (xr - q))), T0 = c * L / (2 * q);
-      f = 1 / (T0 + DT); Vb = c * (Vm * L / (2 * q) + 0.5 * Math.log((xp * xp - q * q) / (xr * xr - q * q))) / T0;
-    } else Vb = Vm - q;            // rests
-  }
-  return { f, m: params.a_m * (Vb - E_L) + params.b_m * f * params.tau_m,
-              p: params.a_p * (Vb - E_L) + params.b_p * f * params.tau_p };
-}
-
-// Smoothed heading (model-time average over ~50 ms): the raw target jumps at every
-// spike; the shown target follows the slow motion only.
-const HD_TAU = 50;
-let hdM = null, hdP = null, hdTick = 0;
-function updateHeading() {
-  const h = heading(wm, wp);
-  if (hdM === null) { hdM = h.m; hdP = h.p; return; }
-  const k = 10 * DT / HD_TAU;
-  hdM += k * (h.m - hdM); hdP += k * (h.p - hdP);
-}
-const hdNow = () => (hdM === null ? heading(wm, wp) : { m: hdM, p: hdP });
-
 function classify(Ve) {
   const s1 = g_L * (2 * Ve - E_L - V_T);   // dI_ion/dV
   const J = [[s1 / C_m]];
@@ -788,7 +751,7 @@ function drawPhase() {
 const SPARK_LEN = 120, SPARK_EVERY = 40;
 const sparkM = new Float32Array(SPARK_LEN), sparkP = new Float32Array(SPARK_LEN);
 let sparkHead = 0, sparkTick = 0;
-function drawSpark(id, buf, color, meanId, target) {
+function drawSpark(id, buf, color, meanId) {
   const cv = document.getElementById(id);
   const r = cv.getBoundingClientRect(), Wc = r.width || 80, Hc = r.height || 24;
   const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -809,8 +772,7 @@ function drawSpark(id, buf, color, meanId, target) {
   ctx.lineTo(Wc, Hc); ctx.lineTo(0, Hc); ctx.closePath(); ctx.fillStyle = color + '22'; ctx.fill();
   ctx.strokeStyle = color + 'aa'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
   ctx.beginPath(); ctx.moveTo(0, mapY(mean)); ctx.lineTo(Wc, mapY(mean)); ctx.stroke(); ctx.setLineDash([]);
-  document.getElementById(meanId).innerHTML = 'μ = ' + mean.toFixed(1) + ' pA'
-    + (target !== undefined ? ` <span style="opacity:.6">→ ${Math.round(target)}</span>` : '');
+  document.getElementById(meanId).textContent = 'μ = ' + mean.toFixed(1) + ' pA';
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────
@@ -828,7 +790,6 @@ function loop() {
     if (++traceHead >= traceEff) { traceHead = 0; traceFull = true; }
     phV[phaseHead] = V; phM[phaseHead] = wm; phP[phaseHead] = wp;
     if (++phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
-    if ((params.adapt || params.excit) && ++hdTick >= 10) { hdTick = 0; updateHeading(); }
     if (++sparkTick >= SPARK_EVERY) {
       sparkTick = 0; sparkM[sparkHead] = wm; sparkP[sparkHead] = wp;
       sparkHead = (sparkHead + 1) % SPARK_LEN;
@@ -836,9 +797,8 @@ function loop() {
   }
   drawTrace();
   drawPhase();
-  const hd = (params.adapt || params.excit) ? hdNow() : null;
-  if (params.adapt) drawSpark('spark-m', sparkM, COL.NEG, 'mean-m', hd.m);
-  if (params.excit) drawSpark('spark-p', sparkP, COL.POS, 'mean-p', hd.p);
+  if (params.adapt) drawSpark('spark-m', sparkM, COL.NEG, 'mean-m');
+  if (params.excit) drawSpark('spark-p', sparkP, COL.POS, 'mean-p');
   requestAnimationFrame(loop);
 }
 
@@ -896,7 +856,6 @@ function refreshFeedbackUI(prefer) {
 }
 function toggle(key) {
   params[key] = !params[key];
-  hdM = null; hdP = null;
   if (!params.adapt) { wm = 0; sparkM.fill(0); }
   if (!params.excit) { wp = 0; pulseLeft = 0; sparkP.fill(0); }
   refreshFeedbackUI(key === 'excit' && params.excit ? 'p' : key === 'adapt' && params.adapt && !params.excit ? 'm' : null);
@@ -946,7 +905,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
-  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null; hdM = null; hdP = null;
+  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
   vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0);
   phV.fill(E_L); phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false; phaseHead = 0; phaseFull = false;
