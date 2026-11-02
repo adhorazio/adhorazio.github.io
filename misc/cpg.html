@@ -131,7 +131,9 @@ let th = [-2.5, 0.3, 1.8], s = [0, 0, 0], vel = [0, 0, 0];
 let tModel = 0, tReal = 0;
 const spikes = [];                 // {t (model), i}
 const flashes = [];                // {i, born (real)}
-const trails = [[], [], []];       // {x, y, vn, tr (real)}
+const trails = [[], [], []];       // {th, vn, tr (real)}, sampled from the simulation steps
+const REC = 4;                     // record a trail point every REC steps (smooth arcs at any speed)
+const TRAIL_RUNS = 14;             // trail drawn as a few strokes, one opacity each (no beads)
 
 function step() {
   for (let i = 0; i < 3; i++) {
@@ -198,21 +200,32 @@ function drawOrbit() {
   octx.fillStyle = 'rgba(255,255,255,0.85)';
   octx.beginPath(); octx.arc(cx, cy, 3, 0, 2 * Math.PI); octx.fill();
 
-  octx.lineCap = 'round';
+  octx.lineCap = 'butt'; octx.lineJoin = 'round';
   for (let i = 0; i < 3; i++) {
     const vn = Math.max(0, Math.min(1, vel[i] / 2));
     const rr = R * (1 + 0.14 * vn);              // swings outward when firing
     const x = cx + rr * Math.sin(th[i]), y = cy + rr * Math.cos(th[i]);
     const tr = trails[i];
-    tr.push({ x, y, vn, tr: tReal });
     while (tr.length && tReal - tr[0].tr > TRAIL_S) tr.shift();
 
-    // trail: fades with age
-    for (let k = 1; k < tr.length; k++) {
-      const a = 1 - (tReal - tr[k].tr) / TRAIL_S;
-      octx.strokeStyle = rgba(dotRgb(i, tr[k].vn), 0.55 * a * a);
-      octx.lineWidth = 1 + 1.6 * a;
-      octx.beginPath(); octx.moveTo(tr[k - 1].x, tr[k - 1].y); octx.lineTo(tr[k].x, tr[k].y); octx.stroke();
+    // trail: one continuous path split into a few runs, each with one opacity
+    // (same fix as the AdEx phase trail: no overlapping segment caps, no beads)
+    const L = tr.length;
+    if (L > 1) {
+      const run = Math.max(2, Math.ceil(L / TRAIL_RUNS));
+      octx.lineWidth = 1.6;
+      for (let k0 = 1; k0 < L; k0 += run) {
+        const k1 = Math.min(k0 + run, L), mid = tr[Math.min(L - 1, (k0 + k1) >> 1)];
+        const a = Math.max(0, 1 - (tReal - mid.tr) / TRAIL_S);
+        octx.strokeStyle = rgba(dotRgb(i, mid.vn), 0.6 * a * a);
+        octx.beginPath();
+        for (let k = k0 - 1; k < k1; k++) {
+          const p = tr[k], r2 = R * (1 + 0.14 * p.vn);
+          const px = cx + r2 * Math.sin(p.th), py = cy + r2 * Math.cos(p.th);
+          k === k0 - 1 ? octx.moveTo(px, py) : octx.lineTo(px, py);
+        }
+        octx.stroke();
+      }
     }
 
     // dot: brighter and wider halo when fast
@@ -260,7 +273,14 @@ function frame(now) {
   const dtReal = last === null ? 0 : Math.min(0.05, (now - last) / 1000);
   last = now; tReal += dtReal;
   const n = Math.round(speed * TIME_SCALE * dtReal / DT);
-  for (let k = 0; k < n; k++) step();
+  for (let k = 0; k < n; k++) {
+    step();
+    if (k % REC === 0) {
+      const tr = tReal - dtReal * (1 - (k + 1) / n);
+      for (let i = 0; i < 3; i++)
+        trails[i].push({ th: th[i], vn: Math.max(0, Math.min(1, vel[i] / 2)), tr });
+    }
+  }
   drawOrbit(); drawRaster();
   requestAnimationFrame(frame);
 }
