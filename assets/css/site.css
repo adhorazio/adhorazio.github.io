@@ -312,6 +312,9 @@ button, .adapt-header, .card { touch-action: manipulation; }
   /* smaller behaviour (preset) buttons */
   .widget .preset-btn { padding: 0.32rem 0.65rem; font-size: 0.74rem; border-radius: 7px; min-height: 32px; }
   .widget .presets { gap: 0.4rem; }
+  /* sliders: two per row (half width), labels a little smaller */
+  .widget .controls, .widget .adapt-sliders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1rem; }
+  .widget .control-group label { font-size: 0.7rem; }
   /* legend: sections side by side when they fit, not one long column */
   .widget .legend { flex-direction: row; flex-wrap: wrap; gap: 0.7rem 1.4rem; }
 }
