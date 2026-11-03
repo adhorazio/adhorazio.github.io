@@ -26,27 +26,27 @@
     b.type = 'button'; b.className = 'win-btn view-btn';
     b.textContent = panel.id === 'fi' ? 'f–I curve' : 'Phase plane';
     box.appendChild(b); row.appendChild(box);
-    let open = load('panel-open:', true);
+    let open = load('panel-open2:', true);
     const set = o => {
       plots.classList.toggle('pp-collapsed', !o);
       b.classList.toggle('active', o); b.setAttribute('aria-pressed', String(o));
       window.dispatchEvent(new Event('resize'));        // canvases refit to the new width
     };
     set(open);
-    b.addEventListener('click', () => { open = !open; set(open); save('panel-open:', open); });
+    b.addEventListener('click', () => { open = !open; set(open); save('panel-open2:', open); });
   }
 
   // Legend: an arrow bar where the legend starts shows / hides it. Open by
-  // default on computers, closed on phones; remembered per page.
+  // default (computers and phones); remembered per page.
   const legend = widget.querySelector('.legend');
   if (legend) {
     const t = document.createElement('button');
     t.type = 'button'; t.className = 'legend-toggle';
     t.innerHTML = '<span class="chev" aria-hidden="true">▸</span><span>Legend</span>';
     legend.parentNode.insertBefore(t, legend);
-    let open = load('legend-open:', !phone);
+    let open = load('legend-open2:', true);
     const set = o => { legend.hidden = !o; t.classList.toggle('open', o); t.setAttribute('aria-expanded', String(o)); };
     set(open);
-    t.addEventListener('click', () => { open = !open; set(open); save('legend-open:', open); });
+    t.addEventListener('click', () => { open = !open; set(open); save('legend-open2:', open); });
   }
 })();
