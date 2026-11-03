@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>eQIF Mean Field</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/scope.js"></script>
+  <script src="../assets/js/palette.js"></script>
+  <style>
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
+    :root { --c-syn: #089099; }   /* recurrent synapses (GDV teal ramp) */
+    .win-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .win-label { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.06em; }
+    #win-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .win-btn {
+      padding: 0.25rem 0.7rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease),
+                  background-color var(--dur) var(--ease), transform 120ms var(--ease);
+    }
+    .win-btn:active { transform: scale(0.97); }
+    .win-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .fb-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .win-btn.on-syn { border-color: var(--c-syn); color: var(--c-syn); background: rgba(8, 144, 153, 0.14); }
+    .win-btn.pulse-btn.fired[data-pulse="1"]  { background: rgba(0, 205, 108, 0.22); }
+    .win-btn.pulse-btn.fired[data-pulse="-1"] { background: rgba(255, 31, 91, 0.22); }
+    .adapt-header.on-syn .toggle-btn { border-color: var(--c-syn); color: var(--c-syn); background: rgba(8, 144, 153, 0.12); }
+    .adapt-header.on-syn .spark-group { opacity: 1; }
+    .adapt-header.on-syn .spark-mean { color: var(--c-syn); }
+    @media (hover: hover) {
+      .win-btn.on-syn:hover { border-color: var(--c-syn); color: var(--c-syn); }
+      .win-btn:not(.active):not(.on-pos):not(.on-syn):not(.pulse-btn):hover { border-color: var(--accent); color: var(--text); }
+    }
+    [hidden] { display: none !important; }
+    @media (pointer: coarse) { .win-btn { min-height: 34px; } }
+
+    /* Population activity (main plot) left, phase plane right; stacked on phones */
+    .plots {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 1rem;
+    }
+    #canvas-wrap { position: relative; min-width: 0; }
+    #trace { width: 100%; height: 340px; }
+    #phase { width: 300px; height: 300px; }
+    .phase-wrap { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+
+    .legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .legend-dot.dot { width: 8px; height: 8px; border-radius: 50%; }
+    .eq-icon { width: 11px; height: 11px; flex-shrink: 0; }
+
+    .eq-note { padding: 0.55rem 1rem; color: #9a9a9a; font-size: 0.75rem; line-height: 1.5; }
+    .fixed-params {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.2rem;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .fixed-params span .katex { font-size: 0.8rem; color: var(--text-dim); }
+
+    @media (max-width: 760px) {
+      .plots { grid-template-columns: 1fr; }
+      #trace { height: 280px; }
+      .phase-wrap { width: 100%; max-width: 360px; justify-self: center; }
+      #phase { width: 100%; height: auto; aspect-ratio: 1; }
+    }
+    @media (max-width: 600px) {
+      .legend { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+  <script src="../assets/js/ui.js" defer></script>
+</head>
+<body>
+
+<header>
+  <h1>eQIF Mean Field</h1>
+  <a href="../index.html">&larr; Spiking Neuromorphics</a>
+</header>
+
+<main>
+<div class="widget">
+  <div class="widget-title">Population of self-excitatory QIF neurons</div>
+
+  <div class="presets" id="presets">
+    <span class="win-label presets-label">Behaviour</span>
+    <button class="preset-btn active" data-preset="MEMORY">Working memory</button>
+    <button class="preset-btn"        data-preset="IW_ONLY">Self-excitation only</button>
+    <button class="preset-btn"        data-preset="SYN_ONLY">Synapses only</button>
+    <button class="preset-btn"        data-preset="NONE">Neither</button>
+    <button class="preset-btn"        data-preset="HIGH">High input</button>
+  </div>
+
+  <div class="win-row">
+    <span class="win-label">Feedback</span>
+    <div class="fb-btns">
+      <button class="win-btn" id="btn-w" aria-pressed="true">+ self-excitation I<sub>w</sub></button>
+      <button class="win-btn" id="btn-s" aria-pressed="true">+ recurrent synapses g<sub>syn</sub></button>
+    </div>
+    <div class="fb-btns" id="pulse-btns">
+      <button class="win-btn pulse-btn" data-pulse="1">Excite pulse</button>
+      <button class="win-btn pulse-btn" data-pulse="-1">Inhibit pulse</button>
+    </div>
+  </div>
+
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div id="win-btns">
+      <button class="win-btn"        data-win="500">500 ms</button>
+      <button class="win-btn"        data-win="1000">1 s</button>
+      <button class="win-btn active" data-win="2000">2 s</button>
+      <button class="win-btn"        data-win="5000">5 s</button>
+    </div>
+  </div>
+
+  <div class="plots">
+    <div id="canvas-wrap">
+      <canvas id="trace" height="340"></canvas>
+    </div>
+    <div class="phase-wrap">
+      <canvas id="phase" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label><span>I — input current</span><span id="val-I">90 pA</span></label>
+      <input type="range" id="sl-I" min="0" max="200" step="5" value="90" />
+    </div>
+    <div class="control-group">
+      <label><span>η̄ — mean excitability</span><span id="val-eta">10 pA</span></label>
+      <input type="range" id="sl-eta" min="-40" max="60" step="1" value="10" />
+    </div>
+    <div class="control-group">
+      <label><span>Δη — heterogeneity</span><span id="val-D">0.5 pA</span></label>
+      <input type="range" id="sl-D" min="0.1" max="5" step="0.1" value="0.5" />
+    </div>
+    <div class="control-group">
+      <label><span>speed</span><span id="val-spd">½×</span></label>
+      <input type="range" id="sl-spd" min="1" max="4" step="1" value="3" autocomplete="off" />
+    </div>
+  </div>
+
+  <!-- The two positive feedbacks: click a header to switch it on / off -->
+  <div class="fb-sections">
+    <div class="adapt-section">
+      <div class="adapt-header" id="hdr-w" role="button" tabindex="0" aria-pressed="true">
+        <button class="toggle-btn" tabindex="-1">I<sub>w</sub></button>
+        <span class="adapt-label">self-excitation: mean intrinsic current of the eQIF neurons</span>
+        <div class="spark-group">
+          <span class="spark-mean" id="mean-w"></span>
+          <canvas class="adapt-sparkline" id="spark-w" width="80" height="24"></canvas>
+        </div>
+      </div>
+      <div class="adapt-sliders" id="sliders-w">
+        <div class="control-group">
+          <label><span>a — subthreshold self-exc.</span><span id="val-a">4.0 nS</span></label>
+          <input type="range" id="sl-a" min="0" max="10" step="0.5" value="4" />
+        </div>
+        <div class="control-group">
+          <label><span>b — spike-triggered self-exc.</span><span id="val-b">20 pA</span></label>
+          <input type="range" id="sl-b" min="0" max="60" step="1" value="20" />
+        </div>
+        <div class="control-group">
+          <label><span>τ<sub>w</sub> — time const.</span><span id="val-tw">20 ms</span></label>
+          <input type="range" id="sl-tw" min="5" max="200" step="5" value="20" />
+        </div>
+      </div>
+    </div>
+    <div class="adapt-section">
+      <div class="adapt-header" id="hdr-s" role="button" tabindex="0" aria-pressed="true">
+        <button class="toggle-btn" tabindex="-1">g<sub>syn</sub></button>
+        <span class="adapt-label">recurrent excitatory synapses (conductance)</span>
+        <div class="spark-group">
+          <span class="spark-mean" id="mean-s"></span>
+          <canvas class="adapt-sparkline" id="spark-s" width="80" height="24"></canvas>
+        </div>
+      </div>
+      <div class="adapt-sliders" id="sliders-s">
+        <div class="control-group">
+          <label><span>w<sub>e</sub> — synaptic weight</span><span id="val-we">4.0 nS</span></label>
+          <input type="range" id="sl-we" min="0" max="10" step="0.5" value="4" />
+        </div>
+        <div class="control-group">
+          <label><span>τ<sub>syn</sub> — synaptic time const.</span><span id="val-ts">6 ms</span></label>
+          <input type="range" id="sl-ts" min="1" max="30" step="1" value="6" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <div class="legend-section">
+      <div class="legend-section-title">Trace</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-v);"></div>
+        <span>r (population firing rate) and V̄ (mean membrane potential)</span>
+      </div>
+      <div class="legend-item w-show">
+        <div class="legend-dot" style="background: var(--c-pos);"></div>
+        <span>I<sub>w</sub> (mean self-excitatory current)</span>
+      </div>
+      <div class="legend-item s-show">
+        <div class="legend-dot" style="background: var(--c-syn);"></div>
+        <span>g<sub>syn</sub> (recurrent synaptic conductance)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-pos);"></div>
+        <div class="legend-dot" style="background: var(--c-neg); margin-left: -2px;"></div>
+        <span>input pulses (excite up, inhibit down)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
+        <span>V<sub>T</sub> (threshold of the quadratic)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-rest); opacity: .8;"></div>
+        <span>E<sub>L</sub> (rest)</span>
+      </div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Phase plane (V̄, r)</div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-in);"></div><span>V̄-nullcline (set by I, I<sub>w</sub> and g<sub>syn</sub> now)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: #bbbbbb; opacity: .6;"></div><span>r-nullcline</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-in); opacity: .45;"></div><span>V̄-nullcline during a pulse (hover a pulse button)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-v);"></div><span>trajectory</span></div>
+      <div class="legend-item"><div class="legend-dot dot" style="background: var(--c-op);"></div><span>state (V̄, r)</span></div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Equilibria</div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>stable (low rest / high persistent activity)</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>unstable</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>saddle (the boundary between the two)</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#dcdcdc" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 0 6 10.5 Z" fill="#dcdcdc"/></svg><span>saddle-node (bifurcation)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="equations">
+  <div class="eq-label">Mean-field equations</div>
+  <div class="eq-box">
+    <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq2"></div>
+    <div class="eq-row" id="eq3"></div>
+    <div class="eq-row" id="eq4"></div>
+    <div class="eq-note">
+      Exact reduction of an infinite network of all-to-all coupled eQIF neurons whose
+      excitabilities η follow a Lorentzian of centre η̄ and half-width Δη: r is the
+      population firing rate, V̄ the mean membrane potential. Taken in the limit
+      V<sub>spike</sub> → ∞, V<sub>r</sub> → −∞; the finite-reset correction is left out.
+    </div>
+  </div>
+</div>
+
+<div class="fixed-params">
+  <span id="fp1"></span>
+  <span id="fp2"></span>
+  <span id="fp3"></span>
+  <span id="fp4"></span>
+  <span id="fp5"></span>
+</div>
+
+</main>
+
+<footer>
+  <div class="footer-ref">
+    <span class="ref-label">References</span>
+    D. Depannemaecker, A. d&rsquo;Hollande <em>et al.</em> (2026). A minimal model of working memory in neural systems and neuromorphic circuits. <em>Nature Communications</em>, 17, 9867 (Eq. 24 and SI Table III). <a href="https://www.nature.com/articles/s41467-026-75704-3" target="_blank" rel="noopener">nature.com</a><br/>
+    E. Montbri&oacute;, D. Paz&oacute; &amp; A. Roxin (2015). Macroscopic description for networks of spiking neurons. <em>Physical Review X</em>, 5, 021028.<br/>
+    L. Chen &amp; S. A. Campbell (2022). Exact mean-field models for spiking neural networks with adaptation. <em>Journal of Computational Neuroscience</em>, 50, 445&ndash;469.
+  </div>
+  <div class="footer-bottom">
+    <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
+    <a href="../LICENSE">MIT License</a>
+  </div>
+</footer>
+
+<script>
+// ── eQIF mean field (Depannemaecker, d'Hollande et al. 2026, Eq. 24) ──────
+//   C dr/dt  = g_L r (2V − V_T − E_L) − g r + Δη g_L / (π C)
+//   C dV/dt  = g_L (V − V_T)(V − E_L) − π² C² r² / g_L + η̄ + I + I_w + g (E_e − V)
+//   τ_w dI_w/dt = a (V − E_L) − I_w + τ_w b r       self-excitation (green)
+//   dg/dt    = −g / τ_syn + w_e r                     recurrent synapses (teal)
+// r in 1/ms inside the model, shown in Hz.
+
+const C_m = 200, g_L = 10, E_L = -62, V_T = -55, E_e = 0;   // pF, nS/mV, mV
+const DT = 0.01, REC = 10, REC_MS = DT * REC;                // ms; one record every 0.1 ms
+const PULSE_AMP = 100, PULSE_MS = 50;                        // pA, ms
+const PI2 = Math.PI * Math.PI, V_MID = (V_T + E_L) / 2;
+const COL_SYN = '#089099';
+
+const DEFAULTS = { I_ext: 90, eta: 10, D: 0.5, excit: true, a: 4, b: 20, tau_w: 20,
+                   syn: true, w_e: 4, tau_s: 6, window: 2000 };
+const PRESETS = {
+  MEMORY:   {},                              // bistable: a pulse switches the activity on / off
+  IW_ONLY:  { syn: false },                  // one feedback alone is not enough at I = 90 pA
+  SYN_ONLY: { excit: false },
+  NONE:     { excit: false, syn: false },
+  HIGH:     { I_ext: 130 },                  // only the persistent state is left
+};
+let params = { ...DEFAULTS };
+
+// ── State and buffers ─────────────────────────────────────────────────────
+const TRACE_LEN = 50000;                     // 5 s of records
+const rHist = new Float32Array(TRACE_LEN), vHist = new Float32Array(TRACE_LEN);
+const wHist = new Float32Array(TRACE_LEN), gHist = new Float32Array(TRACE_LEN), uHist = new Int8Array(TRACE_LEN);
+let traceHead = 0, traceFull = false;
+const PHASE_LEN = 20000, PHASE_SHOW = 10000; // trail: last 1 s
+const phV = new Float32Array(PHASE_LEN), phR = new Float32Array(PHASE_LEN);
+let phaseHead = 0, phaseFull = false;
+
+let r = 0, V = E_L, Iw = 0, g = 0, simT = 0, recTick = 0, lastFrameTime = null;
+let pulseSign = 0, pulseLeft = 0, curPulse = 0, hoverPulse = 0, autoPulseAt = null;
+
+let windowMs = 2000, traceEff = Math.round(2000 / REC_MS);
+function clearTrace() {
+  rHist.fill(0); vHist.fill(E_L); wHist.fill(0); gHist.fill(0); uHist.fill(0);
+  traceHead = 0; traceFull = false;
+}
+function setWindow(ms) {
+  windowMs = ms;
+  traceEff = Math.min(Math.round(ms / REC_MS), TRACE_LEN);
+  clearTrace();
+  document.querySelectorAll('#win-btns .win-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.win) === ms));
+}
+
+const traceCanvas = document.getElementById('trace'), tctx = traceCanvas.getContext('2d');
+const phaseCanvas = document.getElementById('phase'), pctx = phaseCanvas.getContext('2d');
+function fitCanvas(c, ctx) {
+  const rc = c.getBoundingClientRect();
+  // hidden (collapsed panel): leave the canvas as it is, never grow it
+  if (!rc.width || !rc.height) { if (c._lw === undefined) { c._lw = c.width; c._lh = c.height; } return; }
+  const w = rc.width, h = rc.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
+  c._lw = w; c._lh = h;
+}
+function resizeCanvases() { fitCanvas(traceCanvas, tctx); fitCanvas(phaseCanvas, pctx); }
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) { const ro = new ResizeObserver(resizeCanvases); ro.observe(traceCanvas); ro.observe(phaseCanvas); }
+resizeCanvases();
+
+// ── Model ─────────────────────────────────────────────────────────────────
+const eff = () => ({
+  a: params.excit ? params.a : 0, b: params.excit ? params.b : 0,
+  we: params.syn ? params.w_e : 0,
+  Cc: params.D * g_L / (Math.PI * C_m),
+});
+// right-hand side, per ms: [dr, dV, dI_w, dg]
+function rhs(s, I) {
+  const [rr, vv, ww, gg] = s, e = eff();
+  return [
+    (g_L * rr * (2 * vv - V_T - E_L) - gg * rr) / C_m + e.Cc / C_m,
+    (g_L * (vv - V_T) * (vv - E_L) - PI2 * C_m * C_m * rr * rr / g_L + params.eta + I + ww + gg * (E_e - vv)) / C_m,
+    (e.a * (vv - E_L) - ww) / params.tau_w + e.b * rr,
+    -gg / params.tau_s + e.we * rr,
+  ];
+}
+const Iin = () => params.I_ext + curPulse * PULSE_AMP;
+
+function fire(sign) {
+  pulseSign = sign; pulseLeft = PULSE_MS;
+  const b = document.querySelector(`[data-pulse="${sign}"]`);
+  if (b) { b.classList.add('fired'); setTimeout(() => b.classList.remove('fired'), 250); }
+}
+function step() {
+  if (autoPulseAt !== null && simT >= autoPulseAt) { autoPulseAt = null; fire(1); }
+  curPulse = pulseLeft > 0 ? pulseSign : 0;
+  if (pulseLeft > 0) pulseLeft -= DT;
+  const d = rhs([r, V, Iw, g], Iin());
+  r = Math.max(r + DT * d[0], 1e-7); V += DT * d[1];
+  Iw = params.excit ? Iw + DT * d[2] : 0;
+  g  = params.syn   ? g  + DT * d[3] : 0;
+  simT += DT;
+}
+
+// Equilibria: r̄ = 0 gives V̄ explicitly as a function of r, with
+// I_w = a(V − E_L) + τ_w b r and g = τ_syn w_e r at steady state; scan r on a
+// log scale and find the zeros of dV/dt. Stability from the 4×4 Jacobian.
+function eqList(I = Iin(), cls = true) {
+  const e = eff();
+  const Vof = rr => V_MID + (params.tau_s * e.we * rr - e.Cc / rr) / (2 * g_L);
+  const state = rr => { const vv = Vof(rr); return [rr, vv, e.a * (vv - E_L) + params.tau_w * e.b * rr, params.tau_s * e.we * rr]; };
+  const F = lr => rhs(state(Math.exp(lr)), I)[1];
+  const lo = Math.log(1e-6), hi = Math.log(2), N = 1500, out = [];
+  let x0 = lo, f0 = F(lo);
+  for (let k = 1; k <= N; k++) {
+    const x1 = lo + (hi - lo) * k / N, f1 = F(x1);
+    if (f0 * f1 < 0) {
+      let l = x0, rt = x1, fl = f0;
+      for (let it = 0; it < 40; it++) { const m = (l + rt) / 2, fm = F(m); if (fl * fm <= 0) rt = m; else { l = m; fl = fm; } }
+      const s = state(Math.exp((l + rt) / 2));
+      out.push({ V: s[1], r: s[0], type: cls ? classify(s, I) : null });
+    }
+    x0 = x1; f0 = f1;
+  }
+  return out;
+}
+function classify(s, I) {
+  const n = 4, J = [], f0 = rhs(s, I);
+  const hs = [1e-7, 1e-4, 1e-4, 1e-5];
+  for (let i = 0; i < n; i++) J.push(new Array(n));
+  for (let j = 0; j < n; j++) {
+    const sp = s.slice(); sp[j] += hs[j];
+    const f1 = rhs(sp, I);
+    for (let i = 0; i < n; i++) J[i][j] = (f1[i] - f0[i]) / hs[j];
+  }
+  // characteristic polynomial λ⁴ + p1 λ³ + p2 λ² + p3 λ + p4 (Faddeev–LeVerrier)
+  const p = [1];
+  let M = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let k = 1; k <= n; k++) {
+    for (let i = 0; i < n; i++) M[i][i] += p[k - 1];
+    const AM = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => { let x = 0; for (let q = 0; q < n; q++) x += J[i][q] * M[q][j]; return x; }));
+    let tr = 0; for (let i = 0; i < n; i++) tr += AM[i][i];
+    p.push(-tr / k); M = AM;
+  }
+  const [, p1, p2, p3, p4] = p;
+  if (p4 < 0) return 'saddle';
+  const stable = p1 > 0 && p3 > 0 && p4 > 0 && p1 * p2 - p3 > 0 && p1 * p2 * p3 - p3 * p3 - p1 * p1 * p4 > 0;
+  return stable ? 'stable' : 'unstable';
+}
+
+// ── Axis ranges ───────────────────────────────────────────────────────────
+function steadyRange(st, lo, hi, stepv) {
+  const nHi = Math.ceil(hi / stepv) * stepv, nLo = Math.floor(lo / stepv) * stepv;
+  if (st.hi === undefined || nHi > st.hi || nHi < st.hi - 3 * stepv) st.hi = nHi;
+  if (st.lo === undefined || nLo < st.lo || nLo > st.lo + 3 * stepv) st.lo = nLo;
+  return st;
+}
+function growRange(st, lo, hi, stepv) {
+  const nHi = Math.ceil(hi / stepv) * stepv, nLo = Math.floor(lo / stepv) * stepv;
+  if (st.hi === undefined || nHi > st.hi) st.hi = nHi;
+  if (st.lo === undefined || nLo < st.lo) st.lo = nLo;
+  return st;
+}
+const R = { r: {}, v: {}, w: {}, g: {}, px: {}, py: {} };
+// r and V̄ axes come from the equilibria (at I and at I ± a pulse), not from the
+// data: a pulse onset makes the nearly identical neurons fire all together, a
+// brief population spike of several kHz that would flatten everything else.
+// Such peaks are clipped and labelled.
+function refRange() {
+  let rMax = 40, vMin = -60, vMax = -58;
+  [-1, 0, 1].forEach(k => eqList(params.I_ext + k * PULSE_AMP, false).forEach(e => {
+    rMax = Math.max(rMax, e.r * 1000); vMin = Math.min(vMin, e.V); vMax = Math.max(vMax, e.V);
+  }));
+  return { rMax, vMin, vMax };
+}
+const resetRanges = () => Object.values(R).forEach(o => { delete o.hi; delete o.lo; });
+
+// ── Trace: stacked scopes r, V̄, I_w, g_syn ─────────────────────────────────
+function drawTrace() {
+  const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H;
+  tctx.clearRect(0, 0, W, traceCanvas._lh);
+  const keys = ['r', 'v', params.excit && 'w', params.syn && 'g'].filter(Boolean);
+  const ref = refRange();
+  growRange(R.r, 0, ref.rMax * 1.15, 10);
+  growRange(R.v, ref.vMin - 0.6, ref.vMax + 0.6, 1);
+  const weights = { 2: [0.55, 0.45], 3: [0.42, 0.29, 0.29], 4: [0.34, 0.22, 0.22, 0.22] }[keys.length];
+  const rects = scopeRects(W, H, weights);
+  const xOf = scopeX(rects[0], traceEff);
+  const scanEnd = traceFull ? traceEff : traceHead;
+  const spec = {
+    r: { buf: rHist, col: COL.V,   lab: 'r (Hz)' },
+    v: { buf: vHist, col: COL.V,   lab: 'V̄ (mV)' },
+    w: { buf: wHist, col: COL.POS, lab: 'Iw (pA)',    step: 10,  min: [0, 20] },
+    g: { buf: gHist, col: COL_SYN, lab: 'gsyn (nS)',  step: 0.5, min: [0, 0.5] },
+  };
+  // decimated line; clipped scopes (r, V̄) keep each column's extreme value so
+  // a 1 ms population spike is never skipped, and draw it flat on the edge
+  const line = (rc, y, buf, col, lw, from, to, alpha, clip) => {
+    if (to <= from) return;
+    inScope(tctx, rc, () => {
+      tctx.strokeStyle = col; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+      tctx.beginPath();
+      const st = Math.max(1, Math.floor(traceEff / rc.w / 2));
+      const yc = clip ? (x => y(Math.max(clip[0], Math.min(clip[1], x)))) : y;
+      for (let i = from, f = true; i < to; i += st) {
+        let x = buf[i];
+        if (clip) for (let j = i + 1; j < Math.min(i + st, to); j++) if (Math.abs(buf[j] - clip[2]) > Math.abs(x - clip[2])) x = buf[j];
+        f ? tctx.moveTo(xOf(i), yc(x)) : tctx.lineTo(xOf(i), yc(x)); f = false;
+      }
+      tctx.lineTo(xOf(to - 1), yc(buf[to - 1]));
+      tctx.stroke();
+    });
+  };
+  // label of the clipped population spikes (r above the scope)
+  const peaks = (rc, buf, hi, from, to, alpha) => {
+    let lastX = -1e9;
+    tctx.save(); tctx.globalAlpha = alpha; tctx.fillStyle = COL.V; tctx.font = '10px monospace'; tctx.textAlign = 'left';
+    for (let i = from; i < to; i++) {
+      if (buf[i] <= hi) continue;
+      let j = i, m = buf[i]; while (j < to && buf[j] > hi) { if (buf[j] > m) m = buf[j]; j++; }
+      const x = xOf(i);
+      if (x - lastX > 70) {
+        tctx.beginPath(); tctx.moveTo(x, rc.y + 1); tctx.lineTo(x - 3.5, rc.y + 7); tctx.lineTo(x + 3.5, rc.y + 7); tctx.closePath(); tctx.fill();
+        tctx.fillText(m >= 1000 ? (m / 1000).toFixed(1) + ' kHz' : Math.round(m) + ' Hz', x + 6, rc.y + 9);
+        lastX = x;
+      }
+      i = j;
+    }
+    tctx.restore();
+  };
+  const scopes = keys.map((k, j) => {
+    const s = spec[k], rc = rects[j], st = R[k];
+    if (k === 'w' || k === 'g') {
+      let lo = s.min[0], hi = s.min[1];
+      for (let i = 0; i < scanEnd; i++) { const x = s.buf[i]; if (x > hi) hi = x; if (x < lo) lo = x; }
+      steadyRange(st, lo, hi * 1.15, s.step);
+    }
+    drawScope(tctx, rc, st.lo, st.hi, s.lab, s.col);
+    const y = scopeY(rc, st.lo, st.hi);
+    if (k === 'v') {
+      if (E_L >= st.lo && E_L <= st.hi) scopeRefLine(tctx, rc, y(E_L), COL.REST + '55', [2, 5], 'EL', COL.REST + '99');
+      if (V_T >= st.lo && V_T <= st.hi) scopeRefLine(tctx, rc, y(V_T), COL.THRESH + '66', [4, 4], 'VT', COL.THRESH + 'cc');
+    }
+    return { k, rc, y, buf: s.buf, col: s.col, lw: k === 'r' ? 2 : (k === 'v' ? 1.6 : FB_TRACE.width),
+             clip: k === 'r' ? [st.lo, st.hi, st.lo] : k === 'v' ? [st.lo, st.hi, (st.lo + st.hi) / 2] : null };
+  });
+  // input pulses: green block up = excite, red block down = inhibit (bottom of the r scope)
+  const rR = rects[0];
+  const pulses = (from, to, alpha) => {
+    if (to <= from) return;
+    const base = rR.y + rR.h - 9;
+    tctx.globalAlpha = 0.85 * alpha;
+    for (let i = from; i < to;) {
+      const sg = uHist[i]; if (!sg) { i++; continue; }
+      let j = i; while (j < to && uHist[j] === sg) j++;
+      const x0 = xOf(i), x1 = Math.max(xOf(j), x0 + 1);
+      tctx.fillStyle = sg > 0 ? COL.POS : COL.NEG;
+      tctx.fillRect(x0, sg > 0 ? base - 6 : base, x1 - x0, 6);
+      i = j;
+    }
+    tctx.globalAlpha = 1;
+  };
+  if (traceFull) {
+    scopes.forEach(s => line(s.rc, s.y, s.buf, s.col, s.lw, traceHead, traceEff, 0.14, s.clip));
+    pulses(traceHead, traceEff, 0.3);
+    peaks(rects[0], rHist, R.r.hi, traceHead, traceEff, 0.35);
+  }
+  scopes.forEach(s => line(s.rc, s.y, s.buf, s.col, s.lw, 0, traceHead, 1, s.clip));
+  pulses(0, traceHead, 1);
+  peaks(rects[0], rHist, R.r.hi, 0, traceHead, 1);
+  tctx.globalAlpha = 1;
+  const last = rects[rects.length - 1];
+  const cx = Math.round(rR.x + (traceHead / traceEff) * rR.w) + 0.5;
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cx, rR.y); tctx.lineTo(cx, last.y + last.h); tctx.stroke();
+  drawTimeAxis(tctx, W, H, windowMs, SCOPE.ML);
+}
+
+// ── Phase plane (V̄, r) ─────────────────────────────────────────────────────
+const PM = { ml: 36, mt: 14, mr: 10, mb: 28 };
+function drawPhase() {
+  const W = phaseCanvas._lw, H = phaseCanvas._lh;
+  pctx.clearRect(0, 0, W, H); pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
+  const cW = W - PM.ml - PM.mr, cH = H - PM.mt - PM.mb;
+  const tLen = Math.min(phaseFull ? PHASE_LEN : phaseHead, PHASE_SHOW);
+  const tIdx = i => (phaseHead - tLen + i + PHASE_LEN) % PHASE_LEN;
+  // axes from the equilibria (see refRange): a population spike leaves the frame
+  const ref = refRange(), eqs = eqList();
+  growRange(R.px, ref.vMin - 1, ref.vMax + 1.5, 1);
+  growRange(R.py, 0, ref.rMax * 1.2, 10);
+  const x0 = R.px.lo, x1 = R.px.hi, y0 = 0, y1 = R.py.hi;
+  const xs = v => PM.ml + (v - x0) / (x1 - x0) * cW;
+  const ys = h => PM.mt + cH - (h - y0) / (y1 - y0) * cH;
+  // grid and axes
+  pctx.lineWidth = 0.5; pctx.font = '11px monospace';
+  niceTicks(y0, y1, 4).filter(t => t > y0 && t < y1).forEach(t => {
+    pctx.strokeStyle = '#2c2c2c'; pctx.beginPath(); pctx.moveTo(PM.ml, ys(t)); pctx.lineTo(PM.ml + cW, ys(t)); pctx.stroke();
+    pctx.fillStyle = '#555'; pctx.textAlign = 'left'; pctx.fillText(t, 2, ys(t) + 3);
+  });
+  pctx.textAlign = 'center';
+  niceTicks(x0, x1, 4).filter(t => t > x0 && t < x1).forEach(t => {
+    pctx.strokeStyle = '#2c2c2c'; pctx.beginPath(); pctx.moveTo(xs(t), PM.mt); pctx.lineTo(xs(t), PM.mt + cH); pctx.stroke();
+    pctx.fillStyle = '#555'; pctx.fillText(t, xs(t), PM.mt + cH + 12);
+  });
+  pctx.strokeStyle = '#555'; pctx.lineWidth = 1;
+  pctx.beginPath(); pctx.moveTo(PM.ml, PM.mt); pctx.lineTo(PM.ml, PM.mt + cH); pctx.lineTo(PM.ml + cW, PM.mt + cH); pctx.stroke();
+  pctx.fillStyle = '#666'; pctx.textAlign = 'left'; pctx.fillText('r (Hz)', PM.ml + 4, PM.mt + 11);
+  pctx.textAlign = 'right'; pctx.fillText('V̄ (mV)', PM.ml + cW - 2, PM.mt + cH + 22); pctx.textAlign = 'left';
+  const mark = (v, col, dash, lab) => {
+    if (v < x0 || v > x1) return;
+    pctx.strokeStyle = col; pctx.lineWidth = 1; pctx.setLineDash(dash);
+    pctx.beginPath(); pctx.moveTo(xs(v), PM.mt); pctx.lineTo(xs(v), PM.mt + cH); pctx.stroke(); pctx.setLineDash([]);
+    if (lab) { pctx.fillStyle = col; pctx.font = '10px monospace'; pctx.fillText(lab, xs(v) + 3, PM.mt + cH - 4); }
+  };
+  mark(E_L, COL.REST + '77', [2, 4], 'EL');
+  mark(V_T, COL.THRESH + '66', [3, 3], 'VT');
+
+  pctx.save(); pctx.beginPath(); pctx.rect(PM.ml, PM.mt, cW, cH); pctx.clip();
+  // V̄-nullcline: dV/dt = 0  →  r = √(g_L F(V)) / (π C), with I_w and g frozen
+  const vNull = (I, dashed, alpha) => {
+    const F = v => g_L * (v - V_T) * (v - E_L) + params.eta + I + Iw + g * (E_e - v);
+    styleInputCurve(pctx, dashed); pctx.globalAlpha = alpha;
+    pctx.beginPath();
+    let pen = false;
+    for (let px = 0; px <= cW; px++) {
+      const v = x0 + px / cW * (x1 - x0), f = F(v);
+      if (f < 0) { pen = false; continue; }
+      const h = Math.sqrt(g_L * f) / (Math.PI * C_m) * 1000;
+      pen ? pctx.lineTo(PM.ml + px, ys(h)) : pctx.moveTo(PM.ml + px, ys(h)); pen = true;
+    }
+    pctx.stroke(); pctx.globalAlpha = 1; pctx.setLineDash([]);
+  };
+  if (hoverPulse) vNull(params.I_ext + hoverPulse * PULSE_AMP, true, 0.5);
+  vNull(Iin(), false, 1);
+  // r-nullcline: dr/dt = 0  →  r = Δη g_L / (π C (g − g_L(2V − V_T − E_L)))
+  const Cc = eff().Cc;
+  pctx.strokeStyle = 'rgba(187,187,187,0.6)'; pctx.lineWidth = 1.2;
+  pctx.beginPath();
+  let pen = false;
+  for (let px = 0; px <= cW * 2; px++) {
+    const v = x0 + px / (cW * 2) * (x1 - x0), den = g - g_L * (2 * v - V_T - E_L);
+    if (den <= 0) break;
+    const h = Cc / den * 1000;
+    if (h > y1 * 3) break;
+    pen ? pctx.lineTo(xs(v), ys(h)) : pctx.moveTo(xs(v), ys(h)); pen = true;
+  }
+  pctx.stroke();
+  // trajectory (fading runs)
+  if (tLen > 2) {
+    pctx.lineWidth = 1.2;
+    const st = Math.max(1, Math.ceil(tLen / 3000)), RUN = Math.max(40, Math.ceil(tLen / 30 / st) * st);
+    for (let i0 = st; i0 < tLen; i0 += RUN) {
+      const i1 = Math.min(i0 + RUN, tLen);
+      pctx.strokeStyle = `rgba(${COL.TRAJ},${(0.12 + 0.7 * (((i0 + i1) / 2) / tLen)).toFixed(2)})`;
+      pctx.beginPath();
+      const k0 = tIdx(i0 - st); pctx.moveTo(xs(phV[k0]), ys(phR[k0]));
+      for (let i = i0; i < i1; i += st) { const k = tIdx(i); pctx.lineTo(xs(phV[k]), ys(phR[k])); }
+      pctx.stroke();
+    }
+  }
+  pctx.restore();
+  drawEquilibria(pctx, eqs.map(e => ({ x: xs(e.V), y: ys(e.r * 1000), type: e.type })), W, H);
+  drawStateDot(pctx, xs(Math.max(x0, Math.min(x1, V))), ys(Math.max(y0, Math.min(y1, r * 1000))), 4.5);
+}
+
+// ── Sparklines (last ~0.5 s, with mean μ) ─────────────────────────────────
+const SPARK_LEN = 120, SPARK_EVERY = 40;     // in records (4 ms)
+const sparkW = new Float32Array(SPARK_LEN), sparkS = new Float32Array(SPARK_LEN);
+let sparkHead = 0, sparkTick = 0;
+function drawSpark(id, buf, color, meanId, unit, dec) {
+  const cv = document.getElementById(id);
+  const rc = cv.getBoundingClientRect(), Wc = rc.width || 80, Hc = rc.height || 24;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  if (cv.width !== Math.round(Wc * dpr)) { cv.width = Math.round(Wc * dpr); cv.height = Math.round(Hc * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, Wc, Hc);
+  let mn = Infinity, mx = -Infinity, sum = 0;
+  for (let i = 0; i < SPARK_LEN; i++) { const v = buf[i]; if (v < mn) mn = v; if (v > mx) mx = v; sum += v; }
+  const mean = sum / SPARK_LEN, range = mx - mn || 1;
+  const mapY = v => Hc - 2 - ((v - mn) / range) * (Hc - 4);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < SPARK_LEN; i++) {
+    const v = buf[(sparkHead + i) % SPARK_LEN], x = (i / (SPARK_LEN - 1)) * Wc;
+    i ? ctx.lineTo(x, mapY(v)) : ctx.moveTo(x, mapY(v));
+  }
+  ctx.stroke();
+  ctx.lineTo(Wc, Hc); ctx.lineTo(0, Hc); ctx.closePath(); ctx.fillStyle = color + '22'; ctx.fill();
+  ctx.strokeStyle = color + 'aa'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, mapY(mean)); ctx.lineTo(Wc, mapY(mean)); ctx.stroke(); ctx.setLineDash([]);
+  document.getElementById(meanId).textContent = 'μ = ' + mean.toFixed(dec) + ' ' + unit;
+}
+
+// ── Loop ──────────────────────────────────────────────────────────────────
+const SPD_MAP = [0.125, 0.25, 0.5, 1.0], SPD_LABELS = ['⅛×', '¼×', '½×', '1×'];
+function loop() {
+  const now = performance.now();
+  const speed = SPD_MAP[parseInt(document.getElementById('sl-spd').value) - 1];
+  const dtReal = lastFrameTime !== null ? Math.min(now - lastFrameTime, 50) : 16.7;
+  lastFrameTime = now;
+  const steps = Math.max(1, Math.round((dtReal / DT) * speed));
+  for (let s = 0; s < steps; s++) {
+    step();
+    if (++recTick < REC) continue;
+    recTick = 0;
+    rHist[traceHead] = r * 1000; vHist[traceHead] = V; wHist[traceHead] = Iw; gHist[traceHead] = g; uHist[traceHead] = curPulse;
+    if (++traceHead >= traceEff) { traceHead = 0; traceFull = true; }
+    phV[phaseHead] = V; phR[phaseHead] = r * 1000;
+    if (++phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
+    if (++sparkTick >= SPARK_EVERY) {
+      sparkTick = 0; sparkW[sparkHead] = Iw; sparkS[sparkHead] = g;
+      sparkHead = (sparkHead + 1) % SPARK_LEN;
+    }
+  }
+  drawTrace();
+  drawPhase();
+  if (params.excit) drawSpark('spark-w', sparkW, COL.POS, 'mean-w', 'pA', 1);
+  if (params.syn)   drawSpark('spark-s', sparkS, COL_SYN, 'mean-s', 'nS', 2);
+  requestAnimationFrame(loop);
+}
+
+// ── Feedback switches and pulses ──────────────────────────────────────────
+function refreshFeedbackUI() {
+  const set = (id, cls, on) => { const el = document.getElementById(id); el.classList.toggle(cls, on); el.setAttribute('aria-pressed', String(on)); };
+  set('btn-w', 'on-pos', params.excit); set('hdr-w', 'on-pos', params.excit);
+  set('btn-s', 'on-syn', params.syn);   set('hdr-s', 'on-syn', params.syn);
+  document.getElementById('sliders-w').classList.toggle('open', params.excit);
+  document.getElementById('sliders-s').classList.toggle('open', params.syn);
+  document.querySelectorAll('.w-show').forEach(el => { el.hidden = !params.excit; });
+  document.querySelectorAll('.s-show').forEach(el => { el.hidden = !params.syn; });
+  if (!params.excit) { document.getElementById('mean-w').textContent = ''; sparkW.fill(0); }
+  if (!params.syn)   { document.getElementById('mean-s').textContent = ''; sparkS.fill(0); }
+  resetRanges();
+  renderEq();
+}
+function toggle(key) {
+  params[key] = !params[key];
+  if (!params.excit) Iw = 0;
+  if (!params.syn) g = 0;
+  refreshFeedbackUI();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+document.getElementById('btn-w').addEventListener('click', () => toggle('excit'));
+document.getElementById('btn-s').addEventListener('click', () => toggle('syn'));
+['w', 's'].forEach(k => {
+  const h = document.getElementById('hdr-' + k), key = k === 'w' ? 'excit' : 'syn';
+  h.addEventListener('click', () => toggle(key));
+  h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(key); } });
+});
+const pulseBox = document.getElementById('pulse-btns');
+pulseBox.addEventListener('click', e => { const b = e.target.closest('[data-pulse]'); if (b) { autoPulseAt = null; fire(parseInt(b.dataset.pulse)); } });
+pulseBox.querySelectorAll('[data-pulse]').forEach(b => {
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') hoverPulse = parseInt(b.dataset.pulse); });
+  b.addEventListener('pointerleave', () => { hoverPulse = 0; });
+});
+
+// ── Sliders and presets ───────────────────────────────────────────────────
+const sliders = [
+  ['I_ext', 'sl-I',   'val-I',   v => Math.round(v) + ' pA'],
+  ['eta',   'sl-eta', 'val-eta', v => (v < 0 ? '−' + Math.abs(v) : Math.round(v)) + ' pA'],
+  ['D',     'sl-D',   'val-D',   v => (+v).toFixed(1) + ' pA'],
+  ['a',     'sl-a',   'val-a',   v => (+v).toFixed(1) + ' nS'],
+  ['b',     'sl-b',   'val-b',   v => Math.round(v) + ' pA'],
+  ['tau_w', 'sl-tw',  'val-tw',  v => Math.round(v) + ' ms'],
+  ['w_e',   'sl-we',  'val-we',  v => (+v).toFixed(1) + ' nS'],
+  ['tau_s', 'sl-ts',  'val-ts',  v => Math.round(v) + ' ms'],
+];
+sliders.forEach(([key, slId, valId, fmt]) => {
+  const sl = document.getElementById(slId);
+  sl.addEventListener('input', () => {
+    params[key] = parseFloat(sl.value);
+    document.getElementById(valId).textContent = fmt(sl.value);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  });
+  sl.addEventListener('change', () => { delete R.px.hi; delete R.px.lo; delete R.py.hi; delete R.py.lo; });
+});
+document.getElementById('sl-spd').addEventListener('input', function () {
+  document.getElementById('val-spd').textContent = SPD_LABELS[parseInt(this.value) - 1];
+});
+
+function applyPreset(name) {
+  params = { ...DEFAULTS, ...PRESETS[name] };
+  // start on the low-activity branch, then one excite pulse shows what the network does with it
+  r = 0.0003; V = -60.5; Iw = params.excit ? params.a * (V - E_L) : 0; g = 0;
+  simT = 0; recTick = 0; pulseLeft = 0; curPulse = 0; autoPulseAt = 300;
+  phV.fill(V); phR.fill(0); phaseHead = 0; phaseFull = false;
+  sparkW.fill(0); sparkS.fill(0);
+  sliders.forEach(([key, slId, valId, fmt]) => {
+    document.getElementById(slId).value = params[key];
+    document.getElementById(valId).textContent = fmt(params[key]);
+  });
+  setWindow(params.window);
+  refreshFeedbackUI();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+}
+document.getElementById('presets').addEventListener('click', e => { const b = e.target.closest('[data-preset]'); if (b) applyPreset(b.dataset.preset); });
+document.getElementById('win-btns').addEventListener('click', e => { const ms = parseInt(e.target.dataset.win); if (!isNaN(ms)) setWindow(ms); });
+
+// ── Equations (follow the switches) ───────────────────────────────────────
+function renderEq() {
+  if (!window.katex) return;
+  const opt = { displayMode: false, throwOnError: false }, E = params.excit, S = params.syn;
+  katex.render(String.raw`C \frac{dr}{dt} = g_L\, r\,(2\bar V - V_T - E_L)` + (S ? String.raw` - g_\text{syn}\, r` : '') + String.raw` + \frac{\Delta_\eta\, g_L}{\pi C}`,
+    document.getElementById('eq1'), opt);
+  katex.render(String.raw`C \frac{d\bar V}{dt} = g_L\,(\bar V - V_T)(\bar V - E_L) - \frac{\pi^2 C^2 r^2}{g_L} + \bar\eta + I`
+    + (E ? ' + I_w' : '') + (S ? String.raw` + g_\text{syn}\,(E_e - \bar V)` : ''), document.getElementById('eq2'), opt);
+  const e3 = document.getElementById('eq3'), e4 = document.getElementById('eq4');
+  e3.hidden = !E; e4.hidden = !S;
+  if (E) katex.render(String.raw`\tau_w \frac{dI_w}{dt} = a\,(\bar V - E_L) - I_w + \tau_w\, b\, r \qquad \text{(self-excitation)}`, e3, opt);
+  if (S) katex.render(String.raw`\frac{dg_\text{syn}}{dt} = -\frac{g_\text{syn}}{\tau_\text{syn}} + w_e\, r \qquad \text{(recurrent synapses)}`, e4, opt);
+}
+
+applyPreset('MEMORY');
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  document.getElementById('val-spd').textContent = SPD_LABELS[parseInt(document.getElementById('sl-spd').value) - 1];
+  if (!window.katex) return;
+  renderEq();
+  [
+    [String.raw`C = 200\,\text{pF}`,     'fp1'],
+    [String.raw`g_L = 10\,\text{nS/mV}`, 'fp2'],
+    [String.raw`E_L = -62\,\text{mV}`,   'fp3'],
+    [String.raw`V_T = -55\,\text{mV}`,   'fp4'],
+    [String.raw`E_e = 0\,\text{mV}`,     'fp5'],
+  ].forEach(([expr, id]) => katex.render(expr, document.getElementById(id), { displayMode: false }));
+});
+</script>
+
+</body>
+</html>

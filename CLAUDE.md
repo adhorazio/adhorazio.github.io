@@ -16,6 +16,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `assets/js/scope.js` — stacked scopes: scopeRects, drawScope (inline grid labels), inScope, scopeRefLine.
 - `assets/js/time-axis.js` — shared `drawTimeAxis()` for neuron traces (strip under the plot, t in ms/s).
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
+- `networks/eqif-meanfield.html` — eQIF mean field (paper Eq. 24, infinite-reset limit, no I* correction): r, V̄, I_w (green), g_syn (teal #089099); phase plane (V̄, r); r and V̄ axes come from the equilibria, population spikes are clipped and labelled.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
 - `tools/lissajous.html` — Lissajous tool.
 - `models/hodgkin-huxley.html` — HH (from main, new design: V/m/h/n scopes, (V, n) phase plane, 4-D equilibrium stability).
