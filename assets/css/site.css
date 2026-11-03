@@ -285,7 +285,8 @@ button, .adapt-header, .card { touch-action: manipulation; }
 .legend { display: flex; flex-direction: column; gap: 1rem; font-size: 0.72rem; color: var(--text-dim); }
 /* Show / hide chips for the phase plane and the legend (added by assets/js/ui.js):
    small buttons at the right end of the row above the plots */
-.view-btns { margin-left: auto; }
+.view-btns { margin-left: auto; align-self: center; }
+@media (max-width: 600px) { .view-btn { padding: 0.25rem 0.55rem; } }
 .view-btn .chev { display: inline-block; margin-right: 0.35rem; font-size: 0.7rem; transition: transform var(--dur) var(--ease); }
 .view-btn.open .chev { transform: rotate(90deg); }
 .view-btn.open { color: var(--text); }

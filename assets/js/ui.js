@@ -16,7 +16,11 @@
 
   // where the chips go: the row right above the plots (feedback / window /
   // presets row); if there is none, a compact row of their own
+  // On phones they go at the end of the presets (the use cases), where the last
+  // line of preset buttons usually leaves room.
   let row = plots && plots.previousElementSibling;
+  const presets = widget.querySelector('.presets-row, .presets');
+  if (phone && presets) row = presets;
   if (!row || !row.matches('.win-row, .presets-row, .presets')) {
     row = document.createElement('div'); row.className = 'win-row';
     (plots || legend).parentNode.insertBefore(row, plots || legend);
