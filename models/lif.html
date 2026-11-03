@@ -197,7 +197,7 @@
       </div>
       <div class="legend-item rate-show" hidden>
         <div class="legend-dot" style="background: var(--c-v);"></div>
-        <span>firing rate, Gaussian kernel σ = 25 ms (dots: 1/ISI)</span>
+        <span>firing rate: Gaussian kernel, σ = 40 ms, drawn 100 ms behind (dots: 1/ISI)</span>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
@@ -409,7 +409,7 @@ function drawTrace() {
   tctx.globalAlpha = 1;
 
   // sweep cursor
-  if (showRate) drawRateScope(tctx, rects[rects.length - 1], sHistory, TRACE_LEN, traceHead, traceFull, 1, rangeR, COL.V);
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], RATE_REC, TRACE_LEN, traceHead, traceFull, 1, rangeR, COL.V);
   const last = rects[rects.length - 1];
   const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
   tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
@@ -611,7 +611,7 @@ function loop() {
   const steps = Math.round(dtReal * speed); // 1 sim-ms per real-ms at speed=1
   for (let s = 0; s < steps; s++) {
     step();
-    vHistory[traceHead] = V; mHistory[traceHead] = wm; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = lastSpikeStep === simStep ? 1 : 0;
+    vHistory[traceHead] = V; mHistory[traceHead] = wm; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = lastSpikeStep === simStep ? 1 : 0; RATE_REC.sample(lastSpikeStep === simStep, 1);
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
     phM[phaseHead] = wm; phP[phaseHead] = wp; phaseHead = (phaseHead + 1) % PHASE_LEN;
@@ -719,7 +719,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
-  V = params.V_rest; wm = 0; wp = 0; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
+  V = params.V_rest; wm = 0; wp = 0; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null; RATE_REC.reset();
   vHistory.fill(params.V_rest); mHistory.fill(0); pHistory.fill(0); kHistory.fill(0); sHistory.fill(0);
   phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false;

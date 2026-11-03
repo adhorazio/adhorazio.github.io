@@ -238,7 +238,7 @@
       </div>
       <div class="legend-item rate-show" hidden>
         <div class="legend-dot" style="background: var(--c-v);"></div>
-        <span>firing rate, Gaussian kernel σ = 25 ms (dots: 1/ISI)</span>
+        <span>firing rate: Gaussian kernel, σ = 40 ms, drawn 100 ms behind (dots: 1/ISI)</span>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
@@ -518,7 +518,7 @@ function drawTrace() {
   pulses(0, traceHead, 1);
   tctx.globalAlpha = 1;
 
-  if (showRate) drawRateScope(tctx, rects[rects.length - 1], sHist, traceEff, traceHead, traceFull, DT, R.rate, COL.V);
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], RATE_REC, traceEff, traceHead, traceFull, DT, R.rate, COL.V);
   const last = rects[rects.length - 1];
   const cx = Math.round(rV.x + (traceHead / traceEff) * rV.w) + 0.5;
   tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
@@ -833,7 +833,7 @@ function loop() {
   phaseShow = Math.max(1200, Math.min(PHASE_LEN, Math.round(((16.7 / DT) * speed) * 60)));
   for (let s = 0; s < steps; s++) {
     step();
-    vHist[traceHead] = V; mHist[traceHead] = wm; pHist[traceHead] = wp; uHist[traceHead] = curPulse; sHist[traceHead] = spiking ? 1 : 0;
+    vHist[traceHead] = V; mHist[traceHead] = wm; pHist[traceHead] = wp; uHist[traceHead] = curPulse; sHist[traceHead] = spiking ? 1 : 0; RATE_REC.sample(spiking, DT);
     if (++traceHead >= traceEff) { traceHead = 0; traceFull = true; }
     phV[phaseHead] = V; phM[phaseHead] = wm; phP[phaseHead] = wp;
     if (++phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
@@ -952,7 +952,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
-  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
+  V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null; RATE_REC.reset();
   vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0); sHist.fill(0);
   phV.fill(E_L); phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false; phaseHead = 0; phaseFull = false;

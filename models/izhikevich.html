@@ -186,7 +186,7 @@
       </div>
       <div class="legend-item rate-show" hidden>
         <div class="legend-dot" style="background: var(--c-v);"></div>
-        <span>firing rate, Gaussian kernel σ = 25 ms (dots: 1/ISI)</span>
+        <span>firing rate: Gaussian kernel, σ = 40 ms, drawn 100 ms behind (dots: 1/ISI)</span>
       </div>
     </div>
     <div class="legend-section" id="pp-legend"></div>
@@ -410,7 +410,7 @@ function drawTrace() {
   tctx.globalAlpha = 1;
 
   // sweep cursor through all scopes
-  if (showRate) drawRateScope(tctx, rects[rects.length - 1], sHistory, TRACE_LEN, traceHead, traceFull, 1, rRange, COL.V);
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], RATE_REC, TRACE_LEN, traceHead, traceFull, 1, rRange, COL.V);
   const last = rects[rects.length - 1];
   const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
   tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
@@ -590,7 +590,7 @@ function loop() {
   for (let s = 0; s < speed; s++) {
     const spiked = step();
     // draw the spike up to its 30 mV peak (v is reset in the same step)
-    vHistory[traceHead] = spiked ? 30 : v; uHistory[traceHead] = u; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = spiked ? 1 : 0;
+    vHistory[traceHead] = spiked ? 30 : v; uHistory[traceHead] = u; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = spiked ? 1 : 0; RATE_REC.sample(spiked, 1);
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
     phaseV[phaseHead] = v; phaseU[phaseHead] = u; phaseP[phaseHead] = wp;
@@ -674,7 +674,7 @@ document.getElementById('sl-spd').addEventListener('input', function() {
 
 function applyPreset(name) {
   params = { ...WP_DEFAULTS, ...PRESETS[name] };
-  v = -65; u = params.b * v; wp = 0; pulseLeft = 0; curPulse = 0;
+  v = -65; u = params.b * v; wp = 0; pulseLeft = 0; curPulse = 0; RATE_REC.reset();
   vHistory.fill(-65); uHistory.fill(params.b * v); pHistory.fill(0); kHistory.fill(0); sHistory.fill(0);
   phaseV.fill(-65); phaseU.fill(u); phaseP.fill(0); sparkU.fill(u); sparkP.fill(0);
   traceHead = 0; traceFull = false; lastSpikeU = null; lastSpikeW = null;
