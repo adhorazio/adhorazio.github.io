@@ -326,6 +326,7 @@ button, .adapt-header, .card { touch-action: manipulation; }
   opacity: 0.6;
 }
 .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+.legend-item .eq-icon { width: 11px; height: 11px; flex-shrink: 0; }
 .legend-dot  { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
 .legend-note { font-size: 0.64rem; opacity: 0.45; }
 

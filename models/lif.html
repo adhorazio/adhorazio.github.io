@@ -483,6 +483,61 @@ function drawFICurve() {
   }
   fctx.stroke();
 
+  // Feedback load lines (as on the main-site aLIF page). At a steady rate f the
+  // slow currents settle, on average, at w̄± = a±⟨V − V_rest⟩ + b± τ± f, and for the
+  // LIF ⟨V − V_rest⟩ = I_net − τ_m ΔV_θ f. So the input the membrane feels,
+  // I_net = I_eff − w̄⁻ + w̄⁺, is a straight line in f:
+  //   I_net(f) = (I_eff + K f) / (1 − A),  A = a⁺ − a⁻,  K = b⁺τ⁺ − b⁻τ⁻ − A τ_m ΔV_θ
+  // (f in Hz → /1000). Where it crosses the f–I curve, the firing is self-
+  // consistent: steady states (diamonds). Rest (f = 0) is one while I_net(0) < ΔV_θ.
+  if (params.adapt || params.excit) {
+    const loadLine = (A, B, color, dash, lw, r) => {
+      if (A >= 0.98) return;
+      const K = (B - A * params.tau_m * dVth) / 1000;
+      const In = f => (params.I_eff + K * f) / (1 - A);
+      fctx.save();
+      fctx.strokeStyle = color; fctx.lineWidth = lw; fctx.setLineDash(dash);
+      fctx.beginPath();
+      let on = false;
+      for (let k = 0; k <= 300; k++) {
+        const f = k / 300 * F_MAX, I = In(f);
+        if (I < 0 || I > I_MAX) { on = false; continue; }
+        on ? fctx.lineTo(xi(I), yf(f)) : fctx.moveTo(xi(I), yf(f)); on = true;
+      }
+      fctx.stroke(); fctx.setLineDash([]);
+      // filled = stable, hollow = unstable (the averaged rate moves away from it)
+      const diamond = (I, f, stable) => {
+        if (I < 0 || I > I_MAX) return;
+        const px = xi(I), py = yf(f);
+        fctx.beginPath(); fctx.moveTo(px, py - r); fctx.lineTo(px + r, py); fctx.lineTo(px, py + r); fctx.lineTo(px - r, py); fctx.closePath();
+        if (stable) { fctx.fillStyle = color; fctx.strokeStyle = '#1e1e1e'; fctx.lineWidth = 1; fctx.fill(); fctx.stroke(); }
+        else { fctx.fillStyle = '#1e1e1e'; fctx.strokeStyle = color; fctx.lineWidth = 1.4; fctx.fill(); fctx.stroke(); }
+      };
+      if (In(0) < dVth) diamond(In(0), 0, true);              // rest
+      let gPrev = null, fPrev = 0;
+      const fTop = Math.max(F_MAX, fiFreq(I_MAX) * 2);
+      for (let k = 1; k <= 800; k++) {                         // firing steady states
+        const f = k / 800 * fTop, g = fiFreq(In(f)) - f;
+        if (gPrev !== null && gPrev * g < 0) {
+          const fs = fPrev - gPrev * (f - fPrev) / (g - gPrev);
+          if (fs <= F_MAX) diamond(In(fs), fs, gPrev > 0);  // rate falls back onto it from both sides
+        }
+        gPrev = g; fPrev = f;
+      }
+      fctx.restore();
+    };
+    const E = params.excit, M = params.adapt;
+    const Ap = E ? params.ap : 0, Bp = E ? params.bp * params.tau_p : 0;
+    const Am = M ? params.am : 0, Bm = M ? params.bm * params.tau_w : 0;
+    if (E && M) {
+      loadLine(Ap, Bp, COL.POS + 'aa', [2, 4], 1.2, 3);
+      loadLine(-Am, -Bm, COL.NEG + 'aa', [2, 4], 1.2, 3);
+    }
+    const tot = (Bp - Bm) + (Ap - Am);
+    const totCol = (E && !M) ? COL.POS : (M && !E) ? COL.NEG : (tot > 0 ? COL.POS : tot < 0 ? COL.NEG : '#A0B1BA');
+    loadLine(Ap - Am, Bp - Bm, totCol + 'ee', [5, 3], 1.6, 4.5);
+  }
+
   // With slow currents the membrane feels I_eff − w⁻ + w⁺: the operating point
   // slides along the curve; a faint tick marks the slider value I_eff
   if (params.adapt || params.excit) {
@@ -646,7 +701,10 @@ function setPP(mode) {
     ? ['Slow plane (w<sup>−</sup>, w<sup>+</sup>)', li('var(--c-in)', 'spiking line I<sub>eff</sub> + w<sup>+</sup> − w<sup>−</sup> = V<sub>&theta;</sub> − V<sub>rest</sub> (set by I; fires above)') + li('var(--c-v)', 'trajectory') + dot('state (w<sup>−</sup>, w<sup>+</sup>)') + li('var(--c-ireset)', 'jump at each spike (+b<sup>−</sup>, +b<sup>+</sup>)')]
     : ['f&ndash;I curve', li('var(--c-v)', 'f(I) analytical') + li('var(--c-in)', 'rheobase I<sub>th</sub>')
         + dot(slowOn ? 'operating point at I<sub>eff</sub>' + (params.adapt ? ' − w<sup>−</sup>' : '') + (params.excit ? ' + w<sup>+</sup>' : '') : 'operating point')
-        + (slowOn ? li('rgba(255,255,255,0.3)', 'slider value I<sub>eff</sub> (tick)') : '')];
+        + (slowOn ? li('rgba(255,255,255,0.3)', 'slider value I<sub>eff</sub> (tick)') : '')
+        + (slowOn ? li(params.adapt && params.excit ? '#A0B1BA' : params.excit ? 'var(--c-pos)' : 'var(--c-neg)', 'feedback load line: input felt at a steady rate f (dashed)')
+            + (params.adapt && params.excit ? li('var(--c-pos)', 'w<sup>+</sup> alone / ', .7).replace('</span></div>', '<span style="color:var(--c-neg)">w<sup>−</sup> alone</span> (dotted)</span></div>') : '')
+            + '<div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><path d="M6 1 L11 6 L6 11 L1 6 Z" fill="#dcdcdc"/></svg><span>steady state: filled stable, hollow unstable (rest or firing)</span></div>' : '')];
   document.getElementById('pp-legend').innerHTML = `<div class="legend-section-title">${L[0]}</div>` + L[1];
   delete ppX.lo; delete ppX.hi; delete ppY.lo; delete ppY.hi;
 }
