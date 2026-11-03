@@ -7,10 +7,10 @@
   const save = (key, on) => { try { localStorage.setItem(key + location.pathname, on ? '1' : '0'); } catch (e) {} };
 
   // Plain view buttons, highlighted while their part is shown:
-  //  - Phase plane (or f–I) panel, shown by default. Hidden, the oscilloscope
+  //  - Phase plane (or f–I) panel, always shown when the page opens. Hidden, the oscilloscope
   //    takes the full width.
   //  - Firing rate (pages that define window.setRateView): an extra scope with
-  //    the Gaussian-kernel rate, off by default.
+  //    the instantaneous rate 1/ISI, always off when the page opens.
   // Computer: end of the row above the plots. Phone: end of the presets.
   const plots = widget.querySelector('.plots');
   const panel = plots && plots.querySelector(':scope > #phase, :scope > #fi, :scope > .phase-wrap');
@@ -30,10 +30,10 @@
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'win-btn view-btn'; b.textContent = label;
       box.appendChild(b);
-      let on = load(key, dflt);
+      let on = dflt;                       // always start from the default (not remembered)
       const set = o => { apply(o); b.classList.toggle('active', o); b.setAttribute('aria-pressed', String(o)); };
       set(on);
-      b.addEventListener('click', () => { on = !on; set(on); save(key, on); });
+      b.addEventListener('click', () => { on = !on; set(on); });
     };
     if (hasRate) viewBtn('Firing rate', 'rate-on:', false, o => window.setRateView(o));
     if (panel) {
