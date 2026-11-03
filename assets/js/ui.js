@@ -6,14 +6,17 @@
   const load = (key, dflt) => { try { const v = localStorage.getItem(key + location.pathname); return v === null ? dflt : v === '1'; } catch (e) { return dflt; } };
   const save = (key, on) => { try { localStorage.setItem(key + location.pathname, on ? '1' : '0'); } catch (e) {} };
 
-  // Phase plane (or f–I) panel: a plain button, highlighted while the panel is
-  // shown (shown by default). Hidden, the oscilloscope takes the full width.
+  // Plain view buttons, highlighted while their part is shown:
+  //  - Phase plane (or f–I) panel, shown by default. Hidden, the oscilloscope
+  //    takes the full width.
+  //  - Firing rate (pages that define window.setRateView): an extra scope with
+  //    the Gaussian-kernel rate, off by default.
   // Computer: end of the row above the plots. Phone: end of the presets.
   const plots = widget.querySelector('.plots');
   const panel = plots && plots.querySelector(':scope > #phase, :scope > #fi, :scope > .phase-wrap');
-  if (panel) {
-    panel.classList.add('pp-panel');
-    let row = plots.previousElementSibling;
+  const hasRate = typeof window.setRateView === 'function';
+  if (panel || hasRate) {
+    let row = plots && plots.previousElementSibling;
     const presets = widget.querySelector('.presets-row, .presets');
     if (phone && presets) row = presets;
     if (!row || !row.matches('.win-row, .presets-row, .presets')) {
@@ -22,18 +25,24 @@
     }
     const box = document.createElement('div');
     box.className = 'fb-btns view-btns';
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'win-btn view-btn';
-    b.textContent = panel.id === 'fi' ? 'f–I curve' : 'Phase plane';
-    box.appendChild(b); row.appendChild(box);
-    let open = load('panel-open2:', true);
-    const set = o => {
-      plots.classList.toggle('pp-collapsed', !o);
-      b.classList.toggle('active', o); b.setAttribute('aria-pressed', String(o));
-      window.dispatchEvent(new Event('resize'));        // canvases refit to the new width
+    row.appendChild(box);
+    const viewBtn = (label, key, dflt, apply) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'win-btn view-btn'; b.textContent = label;
+      box.appendChild(b);
+      let on = load(key, dflt);
+      const set = o => { apply(o); b.classList.toggle('active', o); b.setAttribute('aria-pressed', String(o)); };
+      set(on);
+      b.addEventListener('click', () => { on = !on; set(on); save(key, on); });
     };
-    set(open);
-    b.addEventListener('click', () => { open = !open; set(open); save('panel-open2:', open); });
+    if (hasRate) viewBtn('Firing rate', 'rate-on:', false, o => window.setRateView(o));
+    if (panel) {
+      panel.classList.add('pp-panel');
+      viewBtn(panel.id === 'fi' ? 'f–I curve' : 'Phase plane', 'panel-open2:', true, o => {
+        plots.classList.toggle('pp-collapsed', !o);
+        window.dispatchEvent(new Event('resize'));      // canvases refit to the new width
+      });
+    }
   }
 
   // Legend: an arrow bar where the legend starts shows / hides it. Open by

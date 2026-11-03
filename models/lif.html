@@ -10,6 +10,7 @@
   <script src="../assets/js/time-axis.js"></script>
   <script src="../assets/js/scope.js"></script>
   <script src="../assets/js/palette.js"></script>
+  <script src="../assets/js/rate.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -194,6 +195,10 @@
         <div class="legend-dot" style="background: var(--c-neg); margin-left: -2px;"></div>
         <span>input pulses (excite up, inhibit down)</span>
       </div>
+      <div class="legend-item rate-show" hidden>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
+        <span>firing rate, Gaussian kernel σ = 25 ms (dots: 1/ISI)</span>
+      </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
         <span>V<sub>&theta;</sub> (spike threshold)</span>
@@ -258,6 +263,9 @@ let params = { ...DEFAULTS, ...PRESETS.SUB };
 const TRACE_LEN = 600;
 const vHistory  = new Float32Array(TRACE_LEN), mHistory = new Float32Array(TRACE_LEN);
 const pHistory  = new Float32Array(TRACE_LEN), kHistory = new Int8Array(TRACE_LEN);
+const sHistory  = new Int8Array(TRACE_LEN);     // 1 where a spike happened (firing rate)
+let showRate = false;
+const rangeR = {};
 vHistory.fill(params.V_rest);
 let traceHead = 0;
 let traceFull = false;
@@ -344,7 +352,8 @@ function drawTrace() {
 
   // Oscilloscope: V scope, plus one scope per active slow current
   const sub = [params.adapt && 'm', params.excit && 'p'].filter(Boolean);
-  const rects = scopeRects(W, H, sub.length === 2 ? [0.5, 0.25, 0.25] : sub.length ? [0.66, 0.34] : [1]);
+  const nS = sub.length + (showRate ? 1 : 0), vW = [1, 0.66, 0.5, 0.4][nS];
+  const rects = scopeRects(W, H, [vW, ...Array(nS).fill((1 - vW) / nS)]);
   const rV = rects[0];
   const vMin = -95, vMax = -20;
   const yV = scopeY(rV, vMin, vMax);
@@ -400,6 +409,7 @@ function drawTrace() {
   tctx.globalAlpha = 1;
 
   // sweep cursor
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], sHistory, TRACE_LEN, traceHead, traceFull, 1, rangeR, COL.V);
   const last = rects[rects.length - 1];
   const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
   tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
@@ -601,7 +611,7 @@ function loop() {
   const steps = Math.round(dtReal * speed); // 1 sim-ms per real-ms at speed=1
   for (let s = 0; s < steps; s++) {
     step();
-    vHistory[traceHead] = V; mHistory[traceHead] = wm; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse;
+    vHistory[traceHead] = V; mHistory[traceHead] = wm; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = lastSpikeStep === simStep ? 1 : 0;
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
     phM[phaseHead] = wm; phP[phaseHead] = wp; phaseHead = (phaseHead + 1) % PHASE_LEN;
@@ -710,7 +720,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
   V = params.V_rest; wm = 0; wp = 0; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
-  vHistory.fill(params.V_rest); mHistory.fill(0); pHistory.fill(0); kHistory.fill(0);
+  vHistory.fill(params.V_rest); mHistory.fill(0); pHistory.fill(0); kHistory.fill(0); sHistory.fill(0);
   phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false;
   lastSpikeStep = null; simISI = null;
@@ -742,6 +752,9 @@ function renderEq() {
     + (A ? String.raw`,\quad w^- \leftarrow w^- + b^-` : '') + (E ? String.raw`,\quad w^+ \leftarrow w^+ + b^+` : ''),
     document.getElementById('eq2'), opt);
 }
+
+// firing-rate scope, switched by the 'Firing rate' button (assets/js/ui.js)
+window.setRateView = on => { showRate = on; delete rangeR.lo; delete rangeR.hi; document.querySelectorAll('.rate-show').forEach(el => { el.hidden = !on; }); };
 
 applyPreset('SUB');
 requestAnimationFrame(loop);

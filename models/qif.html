@@ -10,6 +10,7 @@
   <script src="../assets/js/time-axis.js"></script>
   <script src="../assets/js/scope.js"></script>
   <script src="../assets/js/palette.js"></script>
+  <script src="../assets/js/rate.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -235,6 +236,10 @@
         <div class="legend-dot" style="background: var(--c-neg); margin-left: -2px;"></div>
         <span>input pulses (excite up, inhibit down)</span>
       </div>
+      <div class="legend-item rate-show" hidden>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
+        <span>firing rate, Gaussian kernel σ = 25 ms (dots: 1/ISI)</span>
+      </div>
       <div class="legend-item">
         <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
         <span>V<sub>T</sub> (threshold of the quadratic)</span>
@@ -326,6 +331,8 @@ let params = { ...DEFAULTS, ...PRESETS.TONIC };
 const TRACE_LEN = 20000;                       // 2 s at DT = 0.1 ms
 const vHist = new Float32Array(TRACE_LEN), mHist = new Float32Array(TRACE_LEN);
 const pHist = new Float32Array(TRACE_LEN), uHist = new Int8Array(TRACE_LEN);   // u = input pulse sign
+const sHist = new Int8Array(TRACE_LEN);        // 1 where a spike happened (firing rate)
+let showRate = false;
 vHist.fill(E_L);
 let traceHead = 0, traceFull = false;
 const PHASE_LEN = 12000;
@@ -343,7 +350,7 @@ let windowMs = 500, traceEff = Math.round(500 / DT);
 function setWindow(ms) {
   windowMs = ms;
   traceEff = Math.min(Math.round(ms / DT), TRACE_LEN);
-  vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0);
+  vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0); sHist.fill(0);
   traceHead = 0; traceFull = false;
   document.querySelectorAll('#win-btns .win-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.win) === ms));
 }
@@ -445,7 +452,7 @@ function growRange(st, lo, hi, stepv = W_STEP) {
   if (st.lo === undefined || nLo < st.lo) st.lo = nLo;
   return st;
 }
-const R = { tm: {}, tp: {}, ph: {}, px: {}, py: {} };
+const R = { tm: {}, tp: {}, ph: {}, px: {}, py: {}, rate: {} };
 const resetRanges = () => Object.values(R).forEach(o => { delete o.hi; delete o.lo; });
 
 // ── Trace: stacked scopes (V, then w⁻ and/or w⁺) ──────────────────────────
@@ -453,7 +460,8 @@ function drawTrace() {
   const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H;
   tctx.clearRect(0, 0, W, traceCanvas._lh);
   const sub = [params.adapt && 'm', params.excit && 'p'].filter(Boolean);
-  const weights = sub.length === 2 ? [0.5, 0.25, 0.25] : sub.length === 1 ? [0.66, 0.34] : [1];
+  const nS = sub.length + (showRate ? 1 : 0), vW = [1, 0.66, 0.5, 0.4][nS];
+  const weights = [vW, ...Array(nS).fill((1 - vW) / nS)];
   const rects = scopeRects(W, H, weights), rV = rects[0];
   const vMin = Math.min(E_L, params.V_r) - 10, vMax = V_peak + 10;
   const yV = scopeY(rV, vMin, vMax);
@@ -510,6 +518,7 @@ function drawTrace() {
   pulses(0, traceHead, 1);
   tctx.globalAlpha = 1;
 
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], sHist, traceEff, traceHead, traceFull, DT, R.rate, COL.V);
   const last = rects[rects.length - 1];
   const cx = Math.round(rV.x + (traceHead / traceEff) * rV.w) + 0.5;
   tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
@@ -824,7 +833,7 @@ function loop() {
   phaseShow = Math.max(1200, Math.min(PHASE_LEN, Math.round(((16.7 / DT) * speed) * 60)));
   for (let s = 0; s < steps; s++) {
     step();
-    vHist[traceHead] = V; mHist[traceHead] = wm; pHist[traceHead] = wp; uHist[traceHead] = curPulse;
+    vHist[traceHead] = V; mHist[traceHead] = wm; pHist[traceHead] = wp; uHist[traceHead] = curPulse; sHist[traceHead] = spiking ? 1 : 0;
     if (++traceHead >= traceEff) { traceHead = 0; traceFull = true; }
     phV[phaseHead] = V; phM[phaseHead] = wm; phP[phaseHead] = wp;
     if (++phaseHead >= PHASE_LEN) { phaseHead = 0; phaseFull = true; }
@@ -944,7 +953,7 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
   V = E_L; wm = 0; wp = 0; spiking = false; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null;
-  vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0);
+  vHist.fill(E_L); mHist.fill(0); pHist.fill(0); uHist.fill(0); sHist.fill(0);
   phV.fill(E_L); phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
   traceHead = 0; traceFull = false; phaseHead = 0; phaseFull = false;
   sliders.forEach(([key, slId, valId, fmt]) => {
@@ -972,6 +981,9 @@ function renderEq() {
     + (A ? String.raw`,\quad w^- \leftarrow w^- + b^-` : '') + (E ? String.raw`,\quad w^+ \leftarrow w^+ + b^+` : ''),
     document.getElementById('eq3'), opt);
 }
+
+// firing-rate scope, switched by the 'Firing rate' button (assets/js/ui.js)
+window.setRateView = on => { showRate = on; delete R.rate.lo; delete R.rate.hi; document.querySelectorAll('.rate-show').forEach(el => { el.hidden = !on; }); };
 
 applyPreset('TONIC');
 requestAnimationFrame(loop);

@@ -10,6 +10,7 @@
   <script src="../assets/js/time-axis.js"></script>
   <script src="../assets/js/scope.js"></script>
   <script src="../assets/js/palette.js"></script>
+  <script src="../assets/js/rate.js"></script>
   <style>
     /* Page-specific layout only - shared styles live in assets/css/site.css */
 
@@ -183,6 +184,10 @@
         <div class="legend-dot" style="background: var(--c-neg); margin-left: -2px;"></div>
         <span>input pulses (excite up, inhibit down)</span>
       </div>
+      <div class="legend-item rate-show" hidden>
+        <div class="legend-dot" style="background: var(--c-v);"></div>
+        <span>firing rate, Gaussian kernel σ = 25 ms (dots: 1/ISI)</span>
+      </div>
     </div>
     <div class="legend-section" id="pp-legend"></div>
     <div class="legend-section">
@@ -252,6 +257,9 @@ const vHistory  = new Float32Array(TRACE_LEN);
 const uHistory  = new Float32Array(TRACE_LEN);
 const pHistory  = new Float32Array(TRACE_LEN);
 const kHistory  = new Int8Array(TRACE_LEN);    // pulse sign
+const sHistory  = new Int8Array(TRACE_LEN);    // 1 where a spike happened (firing rate)
+let showRate = false;
+const rRange = {};
 let traceHead   = 0;
 let traceFull   = false;
 const PHASE_LEN = 400;   // phase-plane trail length (samples); shorter = trail fades sooner
@@ -342,7 +350,9 @@ function drawTrace() {
 
   // Oscilloscope: v scope on top, u (and w⁺) below, shared time axis
   const E = params.excit;
-  const [rV, rU, rP] = E ? scopeRects(W, H, [0.5, 0.25, 0.25]) : scopeRects(W, H, [0.66, 0.34]);
+  const nS = 1 + (E ? 1 : 0) + (showRate ? 1 : 0), vW = [1, 0.66, 0.5, 0.4][nS];
+  const rects = scopeRects(W, H, [vW, ...Array(nS).fill((1 - vW) / nS)]);
+  const rV = rects[0], rU = rects[1], rP = E ? rects[2] : undefined;
   const vMin = -90, vMax = 40;
   const yV = scopeY(rV, vMin, vMax);
   const end = traceFull ? TRACE_LEN : traceHead;
@@ -400,7 +410,8 @@ function drawTrace() {
   tctx.globalAlpha = 1;
 
   // sweep cursor through all scopes
-  const last = rP || rU;
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], sHistory, TRACE_LEN, traceHead, traceFull, 1, rRange, COL.V);
+  const last = rects[rects.length - 1];
   const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
   tctx.strokeStyle = 'rgba(255,255,255,0.15)'; tctx.lineWidth = 1;
   tctx.beginPath(); tctx.moveTo(cx, rV.y); tctx.lineTo(cx, last.y + last.h); tctx.stroke();
@@ -579,7 +590,7 @@ function loop() {
   for (let s = 0; s < speed; s++) {
     const spiked = step();
     // draw the spike up to its 30 mV peak (v is reset in the same step)
-    vHistory[traceHead] = spiked ? 30 : v; uHistory[traceHead] = u; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse;
+    vHistory[traceHead] = spiked ? 30 : v; uHistory[traceHead] = u; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = spiked ? 1 : 0;
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
     phaseV[phaseHead] = v; phaseU[phaseHead] = u; phaseP[phaseHead] = wp;
@@ -664,7 +675,7 @@ document.getElementById('sl-spd').addEventListener('input', function() {
 function applyPreset(name) {
   params = { ...WP_DEFAULTS, ...PRESETS[name] };
   v = -65; u = params.b * v; wp = 0; pulseLeft = 0; curPulse = 0;
-  vHistory.fill(-65); uHistory.fill(params.b * v); pHistory.fill(0); kHistory.fill(0);
+  vHistory.fill(-65); uHistory.fill(params.b * v); pHistory.fill(0); kHistory.fill(0); sHistory.fill(0);
   phaseV.fill(-65); phaseU.fill(u); phaseP.fill(0); sparkU.fill(u); sparkP.fill(0);
   traceHead = 0; traceFull = false; lastSpikeU = null; lastSpikeW = null;
   delete uRange.lo; delete uRange.hi;
@@ -692,6 +703,9 @@ function renderEq() {
   katex.render(String.raw`\text{if } v \geq 30\,\text{mV} \;:\quad v \leftarrow c,\quad u \leftarrow u + d`
     + (E ? String.raw`,\quad w^+ \leftarrow w^+ + d^+` : ''), document.getElementById('eq3'), opt);
 }
+
+// firing-rate scope, switched by the 'Firing rate' button (assets/js/ui.js)
+window.setRateView = on => { showRate = on; delete rRange.lo; delete rRange.hi; document.querySelectorAll('.rate-show').forEach(el => { el.hidden = !on; }); };
 
 applyPreset('RS');
 requestAnimationFrame(loop);
