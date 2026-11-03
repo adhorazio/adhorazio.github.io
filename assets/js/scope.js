@@ -28,6 +28,29 @@ function niceTicks(lo, hi, maxN) {
   return out;
 }
 
+// Scope labels (y numbers, signal names, reference-line labels) are drawn on
+// top of the traces: drawScope / scopeRefLine queue them, and
+// flushScopeLabels (called by drawTimeAxis at the end of each trace frame)
+// paints them last, with a thin dark outline so they stay readable over a trace.
+const SCOPE_LABELS = [];
+function queueScopeLabel(ctx, text, x, y, align, base, color) {
+  SCOPE_LABELS.push({ ctx, text, x, y, align, base, color });
+}
+function flushScopeLabels(ctx) {
+  ctx.save();
+  ctx.font = '10px monospace'; ctx.lineJoin = 'round'; ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(30,30,30,0.85)';
+  for (let i = 0; i < SCOPE_LABELS.length;) {
+    const L = SCOPE_LABELS[i];
+    if (L.ctx !== ctx) { i++; continue; }
+    ctx.textAlign = L.align; ctx.textBaseline = L.base;
+    ctx.strokeText(L.text, L.x, L.y);
+    ctx.fillStyle = L.color; ctx.fillText(L.text, L.x, L.y);
+    SCOPE_LABELS.splice(i, 1);
+  }
+  ctx.restore();
+}
+
 // Frame of one scope: faint grid lines with inline labels (unit taken from
 // the signal label, e.g. "v (mV)" -> "-40 mV"), the signal label in its
 // colour, and a faint separator above the scope (except the top one).
@@ -49,12 +72,9 @@ function drawScope(ctx, r, lo, hi, label, color, ticks) {
     if (yy < r.y + 12 || yy > r.y + r.h - 1) return; // keep labels inside the scope
     ctx.strokeStyle = '#333';
     ctx.beginPath(); ctx.moveTo(r.x, yy); ctx.lineTo(r.x + r.w, yy); ctx.stroke();
-    ctx.fillStyle = '#555';
-    ctx.fillText(t + unit, r.x + 4, yy - 3);
+    queueScopeLabel(ctx, t + unit, r.x + 4, yy - 3, 'left', 'bottom', '#555');
   });
-  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-  ctx.fillStyle = color;
-  ctx.fillText(label, r.x + r.w - 6, r.y + 4);
+  queueScopeLabel(ctx, label, r.x + r.w - 6, r.y + 4, 'right', 'top', color);
   ctx.restore();
 }
 
@@ -73,8 +93,7 @@ function scopeRefLine(ctx, r, yv, color, dash, label, labelColor) {
   ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash);
   ctx.beginPath(); ctx.moveTo(r.x, yy); ctx.lineTo(r.x + r.w, yy); ctx.stroke();
   if (label) {
-    ctx.setLineDash([]); ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = labelColor || color; ctx.fillText(label, r.x + r.w - 6, yy - 2);
+    queueScopeLabel(ctx, label, r.x + r.w - 6, yy - 2, 'right', 'bottom', labelColor || color);
   }
   ctx.restore();
 }

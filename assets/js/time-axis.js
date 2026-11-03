@@ -7,6 +7,7 @@
 const TIME_AXIS_H = 20;
 
 function drawTimeAxis(ctx, W, H, spanMs, x0 = 0) {
+  if (typeof flushScopeLabels === 'function') flushScopeLabels(ctx);   // scope labels over the traces
   const steps = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000];
   const step = steps.find(s => spanMs / s <= 6) || 5000;
   const useSeconds = spanMs >= 1000;
