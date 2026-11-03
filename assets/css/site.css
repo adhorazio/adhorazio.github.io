@@ -297,6 +297,18 @@ button, .adapt-header, .card { touch-action: manipulation; }
 @media (hover: hover) { .legend-toggle:hover { color: var(--accent); } }
 @media (pointer: coarse) { .legend-toggle { min-height: 40px; } }
 .legend-toggle + .legend { border-top: none !important; padding-top: 0.4rem !important; }
+/* same arrow for the phase plane / f–I panel (ui.js): under both plots on a
+   computer, between the oscilloscope and the panel on a phone; collapsed, the
+   oscilloscope takes the full width */
+.plots > .pp-toggle { grid-column: 1 / -1; order: 1; border-top: none; padding: 0.1rem 0; }
+.plots.pp-collapsed { grid-template-columns: minmax(0, 1fr) !important; }
+.plots.pp-collapsed > .pp-panel { display: none !important; }
+@media (max-width: 760px) { .plots > .pp-panel { order: 2; } }
+/* phones: plots run to the edges of the widget box, a wider oscilloscope */
+@media (max-width: 600px) {
+  .widget .plots { margin-left: -1rem; margin-right: -1rem; }
+  .widget .plots > .pp-toggle { padding-left: 1rem; }
+}
 .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
 .legend-section-title, .ref-label {
   font-size: 0.65rem;
