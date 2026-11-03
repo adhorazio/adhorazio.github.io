@@ -1,13 +1,15 @@
 // Firing rate for the oscilloscopes:
 //  - dots: instantaneous rate 1/ISI at each spike;
-//  - line: Gaussian-kernel rate  r(t) = Σ_k exp(−(t − t_k)² / 2σ²) / (σ √2π)  (Hz, t in ms).
+//  - line: adaptive Gaussian-kernel rate  r(t) = Σ_k exp(−(t − t_k)² / 2σ_k²) / (σ_k √2π)
+//    (Hz, t in ms). Each spike gets its own width σ_k = α × its local ISI
+//    (mean of the ISIs on both sides), kept between 3 and 60 ms: narrow kernels
+//    where the neuron fires fast (bursts stay visible), wide ones where it fires
+//    slowly (no ripple between spikes). With σ ≈ ISI the ripple is negligible.
 // Spike times are kept in their own list (RATE_REC), so spikes that already
-// left the screen still count for the kernel. The line is drawn only where its
-// kernel is complete: RATE_DELAY behind the newest sample (it waits for the
-// spikes that are still to come) and RATE_DELAY after a reset. With σ = 40 ms
-// the line no longer ripples with each spike at the usual rates (> ~8 Hz).
-const RATE_SIGMA = 40;                    // ms
-const RATE_DELAY = 2.5 * RATE_SIGMA;      // ms (100 ms)
+// left the screen still count. The line is drawn only where its kernel is
+// complete: 2.5 σ of the newest spike behind the newest sample (short when the
+// neuron fires fast).
+const RATE_ALPHA = 0.8, RATE_SMIN = 3, RATE_SMAX = 60;   // σ_k = α·ISI_local, ms
 
 const RATE_REC = {
   times: [], tNow: 0, t0: 0,
@@ -21,10 +23,20 @@ const RATE_REC = {
 function drawRateScope(ctx, r, rec, N, head, full, ms, state, color) {
   const n = full ? N : head;
   const times = rec.times, tNow = rec.tNow, tOld = tNow - (n - 1) * ms;
-  const sg = RATE_SIGMA, k = 1000 / (sg * Math.sqrt(2 * Math.PI)), s2 = 2 * sg * sg, cut = 4 * sg;
-  const tMax = tNow - RATE_DELAY, tMin = rec.t0 + RATE_DELAY;
   const lower = t => { let lo = 0, hi = times.length; while (lo < hi) { const m = (lo + hi) >> 1; if (times[m] < t) lo = m + 1; else hi = m; } return lo; };
   const idxOfT = t => { const a = Math.round((tNow - t) / ms); const i = head - 1 - a; return full ? (i + N) % N : i; };
+
+  // kernel width of each spike that can reach the screen
+  const cut = 4 * RATE_SMAX, q0 = lower(Math.max(rec.t0, tOld - cut)), Q = times.length;
+  const sig = new Float32Array(Math.max(0, Q - q0));
+  for (let q = q0; q < Q; q++) {
+    const L = q > 0 && times[q - 1] >= rec.t0 ? times[q] - times[q - 1] : NaN;
+    const R = q + 1 < Q ? times[q + 1] - times[q] : NaN;
+    const isi = isNaN(L) ? (isNaN(R) ? RATE_SMAX / RATE_ALPHA : R) : (isNaN(R) ? L : 0.5 * (L + R));
+    sig[q - q0] = Math.min(RATE_SMAX, Math.max(RATE_SMIN, RATE_ALPHA * isi));
+  }
+  const tMax = Q > q0 ? Math.min(tNow, Math.max(times[Q - 1] + 2.5 * sig[Q - 1 - q0], tNow - 2.5 * RATE_SMAX)) : tNow;
+  const tMin = rec.t0;
 
   const cols = Math.max(2, Math.floor(r.w));
   const vals = new Float32Array(cols), tcol = new Float32Array(cols);
@@ -36,13 +48,15 @@ function drawRateScope(ctx, r, rec, N, head, full, ms, state, color) {
     const t = tNow - age * ms; tcol[c] = t;
     if (t > tMax || t < tMin) { vals[c] = NaN; continue; }
     let sum = 0;
-    for (let q = lower(t - cut); q < times.length && times[q] <= t + cut; q++) {
-      const d = t - times[q]; sum += Math.exp(-d * d / s2);
+    for (let q = Math.max(q0, lower(t - cut)); q < Q && times[q] <= t + cut; q++) {
+      const sg = sig[q - q0], d = t - times[q];
+      if (Math.abs(d) > 4 * sg) continue;
+      sum += Math.exp(-d * d / (2 * sg * sg)) / sg;
     }
-    vals[c] = sum * k; if (vals[c] > mx) mx = vals[c];
+    vals[c] = sum * 1000 / Math.sqrt(2 * Math.PI); if (vals[c] > mx) mx = vals[c];
   }
   const dots = [];
-  for (let q = Math.max(1, lower(tOld)); q < times.length; q++) {
+  for (let q = Math.max(1, lower(tOld)); q < Q; q++) {
     if (times[q - 1] < rec.t0) continue;
     const f = 1000 / (times[q] - times[q - 1]);
     dots.push([times[q], f]); if (f > mx) mx = f;
