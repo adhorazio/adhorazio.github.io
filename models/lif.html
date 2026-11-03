@@ -557,6 +557,25 @@ function drawFICurve() {
     fctx.beginPath(); fctx.moveTo(xs, mt + cH - 6); fctx.lineTo(xs, mt + cH + 4); fctx.stroke();
   }
   const op_I = Math.min(Math.max(Iop, 0), I_MAX);
+  // Hovering Excite / Inhibit: preview where the pulse would move the operating
+  // point (input ± pulse), green for excite, red for inhibit
+  if (hoverPulse && params.excit) {
+    const Ih = Iop - curPulse * PULSE_AMP + hoverPulse * PULSE_AMP;
+    const col = hoverPulse > 0 ? COL.POS : COL.NEG;
+    const x0 = xi(op_I), y0 = yf(fiFreq(Iop));
+    const x1 = xi(Math.min(Math.max(Ih, 0), I_MAX)), y1 = yf(fiFreq(Ih));
+    fctx.save();
+    fctx.strokeStyle = col + '55'; fctx.lineWidth = 1; fctx.setLineDash([2, 3]);
+    fctx.beginPath(); fctx.moveTo(x1, mt); fctx.lineTo(x1, mt + cH); fctx.stroke();
+    fctx.strokeStyle = col + 'cc'; fctx.setLineDash([3, 3]);
+    fctx.beginPath(); fctx.moveTo(x0, y0); fctx.lineTo(x1, y1); fctx.stroke();
+    fctx.setLineDash([]);
+    fctx.fillStyle = '#1e1e1e'; fctx.strokeStyle = col; fctx.lineWidth = 1.6;
+    fctx.beginPath(); fctx.arc(x1, y1, 4.5, 0, 2 * Math.PI); fctx.fill(); fctx.stroke();
+    fctx.fillStyle = col; fctx.font = '10px monospace'; fctx.textAlign = x1 > ml + cW - 60 ? 'right' : 'left';
+    fctx.fillText((hoverPulse > 0 ? '+' : '−') + PULSE_AMP + ' mV', x1 + (fctx.textAlign === 'right' ? -7 : 7), y1 - 6);
+    fctx.restore();
+  }
   drawStateDot(fctx, xi(op_I), yf(fiFreq(Iop)), 4.5);
 }
 
@@ -748,6 +767,13 @@ document.getElementById('btn-p').addEventListener('click', () => toggle('excit')
   h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(key); } });
 });
 document.getElementById('pp-btns').addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (b) setPP(b.dataset.pp); });
+// preview of a pulse on the f–I curve while the pointer is on its button
+let hoverPulse = 0;
+document.querySelectorAll('#pulse-btns [data-pulse]').forEach(b => {
+  const on = () => { hoverPulse = parseInt(b.dataset.pulse); }, off = () => { hoverPulse = 0; };
+  b.addEventListener('pointerenter', on); b.addEventListener('focus', on);
+  b.addEventListener('pointerleave', off); b.addEventListener('blur', off);
+});
 document.getElementById('pulse-btns').addEventListener('click', e => {
   const b = e.target.closest('[data-pulse]'); if (!b) return;
   pulseSign = parseInt(b.dataset.pulse); pulseLeft = PULSE_STEPS;
