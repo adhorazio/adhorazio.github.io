@@ -160,14 +160,19 @@ canvas { display: block; border-radius: 6px; background: var(--canvas); }
 }
 .control-group label span[id] { color: var(--gdv-q5); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* Sliders: the element is a tall transparent strip (easy to grab, also with a
+   finger), the visible track is the thin bar drawn inside it. Negative margins
+   keep the layout as compact as before. pan-y: a vertical swipe that starts on a
+   slider still scrolls the page, a horizontal one moves the slider. */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--border);
+  height: 22px;
+  margin: -8px 0;
+  background: transparent;
   cursor: pointer;
+  touch-action: pan-y;
   /* Thumb: a small visible dot inside a larger invisible grab area. The thumb box
      keeps its size (17 px, 26 px on touch screens); --dot sets how much of it is
      drawn. Hover and drag light it up like the white state dot of the phase
@@ -181,9 +186,11 @@ input[type="range"] {
       #d9f1ff 0, #6cc4ef calc(var(--dot) * 0.55), var(--accent) var(--dot),
       rgba(0, 154, 222, 0.38) calc(var(--dot) + 4%), rgba(0, 154, 222, 0) 100%);
 }
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--border); }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 17px; height: 17px;
+  margin-top: -5.5px;              /* centre the thumb on the 6 px track */
   border-radius: 50%;
   background: var(--thumb-bg);
   border: none;
@@ -270,8 +277,26 @@ input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; backgro
 .adapt-sliders.open { display: grid; }
 @media (max-width: 600px) { .adapt-label { display: none; } }
 
+/* taps react at once on phones (no double-tap zoom delay) */
+button, .adapt-header, .card, input[type="range"] { -webkit-tap-highlight-color: transparent; }
+button, .adapt-header, .card { touch-action: manipulation; }
+
 /* ── Legend ── */
 .legend { display: flex; flex-direction: column; gap: 1rem; font-size: 0.72rem; color: var(--text-dim); }
+/* arrow button that shows / hides the legend (added by assets/js/ui.js) */
+.legend-toggle {
+  display: flex; align-items: center; gap: 0.45rem; width: 100%;
+  padding: 0.9rem 0 0.1rem; margin: 0;
+  border: none; border-top: 1px solid var(--border); background: none;
+  color: var(--text-dim); font: inherit; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; text-align: left;
+  transition: color var(--dur) var(--ease);
+}
+.legend-toggle .chev { display: inline-block; font-size: 0.8rem; transition: transform var(--dur) var(--ease); }
+.legend-toggle.open .chev { transform: rotate(90deg); }
+@media (hover: hover) { .legend-toggle:hover { color: var(--accent); } }
+@media (pointer: coarse) { .legend-toggle { min-height: 40px; } }
+.legend-toggle + .legend { border-top: none !important; padding-top: 0.4rem !important; }
 .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
 .legend-section-title, .ref-label {
   font-size: 0.65rem;
@@ -333,10 +358,10 @@ footer a:hover { color: var(--accent); }
 /* ── Touch screens: finger-sized controls ── */
 @media (pointer: coarse) {
   .preset-btn { min-height: 40px; }
-  input[type="range"] { height: 8px; }
-  input[type="range"] { --dot: 50%; }   /* same 13 px dot, bigger finger area */
-  input[type="range"]::-webkit-slider-thumb { width: 26px; height: 26px; }
-  input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; }
+  /* finger-sized grab area: 40 px tall strip, 34 px thumb, same ~13 px visible dot */
+  input[type="range"] { height: 40px; margin: -12px 0; --dot: 38%; }
+  input[type="range"]::-webkit-slider-thumb { width: 34px; height: 34px; margin-top: -14px; }
+  input[type="range"]::-moz-range-thumb { width: 34px; height: 34px; }
   .control-group { gap: 0.6rem; }
 }
 
