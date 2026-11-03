@@ -198,6 +198,34 @@ input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.3); backgr
 input[type="range"]:active::-moz-range-thumb     { transform: scale(1.3); background: var(--thumb-bg-active); }
 input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--border); }
 
+/* ── Small secondary buttons (window, feedback switches, input pulses, phase view) ── */
+.win-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.win-label { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.06em; }
+.fb-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.win-btn {
+  padding: 0.25rem 0.7rem; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); font: inherit; font-size: 0.72rem; cursor: pointer;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease),
+              background-color var(--dur) var(--ease), transform 120ms var(--ease);
+}
+.win-btn:active { transform: scale(0.97); }
+.win-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.win-btn.on-pos { border-color: var(--c-pos); color: var(--c-pos); background: rgba(0, 205, 108, 0.12); }
+.win-btn.on-neg { border-color: var(--c-neg); color: var(--c-neg); background: rgba(255, 31, 91, 0.12); }
+/* input pulses: yellow (input), flash green (excite) / red (inhibit) */
+.win-btn.pulse-btn { border-color: rgba(255, 198, 30, 0.45); color: var(--c-in); }
+.win-btn.pulse-btn.fired[data-pulse="1"]  { background: rgba(0, 205, 108, 0.22); }
+.win-btn.pulse-btn.fired[data-pulse="-1"] { background: rgba(255, 31, 91, 0.22); }
+@media (hover: hover) {
+  .win-btn:not(.active):not(.on-pos):not(.on-neg):not(.pulse-btn):hover { border-color: var(--accent); color: var(--text); }
+  .win-btn.on-pos:hover    { border-color: var(--c-pos); color: var(--c-pos); }
+  .win-btn.on-neg:hover    { border-color: var(--c-neg); color: var(--c-neg); }
+  .win-btn.pulse-btn:hover { border-color: var(--c-in);  color: var(--c-in); }
+}
+@media (pointer: coarse) { .win-btn { min-height: 34px; } }
+[hidden] { display: none !important; }
+
 /* ── Feedback-current sections (design of the main-site aLIF page) ──
    One box per slow current: header = toggle pill + name + sparkline with its
    mean μ; the current's sliders open under it. Green = self-excitation
