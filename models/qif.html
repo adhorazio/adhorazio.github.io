@@ -619,7 +619,41 @@ function drawPhaseLine() {
     pctx.fillText('threshold', xv(eqs[1].Ve), ys(0) + 16);
     pctx.textAlign = 'left';
   }
-  drawStateDot(pctx, xv(Math.max(vLo, Math.min(vHi, V))), ys(Math.max(yLo, Math.min(yHi, f(V)))), 4.5);
+  // The state lives on the V axis (1-D system): the white dot moves along the
+  // zero line, slowly near rest / the bottleneck, fast towards the spike, then
+  // jumps back to V_r. A short fading trail shows its recent path; a thin
+  // dashed stem links it to the curve, i.e. how fast it is moving now.
+  const xd = xv(Math.max(vLo, Math.min(vHi, V))), y0 = ys(0);
+  {
+    const { tLen, tIdx } = trailIdx(), n = Math.min(tLen, 600);
+    pctx.save(); pctx.lineCap = 'round'; pctx.lineWidth = 3;
+    const RUN = 60;
+    for (let i0 = tLen - n + 1; i0 < tLen; i0 += RUN) {
+      const i1 = Math.min(i0 + RUN, tLen), a = 0.05 + 0.45 * ((i1 - (tLen - n)) / n);
+      pctx.strokeStyle = `rgba(${COL.TRAJ},${a.toFixed(2)})`;
+      pctx.beginPath();
+      let pen = false;
+      for (let i = i0; i < i1; i++) {
+        const v0 = phV[tIdx(i - 1)], v1 = phV[tIdx(i)];
+        if (v1 < v0 - 5) { pen = false; continue; }          // reset jump: no line back
+        if (!pen) { pctx.moveTo(xv(Math.max(vLo, Math.min(vHi, v0))), y0); pen = true; }
+        pctx.lineTo(xv(Math.max(vLo, Math.min(vHi, v1))), y0);
+      }
+      pctx.stroke();
+    }
+    pctx.restore();
+  }
+  const fy = f(V);
+  if (fy > yLo && fy < yHi) {
+    pctx.save();
+    pctx.strokeStyle = 'rgba(255,255,255,0.35)'; pctx.lineWidth = 1; pctx.setLineDash([2, 3]);
+    pctx.beginPath(); pctx.moveTo(xd, y0); pctx.lineTo(xd, ys(fy)); pctx.stroke();
+    pctx.setLineDash([]);
+    pctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    pctx.beginPath(); pctx.arc(xd, ys(fy), 3, 0, 2 * Math.PI); pctx.stroke();
+    pctx.restore();
+  }
+  drawStateDot(pctx, xd, y0, 4.5);
 }
 
 // (V, w⁻) or (V, w⁺): the other slow current is frozen at its present value
@@ -829,7 +863,7 @@ function setPP(mode) {
   const vs = li('rgba(255,255,255,0.3)', 'V<sub>spike</sub> (spike &amp; reset)');
   const tj = li('var(--c-v)', 'trajectory');
   const L = {
-    v:  li('var(--c-in)', 'dV/dt (set by I)') + vs + dot('state V'),
+    v:  li('var(--c-in)', 'dV/dt (set by I)') + vs + dot('state V (moves along the axis)') + li('var(--c-v)', 'recent path') + li('rgba(255,255,255,0.4)', 'its speed dV/dt (on the curve)'),
     m:  li('var(--c-in)', 'V-nullcline (set by I)') + li('var(--c-neg)', 'w<sup>−</sup>-nullcline', .55) + vs + tj + dot('state (V, w<sup>−</sup>)'),
     p:  li('var(--c-in)', 'V-nullcline (set by I)') + li('var(--c-pos)', 'w<sup>+</sup>-nullcline', .55) + vs + tj + dot('state (V, w<sup>+</sup>)'),
     mp: li('var(--c-in)', 'spiking line I + w<sup>+</sup> − w<sup>−</sup> = I<sub>SN</sub> (set by I; fires above)') + tj + dot('state (w<sup>−</sup>, w<sup>+</sup>)'),
