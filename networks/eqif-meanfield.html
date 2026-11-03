@@ -141,7 +141,7 @@
 
   <div class="controls">
     <div class="control-group">
-      <label><span>I — input current</span><span id="val-I">90 pA</span></label>
+      <label><span>I<sub>ext</sub> — input current</span><span id="val-I">90 pA</span></label>
       <input type="range" id="sl-I" min="0" max="200" step="5" value="90" />
     </div>
     <div class="control-group">
@@ -179,7 +179,7 @@
           <input type="range" id="sl-b" min="0" max="60" step="1" value="20" />
         </div>
         <div class="control-group">
-          <label><span>τ<sub>w</sub> — time const.</span><span id="val-tw">20 ms</span></label>
+          <label><span>τ<sub>I<sub>w</sub></sub> — time const.</span><span id="val-tw">20 ms</span></label>
           <input type="range" id="sl-tw" min="5" max="200" step="5" value="20" />
         </div>
       </div>
@@ -260,11 +260,15 @@
     <div class="eq-row" id="eq2"></div>
     <div class="eq-row" id="eq3"></div>
     <div class="eq-row" id="eq4"></div>
+    <div class="eq-row" id="eq5"></div>
+    <div class="eq-row" id="eq6"></div>
     <div class="eq-note">
-      Exact reduction of an infinite network of all-to-all coupled eQIF neurons whose
-      excitabilities η follow a Lorentzian of centre η̄ and half-width Δη: r is the
-      population firing rate, V̄ the mean membrane potential. Taken in the limit
-      V<sub>spike</sub> → ∞, V<sub>r</sub> → −∞; the finite-reset correction is left out.
+      Mean field of an infinite network of all-to-all coupled eQIF neurons whose
+      excitabilities η follow a Lorentzian of centre η̄ and half-width Δη (Eq. 24 of the paper).
+      r is the population firing rate; V, I<sub>w</sub> and g<sub>syn</sub> are population
+      averages (V̄ on the plots). The reduction assumes V<sub>peak</sub> = −V<sub>reset</sub> → ∞;
+      the adjusted current I* puts back the finite V<sub>peak</sub> and V<sub>reset</sub> of the
+      network (Gast et al. correction, SI Eq. 42).
     </div>
   </div>
 </div>
@@ -275,6 +279,8 @@
   <span id="fp3"></span>
   <span id="fp4"></span>
   <span id="fp5"></span>
+  <span id="fp6"></span>
+  <span id="fp7"></span>
 </div>
 
 </main>
@@ -283,6 +289,7 @@
   <div class="footer-ref">
     <span class="ref-label">References</span>
     D. Depannemaecker, A. d&rsquo;Hollande <em>et al.</em> (2026). A minimal model of working memory in neural systems and neuromorphic circuits. <em>Nature Communications</em>, 17, 9867 (Eq. 24 and SI Table III). <a href="https://www.nature.com/articles/s41467-026-75704-3" target="_blank" rel="noopener">nature.com</a><br/>
+    R. Gast, S. A. Solla &amp; A. Kennedy (2023). Macroscopic dynamics of neural networks with heterogeneous spiking thresholds. <em>Physical Review E</em>, 107, 024306.<br/>
     E. Montbri&oacute;, D. Paz&oacute; &amp; A. Roxin (2015). Macroscopic description for networks of spiking neurons. <em>Physical Review X</em>, 5, 021028.<br/>
     L. Chen &amp; S. A. Campbell (2022). Exact mean-field models for spiking neural networks with adaptation. <em>Journal of Computational Neuroscience</em>, 50, 445&ndash;469.
   </div>
@@ -295,12 +302,13 @@
 <script>
 // ── eQIF mean field (Depannemaecker, d'Hollande et al. 2026, Eq. 24) ──────
 //   C dr/dt  = g_L r (2V − V_T − E_L) − g r + Δη g_L / (π C)
-//   C dV/dt  = g_L (V − V_T)(V − E_L) − π² C² r² / g_L + η̄ + I + I_w + g (E_e − V)
+//   C dV/dt  = g_L (V − V_T)(V − E_L) + I_w + η̄ + I* + g (E_e − V) − π² C² r² / g_L
 //   τ_w dI_w/dt = a (V − E_L) − I_w + τ_w b r       self-excitation (green)
 //   dg/dt    = −g / τ_syn + w_e r                     recurrent synapses (teal)
 // r in 1/ms inside the model, shown in Hz.
 
 const C_m = 200, g_L = 10, E_L = -62, V_T = -55, E_e = 0;   // pF, nS/mV, mV
+const V_peak = -20, V_reset = -70;                            // mV, used by I* only
 const DT = 0.01, REC = 10, REC_MS = DT * REC;                // ms; one record every 0.1 ms
 const PULSE_AMP = 100, PULSE_MS = 50;                        // pA, ms
 const PI2 = Math.PI * Math.PI, V_MID = (V_T + E_L) / 2;
@@ -367,11 +375,27 @@ const eff = () => ({
   Cc: params.D * g_L / (Math.PI * C_m),
 });
 // right-hand side, per ms: [dr, dV, dI_w, dg]
+// Adjusted input I* (SI Eq. 42, Gast et al. 2023): the input that makes the
+// V_peak = −V_reset → ∞ rate equal the rate of a neuron with the real V_peak,
+// V_reset (adiabatic I_w, g_syn; same for all neurons, η → η̄).
+//   C dV/dt = g_L V² − A V + g_L V_T E_L + B,  A = g_L(V_T + E_L) + g_syn,
+//   B = I_w + η̄ + I_ext + g_syn E_e,  μ = 4(g_L V_T E_L + B)/g_L − (A/g_L)²
+//   γ = atan((2V_peak − A/g_L)/√μ) − atan((2V_reset − A/g_L)/√μ)
+//   I* = g_L μ π²/(4γ²) + A²/(4g_L) − g_L V_T E_L − g_syn E_e − I_w − η̄   (μ > 0)
+//   I* = I_ext                                                         (μ ≤ 0)
+function Istar(I, ww, gg) {
+  const A = g_L * (V_T + E_L) + gg, B = ww + params.eta + I + gg * E_e;
+  const mu = 4 * (g_L * V_T * E_L + B) / g_L - (A / g_L) * (A / g_L);
+  if (mu <= 0) return I;
+  const sm = Math.sqrt(mu), c = A / g_L;
+  const gam = Math.atan((2 * V_peak - c) / sm) - Math.atan((2 * V_reset - c) / sm);
+  return g_L * mu * PI2 / (4 * gam * gam) + A * A / (4 * g_L) - g_L * V_T * E_L - gg * E_e - ww - params.eta;
+}
 function rhs(s, I) {
   const [rr, vv, ww, gg] = s, e = eff();
   return [
     (g_L * rr * (2 * vv - V_T - E_L) - gg * rr) / C_m + e.Cc / C_m,
-    (g_L * (vv - V_T) * (vv - E_L) - PI2 * C_m * C_m * rr * rr / g_L + params.eta + I + ww + gg * (E_e - vv)) / C_m,
+    (g_L * (vv - V_T) * (vv - E_L) - PI2 * C_m * C_m * rr * rr / g_L + params.eta + Istar(I, ww, gg) + ww + gg * (E_e - vv)) / C_m,
     (e.a * (vv - E_L) - ww) / params.tau_w + e.b * rr,
     -gg / params.tau_s + e.we * rr,
   ];
@@ -610,7 +634,8 @@ function drawPhase() {
   pctx.save(); pctx.beginPath(); pctx.rect(PM.ml, PM.mt, cW, cH); pctx.clip();
   // V̄-nullcline: dV/dt = 0  →  r = √(g_L F(V)) / (π C), with I_w and g frozen
   const vNull = (I, dashed, alpha) => {
-    const F = v => g_L * (v - V_T) * (v - E_L) + params.eta + I + Iw + g * (E_e - v);
+    const Is = Istar(I, Iw, g);
+    const F = v => g_L * (v - V_T) * (v - E_L) + params.eta + Is + Iw + g * (E_e - v);
     styleInputCurve(pctx, dashed); pctx.globalAlpha = alpha;
     pctx.beginPath();
     let pen = false;
@@ -792,14 +817,21 @@ document.getElementById('win-btns').addEventListener('click', e => { const ms = 
 function renderEq() {
   if (!window.katex) return;
   const opt = { displayMode: false, throwOnError: false }, E = params.excit, S = params.syn;
-  katex.render(String.raw`C \frac{dr}{dt} = g_L\, r\,(2\bar V - V_T - E_L)` + (S ? String.raw` - g_\text{syn}\, r` : '') + String.raw` + \frac{\Delta_\eta\, g_L}{\pi C}`,
+  const gs = String.raw`g_\text{syn}`;
+  katex.render(String.raw`C \frac{dr}{dt} = g_L\, r\,(2V - V_T - E_L)` + (S ? ' - r ' + gs : '') + String.raw` + \frac{\Delta_\eta\, g_L}{\pi C}`,
     document.getElementById('eq1'), opt);
-  katex.render(String.raw`C \frac{d\bar V}{dt} = g_L\,(\bar V - V_T)(\bar V - E_L) - \frac{\pi^2 C^2 r^2}{g_L} + \bar\eta + I`
-    + (E ? ' + I_w' : '') + (S ? String.raw` + g_\text{syn}\,(E_e - \bar V)` : ''), document.getElementById('eq2'), opt);
+  katex.render(String.raw`C \frac{dV}{dt} = g_L\,(V - V_T)(V - E_L)` + (E ? ' + I_w' : '') + String.raw` + \bar\eta + I^*`
+    + (S ? ' + ' + gs + String.raw`\,(E_e - V)` : '') + String.raw` - \frac{\pi^2 C^2 r^2}{g_L}`, document.getElementById('eq2'), opt);
   const e3 = document.getElementById('eq3'), e4 = document.getElementById('eq4');
   e3.hidden = !E; e4.hidden = !S;
-  if (E) katex.render(String.raw`\tau_w \frac{dI_w}{dt} = a\,(\bar V - E_L) - I_w + \tau_w\, b\, r \qquad \text{(self-excitation)}`, e3, opt);
-  if (S) katex.render(String.raw`\frac{dg_\text{syn}}{dt} = -\frac{g_\text{syn}}{\tau_\text{syn}} + w_e\, r \qquad \text{(recurrent synapses)}`, e4, opt);
+  if (E) katex.render(String.raw`\tau_{I_w} \frac{dI_w}{dt} = a\,(V - E_L) - I_w + \tau_{I_w}\, b\, r \qquad \text{(self-excitation)}`, e3, opt);
+  if (S) katex.render(String.raw`\frac{d` + gs + String.raw`}{dt} = -\frac{` + gs + String.raw`}{\tau_\text{syn}} + w_e\, r \qquad \text{(recurrent synapses)}`, e4, opt);
+  katex.render(String.raw`I^* = \frac{\pi^2 g_L\, \mu}{4\gamma^2} + \frac{A^2}{4 g_L} - g_L V_T E_L`
+    + (S ? ' - ' + gs + ' E_e' : '') + (E ? ' - I_w' : '') + String.raw` - \bar\eta \;\;\text{if } \mu > 0, \quad I^* = I_\text{ext} \text{ otherwise}`,
+    document.getElementById('eq5'), opt);
+  katex.render(String.raw`A = g_L (V_T + E_L)` + (S ? ' + ' + gs : '') + String.raw`,\;\; \mu = \frac{4}{g_L}\big(g_L V_T E_L` + (E ? ' + I_w' : '')
+    + String.raw` + \bar\eta + I_\text{ext}` + (S ? ' + ' + gs + ' E_e' : '') + String.raw`\big) - \frac{A^2}{g_L^2},\;\; \gamma = \arctan\frac{2V_\text{peak} - A/g_L}{\sqrt\mu} - \arctan\frac{2V_\text{reset} - A/g_L}{\sqrt\mu}`,
+    document.getElementById('eq6'), opt);
 }
 
 applyPreset('MEMORY');
@@ -815,6 +847,8 @@ window.addEventListener('load', () => {
     [String.raw`E_L = -62\,\text{mV}`,   'fp3'],
     [String.raw`V_T = -55\,\text{mV}`,   'fp4'],
     [String.raw`E_e = 0\,\text{mV}`,     'fp5'],
+    [String.raw`V_\text{peak} = -20\,\text{mV}`,  'fp6'],
+    [String.raw`V_\text{reset} = -70\,\text{mV}`, 'fp7'],
   ].forEach(([expr, id]) => katex.render(expr, document.getElementById(id), { displayMode: false }));
 });
 </script>
