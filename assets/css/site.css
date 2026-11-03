@@ -283,31 +283,17 @@ button, .adapt-header, .card { touch-action: manipulation; }
 
 /* ── Legend ── */
 .legend { display: flex; flex-direction: column; gap: 1rem; font-size: 0.72rem; color: var(--text-dim); }
-/* arrow button that shows / hides the legend (added by assets/js/ui.js) */
-.legend-toggle {
-  display: flex; align-items: center; gap: 0.45rem; width: 100%;
-  padding: 0.9rem 0 0.1rem; margin: 0;
-  border: none; border-top: 1px solid var(--border); background: none;
-  color: var(--text-dim); font: inherit; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
-  cursor: pointer; text-align: left;
-  transition: color var(--dur) var(--ease);
-}
-.legend-toggle .chev { display: inline-block; font-size: 0.8rem; transition: transform var(--dur) var(--ease); }
-.legend-toggle.open .chev { transform: rotate(90deg); }
-@media (hover: hover) { .legend-toggle:hover { color: var(--accent); } }
-@media (pointer: coarse) { .legend-toggle { min-height: 40px; } }
-.legend-toggle + .legend { border-top: none !important; padding-top: 0.4rem !important; }
-/* same arrow for the phase plane / f–I panel (ui.js): under both plots on a
-   computer, between the oscilloscope and the panel on a phone; collapsed, the
-   oscilloscope takes the full width */
-.plots > .pp-toggle { grid-column: 1 / -1; order: 1; border-top: none; padding: 0.1rem 0; }
+/* Show / hide chips for the phase plane and the legend (added by assets/js/ui.js):
+   small buttons at the right end of the row above the plots */
+.view-btns { margin-left: auto; }
+.view-btn .chev { display: inline-block; margin-right: 0.35rem; font-size: 0.7rem; transition: transform var(--dur) var(--ease); }
+.view-btn.open .chev { transform: rotate(90deg); }
+.view-btn.open { color: var(--text); }
 .plots.pp-collapsed { grid-template-columns: minmax(0, 1fr) !important; }
 .plots.pp-collapsed > .pp-panel { display: none !important; }
-@media (max-width: 760px) { .plots > .pp-panel { order: 2; } }
 /* phones: plots run to the edges of the widget box, a wider oscilloscope */
 @media (max-width: 600px) {
   .widget .plots { margin-left: -1rem; margin-right: -1rem; }
-  .widget .plots > .pp-toggle { padding-left: 1rem; }
 }
 .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
 .legend-section-title, .ref-label {
