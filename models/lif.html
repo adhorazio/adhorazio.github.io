@@ -93,6 +93,16 @@
   </div>
 
   <!-- Plots first, controls right under them, explanations last -->
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div class="fb-btns" id="win-btns">
+      <button class="win-btn" data-win="100">100 ms</button>
+      <button class="win-btn active" data-win="500">500 ms</button>
+      <button class="win-btn" data-win="1000">1 s</button>
+      <button class="win-btn" data-win="2000">2 s</button>
+    </div>
+  </div>
+
   <div class="plots">
     <div id="canvas-wrap">
       <canvas id="trace" height="300"></canvas>
@@ -260,10 +270,11 @@ const PULSE_AMP = 10, PULSE_STEPS = 50;      // ±10 mV for 50 ms (1 step = 1 ms
 
 let params = { ...DEFAULTS, ...PRESETS.SUB };
 
-const TRACE_LEN = 600;
-const vHistory  = new Float32Array(TRACE_LEN), mHistory = new Float32Array(TRACE_LEN);
-const pHistory  = new Float32Array(TRACE_LEN), kHistory = new Int8Array(TRACE_LEN);
-const sHistory  = new Int8Array(TRACE_LEN);     // 1 where a spike happened (firing rate)
+const TRACE_MAX = 2000;   // buffer: 2 s at 1 ms per sample
+let TRACE_LEN = 500;       // samples shown = window in ms
+const vHistory  = new Float32Array(TRACE_MAX), mHistory = new Float32Array(TRACE_MAX);
+const pHistory  = new Float32Array(TRACE_MAX), kHistory = new Int8Array(TRACE_MAX);
+const sHistory  = new Int8Array(TRACE_MAX);     // 1 where a spike happened (firing rate)
 let showRate = false;
 const rangeR = {};
 vHistory.fill(params.V_rest);
@@ -815,6 +826,14 @@ function renderEq() {
 window.setRateView = on => { showRate = on; delete rangeR.lo; delete rangeR.hi; document.querySelectorAll('.rate-show').forEach(el => { el.hidden = !on; }); };
 
 applyPreset('SUB');
+// time window of the oscilloscope (1 sample = 1 ms); the sweep restarts
+function setWindow(ms) {
+  TRACE_LEN = Math.min(TRACE_MAX, Math.round(ms));
+  traceHead = 0; traceFull = false;
+  document.querySelectorAll('#win-btns .win-btn').forEach(b => b.classList.toggle('active', +b.dataset.win === ms));
+}
+document.getElementById('win-btns').addEventListener('click', e => { const b = e.target.closest('[data-win]'); if (b) setWindow(+b.dataset.win); });
+
 requestAnimationFrame(loop);
 window.addEventListener('load', renderEq);
 </script>

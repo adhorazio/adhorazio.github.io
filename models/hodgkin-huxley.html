@@ -64,6 +64,16 @@
   </div>
 
   <!-- Plots first, controls right under them, explanations last -->
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div class="fb-btns" id="win-btns">
+      <button class="win-btn" data-win="50">50 ms</button>
+      <button class="win-btn active" data-win="100">100 ms</button>
+      <button class="win-btn" data-win="200">200 ms</button>
+      <button class="win-btn" data-win="500">500 ms</button>
+    </div>
+  </div>
+
   <div class="plots">
     <div id="canvas-wrap">
       <canvas id="trace" height="380"></canvas>
@@ -192,12 +202,13 @@ let h = xinf(alphaH, betaH, V);
 let n = xinf(alphaN, betaN, V);
 
 const DT = 0.05;                       // ms per RK4 step = per sample
-const TRACE_LEN = 2000;                // 2000 x 0.05 ms = 100 ms per sweep
-const TRACE_MS = TRACE_LEN * DT;
-const vHistory = new Float32Array(TRACE_LEN);
-const mHistory = new Float32Array(TRACE_LEN);
-const hHistory = new Float32Array(TRACE_LEN);
-const nHistory = new Float32Array(TRACE_LEN);
+const TRACE_MAX = 10000;               // buffer: 10000 x 0.05 ms = 500 ms
+let TRACE_LEN = 2000;                  // samples shown: 2000 x 0.05 ms = 100 ms per sweep
+let TRACE_MS = TRACE_LEN * DT;
+const vHistory = new Float32Array(TRACE_MAX);
+const mHistory = new Float32Array(TRACE_MAX);
+const hHistory = new Float32Array(TRACE_MAX);
+const nHistory = new Float32Array(TRACE_MAX);
 let traceHead = 0, traceFull = false;
 vHistory.fill(V); mHistory.fill(m); hHistory.fill(h); nHistory.fill(n);
 
@@ -480,6 +491,14 @@ function applyPreset(name) {
 document.getElementById('presets').addEventListener('click', e => {
   if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
 });
+
+// time window of the oscilloscope (0.05 ms per sample); the sweep restarts
+function setWindow(ms) {
+  TRACE_LEN = Math.min(TRACE_MAX, Math.round(ms / DT)); TRACE_MS = TRACE_LEN * DT;
+  traceHead = 0; traceFull = false;
+  document.querySelectorAll('#win-btns .win-btn').forEach(b => b.classList.toggle('active', +b.dataset.win === ms));
+}
+document.getElementById('win-btns').addEventListener('click', e => { const b = e.target.closest('[data-win]'); if (b) setWindow(+b.dataset.win); });
 
 requestAnimationFrame(loop);
 
