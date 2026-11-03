@@ -55,7 +55,7 @@ spike. Pages whose model has adaptation built in (Izhikevich u, AdEx w) keep it 
 get the w+ switch. With w+ on: Excite/Inhibit pulses (+-100 pA, 50 ms; yellow buttons flashing green/red,
 green/red blocks under V). Phase views offered by what is on: (V, dV/dt) phase line, (V, w-), (V, w+),
 slow plane (w-, w+) with the 45-degree spiking line I + w+ - w- = I_SN; equilibria from the full Jacobian.
-Reference implementation: models/qif.html (both currents togglable, w-/w+ naming, phase line / (V,w-) / (V,w+) / slow plane (w-,w+)).
+Done on qif.html (w- and w+ switches), lif.html (w-, w+; f-I dot at I_eff - w- + w+, slow plane), izhikevich.html (u fixed, w+ in the paper's SI form a+(b+ v - w+), +d+), adex.html (w fixed, w+). HH is not touched. Each page has a checked 'Working memory' preset.
 Phase planes: recovery nullcline thin and faint, trajectory bright; the input-current
 curve (V-nullcline, rheobase) always uses styleInputCurve() and is clipped, never flattened.
 Spike plots are stacked scopes (assets/js/scope.js): one scope per signal (V on top,
