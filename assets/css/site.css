@@ -283,13 +283,23 @@ button, .adapt-header, .card { touch-action: manipulation; }
 
 /* ── Legend ── */
 .legend { display: flex; flex-direction: column; gap: 1rem; font-size: 0.72rem; color: var(--text-dim); }
-/* Show / hide chips for the phase plane and the legend (added by assets/js/ui.js):
-   small buttons at the right end of the row above the plots */
+/* Legend show / hide bar (added by assets/js/ui.js), where the legend starts */
+.legend-toggle {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  padding: 0.8rem 0 0.1rem; margin: 0;
+  border: none; border-top: 1px solid var(--border); background: none;
+  color: var(--text-dim); font: inherit; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; text-align: left;
+  transition: color var(--dur) var(--ease);
+}
+.legend-toggle .chev { display: inline-block; font-size: 1.15rem; line-height: 1; transition: transform var(--dur) var(--ease); }
+.legend-toggle.open .chev { transform: rotate(90deg); }
+@media (hover: hover) { .legend-toggle:hover { color: var(--accent); } }
+@media (pointer: coarse) { .legend-toggle { min-height: 40px; } }
+.legend-toggle + .legend { border-top: none !important; padding-top: 0.4rem !important; }
+/* Phase plane / f–I button (ui.js): right end of the row above the plots
+   (end of the presets on phones), highlighted while the panel is shown */
 .view-btns { margin-left: auto; align-self: center; }
-@media (max-width: 600px) { .view-btn { padding: 0.25rem 0.55rem; } }
-.view-btn .chev { display: inline-block; margin-right: 0.35rem; font-size: 0.7rem; transition: transform var(--dur) var(--ease); }
-.view-btn.open .chev { transform: rotate(90deg); }
-.view-btn.open { color: var(--text); }
 .plots.pp-collapsed { grid-template-columns: minmax(0, 1fr) !important; }
 .plots.pp-collapsed > .pp-panel { display: none !important; }
 /* phones: plots run to the edges of the widget box, a wider oscilloscope */
