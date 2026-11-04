@@ -349,7 +349,7 @@ function drawTrace() {
   const nS = sub.length + (showRate ? 1 : 0), vW = [1, 0.66, 0.5, 0.4][nS];
   const rects = scopeRects(W, H, [vW, ...Array(nS).fill((1 - vW) / nS)]);
   const rV = rects[0];
-  fbSteadyRange(rangeV, -0.15 * params.V_sub, Math.max(params.V_above * 1.15, Inet() * params.Rm + 5), 10);
+  fbSteadyRange(rangeV, -0.15 * params.V_sub, Math.max(params.V_above * 1.3, Inet() * params.Rm + 5), 10);
   const vMin = rangeV.lo, vMax = rangeV.hi;
   const yV = scopeY(rV, vMin, vMax);
   drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V);
