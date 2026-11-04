@@ -16,6 +16,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `assets/js/scope.js` — stacked scopes: scopeRects, drawScope (inline grid labels), inScope, scopeRefLine.
 - `assets/js/time-axis.js` — shared `drawTimeAxis()` for neuron traces (strip under the plot, t in ms/s).
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
+- `models/alif.html` — analogue (memristive) LIF of Wu, d'Hollande et al. PR Applied 2025, rebuilt in the new design: spike between V_sub and V_above (block), w⁻/w⁺ = pure decay + b per spike (nA), f–I with load lines, slow plane with spiking and block lines; presets incl. Working memory (C_m 0.02, I 36, b⁺ 6, τ⁺ 100; pulses ±30 nA × 100 ms).
 - `networks/eqif-meanfield.html` — eQIF mean field (paper Eq. 24 with the I* finite-reset correction, SI Eq. 42): r, V̄, I_w (green), g_syn (teal #089099); phase plane (V̄, r); r and V̄ axes come from the equilibria, population spikes are clipped and labelled.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
 - `tools/lissajous.html` — Lissajous tool.
