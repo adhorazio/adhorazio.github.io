@@ -16,7 +16,7 @@ Static GitHub Pages site. Plain HTML/CSS/JS, no build step, no framework.
 - `assets/js/scope.js` — stacked scopes: scopeRects, drawScope (inline grid labels), inScope, scopeRefLine.
 - `assets/js/time-axis.js` — shared `drawTimeAxis()` for neuron traces (strip under the plot, t in ms/s).
 - `networks/clione.html` + `clione.js` — Clione network; own full-screen design.
-- `models/alif.html` — analogue (memristive) LIF of Wu, d'Hollande et al. PR Applied 2025, rebuilt in the new design: spike between V_sub and V_above (block), w⁻/w⁺ = pure decay + b per spike (nA), f–I with load lines, slow plane with spiking and block lines; presets incl. Working memory (C_m 0.02, I 36, b⁺ 6, τ⁺ 100; pulses ±30 nA × 100 ms).
+- `models/alif.html` — memristive analog LIF on Nat. Commun. Eqs. 10–15 (g_M open/closed thyristor, real discharge through R_a, reopens below V_reset ≈ I_H R_a; τ_w dI_w/dt = −I_w + B(V), B = b Σδ, b in nC so each spike adds b/τ_w and mean I_w = b f). Units V, µA, kΩ, nF, ms. R_m 680 kΩ, R_a 2.2 kΩ, τ_w 22 ms from the circuit; V_th 30.6 V (45 µA rheobase) and V_reset 5 V are estimates; C_m rescaled 220 → 33 nF so rates reach tens of Hz (Adrien's choice). Working memory: 38 µA, b 740 nC, pulses +10 / −8 µA × 100 ms → ~60 Hz persistent (narrow b window, ~720–760). Optional I_w⁻ (sign-flipped twin). No depolarization-block preset (Eq. 12 has no block).
 - `networks/eqif-meanfield.html` — eQIF mean field (paper Eq. 24 with the I* finite-reset correction, SI Eq. 42): r, V̄, I_w (green), g_syn (teal #089099); phase plane (V̄, r); r and V̄ axes come from the equilibria, population spikes are clipped and labelled.
   `clione.js` holds the 18 trajectory cases, quantised to 1e-3 and delta-encoded.
 - `tools/lissajous.html` — Lissajous tool.
