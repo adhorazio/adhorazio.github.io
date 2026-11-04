@@ -141,7 +141,7 @@
     </div>
     <div class="control-group">
       <label><span>speed</span><span id="val-spd">&frac14;&times;</span></label>
-      <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.25" />
+      <input type="range" id="sl-spd" min="1" max="7" step="1" value="2" autocomplete="off" />
     </div>
   </div>
 
@@ -715,7 +715,7 @@ function drawSpark(id, buf, color, meanId) {
 // ── Animation loop ────────────────────────────────────────────────────────────
 function loop() {
   const now = performance.now();
-  const speed = parseFloat(document.getElementById('sl-spd').value);
+  const speed = SPD_MAP[parseInt(document.getElementById('sl-spd').value) - 1];
   const dtReal = lastFrameTime !== null ? Math.min(now - lastFrameTime, 100) : 16.7;
   lastFrameTime = now;
   const steps = Math.round(dtReal * speed / DT);
@@ -839,10 +839,11 @@ SLIDERS.forEach(([key, slId, valId, dec, fmt]) => {
   });
   sl.addEventListener('change', () => { delete fiR.lo; delete fiR.hi; delete rangeV.lo; delete rangeV.hi; });
 });
-document.getElementById('sl-spd').addEventListener('input', function () {
-  const v = parseFloat(this.value);
-  document.getElementById('val-spd').textContent = v === 0.25 ? '¼×' : v === 0.5 ? '½×' : v === 0.75 ? '¾×' : v + '×';
-});
+// speed: ⅛× to 2× (simulated ms per real ms)
+const SPD_MAP = [0.125, 0.25, 0.5, 0.75, 1, 1.5, 2], SPD_LABELS = ['⅛×', '¼×', '½×', '¾×', '1×', '1.5×', '2×'];
+const showSpd = () => { document.getElementById('val-spd').textContent = SPD_LABELS[parseInt(document.getElementById('sl-spd').value) - 1]; };
+document.getElementById('sl-spd').addEventListener('input', showSpd);
+showSpd();
 
 function applyPreset(name) {
   params = { ...DEFAULTS, ...PRESETS[name] };
