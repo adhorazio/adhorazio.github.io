@@ -6,229 +6,25 @@
   <title>Lissajous Figures — Spiking Neuromorphics</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="../assets/css/site.css" />
   <style>
-    :root {
-      --gdv-q1: #FF1F5B;
-      --gdv-q2: #00CD6C;
-      --gdv-q3: #009ADE;
-      --gdv-q4: #AF58BA;
-      --gdv-q5: #FFC61E;
-      --gdv-q6: #F28522;
-      --gdv-q7: #A0B1BA;
-      --gdv-q8: #A6761D;
-      --bg: #2b2b2b;
-      --surface: #333333;
-      --border: #444444;
-      --text: #e0e0e0;
-      --text-dim: #888888;
-      --accent: var(--gdv-q3);
-    }
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 2rem 2rem;
-    }
-
-    header {
-      width: 100%;
-      max-width: 900px;
-      padding: 16px 0 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.05rem;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--text);
-    }
-
-    header a {
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      text-decoration: none;
-      letter-spacing: 0.04em;
-      transition: color 0.15s;
-    }
-
-    header a:hover { color: var(--accent); }
-
-    main {
-      flex: 1;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .widget {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem 2rem 2rem;
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-
-    .widget-title {
-      font-size: 0.85rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
-
-    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-    .preset-btn {
-      padding: 0.5rem 1.05rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text-dim);
-      font-size: 0.82rem;
-      font-weight: 500;
-      letter-spacing: 0.01em;
-      cursor: pointer;
-      transition: border-color 0.18s, color 0.18s, background 0.18s,
-                  transform 0.12s ease, box-shadow 0.18s;
-    }
-
-    .preset-btn:hover {
-      border-color: var(--gdv-q3);
-      color: var(--text);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    }
-
-    .preset-btn:active { transform: scale(0.97); box-shadow: none; }
-
-    .preset-btn.active {
-      border-color: var(--gdv-q3);
-      background: rgba(0, 154, 222, 0.14);
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
-
-    #liss-wrap { display: flex; gap: 1rem; align-items: flex-start; }
-
-    #lissajous {
-      display: block;
-      width: 220px;
-      height: 220px;
-      flex-shrink: 0;
-      border-radius: 6px;
-      background: #1e1e1e;
-    }
-
+    /* Lissajous figure centred; waveforms full width underneath */
+    .plots { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    #lissajous { width: 380px; max-width: 100%; height: auto; aspect-ratio: 1; }
     #canvas-wrap { position: relative; width: 100%; }
+    #trace { width: 100%; height: 150px; }
 
-    #trace {
-      display: block;
-      width: 100%;
-      height: 120px;
-      border-radius: 6px;
-      background: #1e1e1e;
-    }
-
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.8rem 1.2rem;
-    }
-
-    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
-
-    .control-group label {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .control-group label span {
-      color: var(--gdv-q5);
-      font-variant-numeric: tabular-nums;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      outline: none;
-      cursor: pointer;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 17px; height: 17px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: none;
-      transition: transform 0.12s ease, box-shadow 0.15s ease;
-    }
-    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
-    input[type="range"]:active::-webkit-slider-thumb {
-      transform: scale(1.12);
-      box-shadow: 0 0 0 6px rgba(0, 154, 222, 0.18);
-    }
-
-    input[type="range"]::-moz-range-track {
-      height: 6px; border-radius: 3px; background: var(--border);
-    }
-    input[type="range"]::-moz-range-thumb {
-      width: 17px; height: 17px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: none;
-    }
-
+    /* "What is what" sits under the controls, as a quiet row */
     .legend {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
     }
-
-    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
-
-    .legend-section-title {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      opacity: 0.6;
-      margin-bottom: 0.1rem;
-    }
-
-    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
-
-    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
-
-    .legend-note {
-      font-size: 0.64rem;
-      opacity: 0.45;
-      margin-top: 0.1rem;
-    }
-
+    .legend-axes { display: contents; } /* X and Y simply follow Trace in the row */
     .freq-display {
       font-size: 0.68rem;
       color: var(--gdv-q5);
@@ -236,98 +32,12 @@
       margin-top: 0.15rem;
     }
 
-    .equations {
-      width: 100%;
-      max-width: 900px;
-      margin-top: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .eq-label {
-      font-size: 0.68rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 0.4rem;
-    }
-
-    .eq-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .eq-row { padding: 0.55rem 1rem; }
-    .eq-row .katex { color: var(--text); font-size: 1rem; }
-
-    footer {
-      width: 100%;
-      max-width: 900px;
-      padding: 0 0 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-top: 2.5rem;
-    }
-
-    .footer-ref {
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      line-height: 1.5;
-      padding: 0.75rem 0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .ref-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      opacity: 0.6;
-      display: block;
-      margin-bottom: 0.25rem;
-    }
-
-    .footer-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    footer a {
-      color: var(--text-dim);
-      text-decoration: none;
-      transition: color 0.15s;
-    }
-
-    footer a:hover { color: var(--accent); }
-
-    /* ── Mobile ── */
     @media (max-width: 600px) {
-      body { padding: 0 1rem 1.5rem; }
-      header h1 { font-size: 1.6rem; }
-      .widget { padding: 1.25rem 1rem 1.5rem; }
-
-      /* Dissolve the figure+legend wrapper so its children join the widget's
-         flex column, then reorder so the explanatory legend sits AFTER the
-         controls — you can read what each control changes while dragging it. */
-      #liss-wrap   { display: contents; }
-      .widget-title{ order: 0; }
-      .presets     { order: 1; }
-      #lissajous   { order: 2; width: 100%; max-width: 100%; height: auto; }
-      #canvas-wrap { order: 3; }
-      .controls    { order: 4; }
-      .legend      { order: 5; flex-direction: column; }
-
-      .eq-row { overflow-x: auto; }
+      .legend { flex-direction: column; gap: 1rem; }
+      #trace { height: 140px; }
     }
   </style>
+  <script src="../assets/js/ui.js" defer></script>
 </head>
 <body>
 
@@ -351,41 +61,12 @@
     <button class="preset-btn" data-preset="P6Q5">6:5</button>
   </div>
 
-  <div id="liss-wrap">
-    <canvas id="lissajous" width="220" height="220"></canvas>
-    <div class="legend">
-      <div class="legend-section">
-        <div class="legend-section-title">X axis (horizontal)</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>X₁ = sin(2πt)</span>
-        </div>
-        <div class="legend-note">A₁ = 1 &nbsp;·&nbsp; f₁ = 1 Hz &nbsp;·&nbsp; φ₁ = 0 &nbsp;— fixed</div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-section-title">Y axis (vertical)</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
-          <span>X₂ = A₂ sin(2πf₂t + φ₂)</span>
-        </div>
-        <div class="freq-display" id="ratio-display">f₂ / f₁ = 2:1</div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-section-title">Trace</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: rgba(255,255,255,0.15);"></div>
-          <span>ghost (full curve)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>live trail</span>
-        </div>
-      </div>
+  <!-- Figure (centre), full-width waveforms under it, controls, explanations last -->
+  <div class="plots">
+    <canvas id="lissajous" width="380" height="380"></canvas>
+    <div id="canvas-wrap">
+      <canvas id="trace" height="150"></canvas>
     </div>
-  </div>
-
-  <div id="canvas-wrap">
-    <canvas id="trace" height="120"></canvas>
   </div>
 
   <div class="controls">
@@ -404,6 +85,39 @@
     <div class="control-group">
       <label>speed <span id="val-spd">½×</span></label>
       <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.5" />
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <!-- same order as the plots: figure (trace) first, then the waveforms (X, Y) -->
+    <div class="legend-section">
+      <div class="legend-section-title">Trace</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: rgba(255,255,255,0.15);"></div>
+        <span>ghost (full curve)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+        <span>live trail</span>
+      </div>
+    </div>
+    <div class="legend-axes">
+      <div class="legend-section">
+        <div class="legend-section-title">X axis (horizontal)</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
+          <span>X₁ = sin(2πt)</span>
+        </div>
+        <div class="legend-note">A₁ = 1 &nbsp;·&nbsp; f₁ = 1 Hz &nbsp;·&nbsp; φ₁ = 0 &nbsp;— fixed</div>
+      </div>
+      <div class="legend-section">
+        <div class="legend-section-title">Y axis (vertical)</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
+          <span>X₂ = A₂ sin(2πf₂t + φ₂)</span>
+        </div>
+        <div class="freq-display" id="ratio-display">f₂ / f₁ = 2:1</div>
+      </div>
     </div>
   </div>
 </div>
@@ -451,12 +165,16 @@ const lctx            = lissajousCanvas.getContext('2d');
 const traceCanvas     = document.getElementById('trace');
 const tctx            = traceCanvas.getContext('2d');
 
-// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
-const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+// HiDPI: match the canvas pixels exactly to its on-screen size, using the
+// *current* pixel ratio (it changes with Windows display scaling and browser
+// zoom). A mismatch leaves a stretched sliver at the right edge.
 function fitCanvas(c, ctx) {
-  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
-  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const r = c.getBoundingClientRect();
+  const w = r.width || c.width, h = r.height || c.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
   c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
 }
 function resizeCanvases() {
@@ -465,6 +183,10 @@ function resizeCanvases() {
 }
 window.addEventListener('resize', resizeCanvases);
 window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(resizeCanvases);
+  ro.observe(lissajousCanvas); ro.observe(traceCanvas);
+}
 resizeCanvases();
 
 // ── Signals ───────────────────────────────────────────────────────────────────
@@ -553,7 +275,7 @@ function drawLissajous() {
 }
 
 // ── Time-trace canvas ─────────────────────────────────────────────────────────
-const TRACE_DUR  = 4;
+const TRACE_DUR  = 4;   // seconds shown in the waveform panel
 const TRACE_SAMP = 500;
 
 function drawTrace() {
@@ -569,11 +291,6 @@ function drawTrace() {
   tctx.setLineDash([4, 4]);
   tctx.beginPath(); tctx.moveTo(0, H / 2); tctx.lineTo(W, H / 2); tctx.stroke();
   tctx.setLineDash([]);
-
-  // Playhead
-  tctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(W, 0); tctx.lineTo(W, H); tctx.stroke();
 
   const drawSig = (fn, color) => {
     tctx.beginPath();
@@ -689,6 +406,7 @@ updateRatio();
 requestAnimationFrame(loop);
 
 window.addEventListener('load', () => {
+  if (!window.katex) return; // equations are optional (KaTeX CDN unreachable)
   katex.render(
     String.raw`X_1(t) = A_1\,\sin(2\pi f_1\,t + \varphi_1)`,
     document.getElementById('eq1'), { displayMode: false, throwOnError: false }

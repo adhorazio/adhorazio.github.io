@@ -17,15 +17,13 @@
     --muted:    #888888;
     --accent:   #009ADE;
 
-    --n1: #ff6b6b;
-    --n2: #ffa94d;
-    --n3: #c9a800;
-    --n4: #69db7c;
-    --n5: #4dabf7;
-    --n6: #cc5de8;
-
-    --c1: #ff4f4f;
-    --c2: #ff8f30;
+    /* Neurons N1..N6: GeoDataViz qualitative 6a (same hue order as before) */
+    --n1: #FF1F5B;
+    --n2: #F28522;
+    --n3: #FFC61E;
+    --n4: #00CD6C;
+    --n5: #009ADE;
+    --n6: #AF58BA;
     --edge-r: 224; --edge-g: 224; --edge-b: 224;
   }
 
@@ -336,7 +334,7 @@
     justify-self: end;
   }
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1260px) { /* stack the controls before the bigger buttons collide */
     footer {
       grid-template-columns: 1fr;
       justify-items: center;
@@ -591,7 +589,7 @@
   .case-dropdown-item.active {
     background: var(--accent);
     color: #fff;
-    font-weight: 600;
+    text-shadow: 0 0 0.65px currentColor; /* looks bold, keeps width */
   }
 
   .case-dropdown-item.case-toggle-item {
@@ -721,7 +719,7 @@
   .case-dropdown-item.case-toggle-item.active {
     background: var(--case-color, var(--accent));
     border-color: transparent;
-    color: #fff;
+    color: var(--case-ink, #fff);
   }
 
   .case-dropdown-item.case-toggle-item::after {
@@ -850,7 +848,7 @@
 
   /* ── Mobile: let the page scroll so the network can be much taller; the
        controls/reference live below the fold (scroll down to reach them) ── */
-  @media (max-width: 600px) {
+  @media (max-width: 600px), (max-height: 500px) and (pointer: coarse) {
     html, body {
       height: auto;
       min-height: 100%;
@@ -862,10 +860,85 @@
       min-height: 100vh;
       grid-template-rows: auto 68vh auto; /* header · big network · footer */
     }
-    /* drags on the canvas rotate (not scroll); scroll the page from the
-       header / controls areas instead */
-    canvas#cv { touch-action: none; }
   }
+
+  /* Drags on the canvas rotate, pinches zoom (never scroll / page-zoom).
+     On phones, scroll the page from the header / controls areas. */
+  canvas#cv { touch-action: none; }
+
+  /* Narrow phones (e.g. iPhone SE, 320px): let the neuron legend wrap */
+  @media (max-width: 600px) {
+    header { padding: 12px 16px 10px; gap: 10px; }
+    .header-right { gap: 8px; }
+    .neuron-legend { flex-wrap: wrap; gap: 2px 4px; }
+    .axis-sep { display: none; }
+    .shell > div:last-child { flex-direction: column; gap: 6px !important; }
+    .shell > div:last-child span { text-align: left !important; }
+  }
+
+  /* No grey flash rectangle when tapping buttons on phones */
+  button { -webkit-tap-highlight-color: transparent; }
+
+  /* Phones in landscape: compact header, network fills the screen,
+     controls are one scroll below */
+  @media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+    header { padding: 8px 16px 6px; }
+    .subtitle { display: none; }
+    .header-back { margin-top: 2px; }
+    .shell { grid-template-rows: auto 88vh auto; }
+  }
+
+  /* Touch screens: finger-sized buttons */
+  @media (pointer: coarse) {
+    .case-btn, .speed-btn, .rot-btn, .n-dot { min-height: 34px; }
+    .speed-btn, .rot-btn { min-width: 38px; font-size: 12px; }
+    .ctrl-btn { min-height: 40px; }
+  }
+
+  /* Feel: one timing for every button, a small squish when pressed,
+     and a blue ring for keyboard focus */
+  :root { --ease: cubic-bezier(0.22, 1, 0.36, 1); --dur: 180ms; }
+  .case-btn, .speed-btn, .rot-btn, .ctrl-btn, .n-dot, .case-group-btn {
+    transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease),
+                border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+                filter var(--dur) var(--ease), transform 120ms var(--ease);
+  }
+  .case-btn:active, .speed-btn:active, .rot-btn:active,
+  .ctrl-btn:active, .n-dot:active { transform: scale(0.95); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Blue highlight on hover (mouse / trackpad only, so taps don't stick) */
+  @media (hover: hover) {
+    .case-btn:not(.active):hover,
+    .speed-btn:not(.on):hover,
+    .rot-btn:hover,
+    .n-dot:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0, 154, 222, 0.12);
+    }
+    .ctrl-btn:not(.on):hover {
+      color: var(--accent);
+      background: rgba(0, 154, 222, 0.12);
+      box-shadow: inset 0 0 0 1px var(--accent);
+      filter: none;
+    }
+    .case-btn.active:hover,
+    .speed-btn.on:hover,
+    .ctrl-btn.on:hover { filter: brightness(1.15); }
+  }
+
+  /* Bottom controls keep the main-site Clione look (pills; solid blue with
+     white text when on). Speed and rotate buttons are a bit larger. */
+  .shell footer :is(.speed-btn, .rot-btn) {
+    font-size: 12px;
+    padding: 7px 12px;
+  }
+  .shell footer .speed-btn { min-width: 2.4rem; }
+  /* keep the "Speed" label on the same line as its buttons */
+  .shell footer .speed-inline { flex-wrap: nowrap; }
+  .shell footer #speedButtons { gap: 6px; flex-wrap: nowrap; }
+  @media (max-width: 420px) { .shell footer #speedButtons { flex-wrap: wrap; } }
 
 </style>
 </head>
@@ -904,7 +977,7 @@
       <canvas id="cv"></canvas>
       <div class="corner-info">
         <div id="statusMsg" class="status-msg" aria-live="polite"></div>
-        <div>drag to rotate &nbsp;·&nbsp; scroll to zoom</div>
+        <div id="hint">drag to rotate &nbsp;·&nbsp; scroll to zoom</div>
       </div>
     </div>
   </div>
@@ -1169,16 +1242,47 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '-') cycleSpeed(-1);
 });
 
-const VCOLS = ['#ff6b6b','#ffa94d','#c9a800','#69db7c','#4dabf7','#cc5de8'];
+// Colours (GeoDataViz toolkit). Neurons: qualitative 6a, same hue order as before.
+const VCOLS = ['#FF1F5B','#F28522','#FFC61E','#00CD6C','#009ADE','#AF58BA'];
 const VLBLS = ['N1','N2','N3','N4','N5','N6'];
-const CASE_COLS = [
-  '#7c6cfc', '#ff6b6b', '#ffa94d', '#c9a800', '#69db7c', '#4dabf7',
-  '#cc5de8', '#20c997', '#f06595', '#845ef7', '#15aabf', '#fab005',
-  '#ff922b', '#51cf66', '#339af0', '#e64980', '#9775fa', '#12b886'
-];
 
+// Cases are coloured by structure, not by index:
+//  - 8 stable limit cycles (one neuron per antipodal pair): 6a + two GDV ramp tones
+//  - 'Xto135' convergence runs reuse their starting cycle's colour, tinted lighter
+//  - All Cycles AC1 purple, Catastrophic Stops CS1 raspberry, CS2 teal (CVD-safe pair)
+const ATTRACTOR_COLS = {
+  '135':'#009ADE', '136':'#FF1F5B', '146':'#F28522', '246':'#FFC61E',
+  '145':'#00CD6C', '245':'#AF58BA', '236':'#089099', '235':'#ED85B0'
+};
+// AC1 original purple. CS1 / CS2: red and green shifted to raspberry / teal so they stay
+// distinct for colour-blind viewers (deuteranomaly dE ~29 vs ~5 for the old pair)
+const NEUTRAL_COLS = { 17:'#9775fa', 16:'#D12959', 18:'#00B3B8' };  // AC1 purple, CS1 raspberry, CS2 teal
+const TRANSITION_TINT = 0.45;   // mix toward white
+
+function tintHex(hex, t) {
+  const c = hexToRgb(hex);
+  const m = v => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0');
+  return '#' + m(c.r) + m(c.g) + m(c.b);
+}
+
+// Dark label on light case colours (tints, yellow, near-white), white otherwise
+function caseInk(hex) {
+  const c = hexToRgb(hex);
+  return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) > 170 ? '#1e1e1e' : '#fff';
+}
+
+const caseColorCache = new Map();
 function getCaseColor(caseIndex) {
-  return CASE_COLS[caseIndex % CASE_COLS.length];
+  if (caseColorCache.has(caseIndex)) return caseColorCache.get(caseIndex);
+  const name = String((CASES[caseIndex] && CASES[caseIndex].name) || '').trim();
+  let col;
+  const tr = name.match(/^(\d{3})to\d{3}$/);
+  if (ATTRACTOR_COLS[name]) col = ATTRACTOR_COLS[name];
+  else if (tr && ATTRACTOR_COLS[tr[1]]) col = tintHex(ATTRACTOR_COLS[tr[1]], TRANSITION_TINT);
+  else if (NEUTRAL_COLS[Number(CASES[caseIndex] && CASES[caseIndex].id)]) col = NEUTRAL_COLS[Number(CASES[caseIndex].id)];
+  else col = VCOLS[caseIndex % VCOLS.length];
+  caseColorCache.set(caseIndex, col);
+  return col;
 }
 
 // 6-vertex regular prism layout in 3D (two stacked triangles)
@@ -1202,7 +1306,8 @@ for (let i = 0; i < 6; i++)
 // ── CANVAS & CTX ─────────────────────────────────────────────────────────
 const canvas = document.getElementById('cv');
 const ctx = canvas.getContext('2d');
-const dpr = window.devicePixelRatio || 1;
+// Cap at 2x: sharper than that is invisible but costs 2-4x more pixels on phones
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
 function resize() {
   const wrap = canvas.parentElement;
@@ -1476,6 +1581,7 @@ function buildCaseSelector(openGroupName = null) {
       item.className = 'case-dropdown-item case-toggle-item';
       item.dataset.caseIndex = String(i);
       item.style.setProperty('--case-color', getCaseColor(i));
+      item.style.setProperty('--case-ink', caseInk(getCaseColor(i)));
       item.setAttribute('aria-pressed', String(activeSet.has(i)));
       item.textContent = caseLabel(c);
       item.title = `${groupName}: ${caseLabel(c)}`;
@@ -1548,7 +1654,7 @@ document.getElementById('btnCollapseSidebar').addEventListener('click', () => {
 // On phones, start the floating trajectory bubble collapsed so it's a small
 // pill over the corner; the simplex (pushed down in proj) stays fully visible.
 // Collapse instantly on load (no animation), then re-enable transitions.
-if (window.matchMedia('(max-width: 600px)').matches) {
+if (window.matchMedia('(max-width: 600px), (max-height: 500px) and (pointer: coarse)').matches) {
   const sel = document.getElementById('caseSelector');
   const prevTransition = sel.style.transition;
   sel.style.transition = 'none';
@@ -1654,9 +1760,36 @@ canvas.addEventListener('mousedown',  onDragStart);
 canvas.addEventListener('mousemove',  onDragMove);
 canvas.addEventListener('mouseup',    onDragEnd);
 canvas.addEventListener('mouseleave', onDragEnd);
-canvas.addEventListener('touchstart', onDragStart, { passive: true });
-canvas.addEventListener('touchmove',  onDragMove,  { passive: true });
-canvas.addEventListener('touchend',   onDragEnd);
+// Touch: one finger rotates, two fingers pinch to zoom
+let pinch = null;
+function touchDist(t) {
+  return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+}
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length >= 2) {
+    onDragEnd();
+    pinch = { d: touchDist(e.touches) || 1, z: zoom };
+  } else {
+    pinch = null;
+    onDragStart(e);
+  }
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (pinch && e.touches.length >= 2) {
+    zoom = Math.max(0.4, Math.min(2.5, pinch.z * touchDist(e.touches) / pinch.d));
+    return;
+  }
+  onDragMove(e);
+}, { passive: true });
+canvas.addEventListener('touchend', e => {
+  pinch = null;
+  if (e.touches.length === 1) onDragStart(e); // lifted one finger of a pinch
+  else if (!e.touches.length) onDragEnd();
+});
+canvas.addEventListener('touchcancel', () => { pinch = null; onDragEnd(); });
+if (window.matchMedia('(pointer: coarse)').matches) {
+  document.getElementById('hint').innerHTML = 'drag to rotate &nbsp;·&nbsp; pinch to zoom';
+}
 canvas.addEventListener('wheel', e => {
   zoom *= e.deltaY > 0 ? 0.94 : 1.06;
   zoom = Math.max(0.4, Math.min(2.5, zoom));
@@ -1728,6 +1861,23 @@ function getTrajectoryColorTrace(caseIndex) {
 }
 
 // ── DRAW ──────────────────────────────────────────────────────────────────
+// Colour mode: draw the path in short runs that share one colour, instead of
+// one stroke per segment (~10x fewer strokes; the colour still changes smoothly)
+function strokeRuns(P, colorTrace, from, to, run, alpha, width) {
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = width;
+  for (let s = Math.max(1, from); s < to; s += run) {
+    const e = Math.min(s + run, to);
+    const mix = colorTrace[Math.min(s + (run >> 1), e - 1)];
+    ctx.beginPath();
+    ctx.moveTo(P[s - 1][0], P[s - 1][1]);
+    for (let k = s; k < e; k++) ctx.lineTo(P[k][0], P[k][1]);
+    ctx.strokeStyle = `rgba(${mix.r},${mix.g},${mix.b},${alpha})`;
+    ctx.stroke();
+  }
+}
+
 function draw() {
   try {
     // keep the canvas matched to its container (handles late layout shifts:
@@ -1740,10 +1890,12 @@ function draw() {
     const W = canvas.width  / dpr;
     const H = canvas.height / dpr;
     ctx.clearRect(0, 0, W, H);
-    const _cs = getComputedStyle(document.documentElement);
-    const edgeR = _cs.getPropertyValue('--edge-r').trim() || '0';
-    const edgeG = _cs.getPropertyValue('--edge-g').trim() || '0';
-    const edgeB = _cs.getPropertyValue('--edge-b').trim() || '0';
+    // Edge colour read once, not every frame (avoids a style recalculation per frame)
+    if (!draw.edge) {
+      const _cs = getComputedStyle(document.documentElement);
+      draw.edge = ['--edge-r', '--edge-g', '--edge-b'].map(v => _cs.getPropertyValue(v).trim() || '0');
+    }
+    const [edgeR, edgeG, edgeB] = draw.edge;
 
     if (!CASES.length) { requestAnimationFrame(draw); return; }
     if (!activeSet.size) {
@@ -1814,13 +1966,16 @@ function draw() {
     const colorTrace = getTrajectoryColorTrace(i);
     const end = Math.min(frames[i], c.traj.length);
     if (end >= 2) {
+      // Project each point once per frame; the layers below reuse it
+      const P = new Array(end);
+      for (let k = 0; k < end; k++) P[k] = proj(b2c(c.traj[k], rv), view);
       // Draw the trajectory either as a single color or pointwise multicolor.
       if (!usePointColor) {
         if (useGradient) {
           // Step 1: Draw full trajectory very transparent (no flickering base layer)
           ctx.beginPath();
           for (let k = 0; k < end; k++) {
-            const [px, py] = proj(b2c(c.traj[k], rv), view);
+            const [px, py] = P[k];
             if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
           }
           ctx.strokeStyle = hexA(col, 0.08);
@@ -1852,7 +2007,7 @@ function draw() {
               if (layerEndIdx > startIdx) {
                 ctx.beginPath();
                 for (let k = startIdx; k <= Math.min(layerEndIdx, end - 1); k++) {
-                  const [px, py] = proj(b2c(c.traj[k], rv), view);
+                  const [px, py] = P[k];
                   if (k === startIdx) ctx.moveTo(px, py); else ctx.lineTo(px, py);
                 }
                 ctx.strokeStyle = hexA(col, targetAlpha);
@@ -1867,7 +2022,7 @@ function draw() {
           // Full opacity mode
           ctx.beginPath();
           for (let k = 0; k < end; k++) {
-            const [px, py] = proj(b2c(c.traj[k], rv), view);
+            const [px, py] = P[k];
             if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
           }
           ctx.strokeStyle = hexA(col, 1.0);
@@ -1880,19 +2035,7 @@ function draw() {
         // Pointwise multicolor mode
         if (useGradient) {
           // Step 1: Draw full trajectory very transparent
-          for (let k = 1; k < end; k++) {
-            const mix = colorTrace[k];
-            const [x0, y0] = proj(b2c(c.traj[k - 1], rv), view);
-            const [x1, y1] = proj(b2c(c.traj[k], rv), view);
-            ctx.beginPath();
-            ctx.moveTo(x0, y0);
-            ctx.lineTo(x1, y1);
-            ctx.strokeStyle = `rgba(${mix.r},${mix.g},${mix.b},0.08)`;
-            ctx.lineWidth = 1.0;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.stroke();
-          }
+          strokeRuns(P, colorTrace, 1, end, 12, 0.14, 1.0); // 0.14 matches the old look (old per-segment strokes overlapped)
 
           // Step 2: Draw recent portion with smooth gradient (no overlapping)
           // Fixed window size: always last N points (absolute time, not percentage)
@@ -1911,41 +2054,17 @@ function draw() {
             const layerEndIdx = startIdx + Math.floor(actualWindow * layerEndFraction);
 
             if (layerEndIdx > startIdx) {
-              for (let k = startIdx; k < Math.min(layerEndIdx + 1, end); k++) {
-                const mix = colorTrace[k];
-                const [x0, y0] = proj(b2c(c.traj[k - 1], rv), view);
-                const [x1, y1] = proj(b2c(c.traj[k], rv), view);
-                ctx.beginPath();
-                ctx.moveTo(x0, y0);
-                ctx.lineTo(x1, y1);
-                ctx.strokeStyle = `rgba(${mix.r},${mix.g},${mix.b},${targetAlpha})`;
-                ctx.lineWidth = targetWidth;
-                ctx.lineJoin = 'round';
-                ctx.lineCap = 'round';
-                ctx.stroke();
-              }
+              strokeRuns(P, colorTrace, startIdx, Math.min(layerEndIdx + 1, end), 4, targetAlpha, targetWidth);
             }
           }
         } else {
           // Full opacity mode
-          for (let k = 1; k < end; k++) {
-            const mix = colorTrace[k];
-            const [x0, y0] = proj(b2c(c.traj[k - 1], rv), view);
-            const [x1, y1] = proj(b2c(c.traj[k], rv), view);
-            ctx.beginPath();
-            ctx.moveTo(x0, y0);
-            ctx.lineTo(x1, y1);
-            ctx.strokeStyle = `rgba(${mix.r},${mix.g},${mix.b},1.0)`;
-            ctx.lineWidth = 2.4;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.stroke();
-          }
+          strokeRuns(P, colorTrace, 1, end, 4, 1.0, 2.4);
         }
       }
 
       // Tip dot (opaque)
-      const tip = proj(b2c(c.traj[end - 1], rv), view);
+      const tip = P[end - 1];
       ctx.beginPath();
       ctx.arc(tip[0], tip[1], 3.5, 0, Math.PI*2);
       if (usePointColor) {
@@ -2002,9 +2121,9 @@ function draw() {
 
   // The three world axes rotated by current qRot
   const axes = [
-    { v: rot3([1,0,0]), label:'X', col:'#ff6b6b' },
-    { v: rot3([0,1,0]), label:'Y', col:'#69db7c' },
-    { v: rot3([0,0,1]), label:'Z', col:'#4dabf7' },
+    { v: rot3([1,0,0]), label:'X', col:'#FF1F5B' },
+    { v: rot3([0,1,0]), label:'Y', col:'#00CD6C' },
+    { v: rot3([0,0,1]), label:'Z', col:'#009ADE' },
   ];
 
   // Draw back-facing axes first (dimmer), then front-facing on top
@@ -2070,6 +2189,7 @@ function draw() {
       }
 
       CASES = window.NEURAL_PHASE_SIMPLEX_CASES || CASES || [];
+      caseColorCache.clear();
 
       // Add metadata to each case
       CASES.forEach(c => {

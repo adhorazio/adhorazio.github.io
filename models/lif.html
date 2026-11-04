@@ -3,227 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LIF Neuron — Spiking Neuromorphics</title>
+  <title>LIF Neuron</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/scope.js"></script>
+  <script src="../assets/js/palette.js"></script>
+  <script src="../assets/js/rate.js"></script>
   <style>
-    :root {
-      --gdv-q1: #FF1F5B;
-      --gdv-q2: #00CD6C;
-      --gdv-q3: #009ADE;
-      --gdv-q4: #AF58BA;
-      --gdv-q5: #FFC61E;
-      --gdv-q6: #F28522;
-      --gdv-q7: #A0B1BA;
-      --gdv-q8: #A6761D;
-      --bg: #2b2b2b;
-      --surface: #333333;
-      --border: #444444;
-      --text: #e0e0e0;
-      --text-dim: #888888;
-      --accent: var(--gdv-q3);
-    }
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 2rem 2rem;
-    }
-
-    header {
-      width: 100%;
-      max-width: 900px;
-      padding: 16px 0 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.05rem;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--text);
-    }
-
-    header a {
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      text-decoration: none;
-      letter-spacing: 0.04em;
-      transition: color 0.15s;
-    }
-
-    header a:hover { color: var(--accent); }
-
-    main {
-      flex: 1;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .widget {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem 2rem 2rem;
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-
-    .widget-title {
-      font-size: 0.85rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
-
-    #canvas-wrap { position: relative; width: 100%; }
-
-    #trace {
-      display: block;
-      width: 100%;
-      height: 200px;
-      border-radius: 6px;
-      background: #1e1e1e;
-    }
-
-    .controls {
+    /* Membrane trace (main plot) left, f-I curve right; stacked on phones */
+    .plots {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.8rem 1.2rem;
-    }
-
-    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
-
-    .control-group label {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .control-group label span[id] {
-      color: var(--gdv-q5);
-      font-variant-numeric: tabular-nums;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      outline: none;
-      cursor: pointer;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 17px; height: 17px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: none;
-      transition: transform 0.12s ease, box-shadow 0.15s ease;
-    }
-    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
-    input[type="range"]:active::-webkit-slider-thumb {
-      transform: scale(1.12);
-      box-shadow: 0 0 0 6px rgba(0, 154, 222, 0.18);
-    }
-
-    input[type="range"]::-moz-range-track {
-      height: 6px; border-radius: 3px; background: var(--border);
-    }
-    input[type="range"]::-moz-range-thumb {
-      width: 17px; height: 17px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: none;
-    }
-
-    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-    .preset-btn {
-      padding: 0.5rem 1.05rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text-dim);
-      font-size: 0.82rem;
-      font-weight: 500;
-      letter-spacing: 0.01em;
-      cursor: pointer;
-      transition: border-color 0.18s, color 0.18s, background 0.18s,
-                  transform 0.12s ease, box-shadow 0.18s;
-    }
-
-    .preset-btn:hover {
-      border-color: var(--gdv-q3);
-      color: var(--text);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    }
-
-    .preset-btn:active { transform: scale(0.97); box-shadow: none; }
-
-    .preset-btn.active {
-      border-color: var(--gdv-q3);
-      background: rgba(0, 154, 222, 0.14);
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
-
-    #fi-wrap { display: flex; gap: 1rem; align-items: flex-start; }
-
-    #fi {
-      display: block;
-      width: 220px;
-      height: 150px;
-      flex-shrink: 0;
-      border-radius: 6px;
-      background: #1e1e1e;
-    }
-
-    .legend {
-      display: flex;
-      flex-direction: column;
+      grid-template-columns: minmax(0, 1fr) 300px;
       gap: 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
     }
+    #canvas-wrap { position: relative; min-width: 0; }
+    #trace { width: 100%; height: 300px; }
+    #fi { width: 300px; height: 300px; }
 
-    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
-
-    .legend-section-title {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      opacity: 0.6;
-      margin-bottom: 0.1rem;
+    /* "What is what" under the controls, sections side by side from the left,
+       in the same order as the plots: trace first, then f-I curve */
+    .legend {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
     }
-
-    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
-
-    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
-    .legend-dot.dot { height: 8px; width: 8px; border-radius: 50%; }
-
+    .legend-dot.dot { width: 8px; height: 8px; border-radius: 50%; }
     .freq-display {
       font-size: 0.68rem;
       color: var(--gdv-q5);
@@ -231,111 +41,25 @@
       margin-top: 0.1rem;
     }
 
-
-    footer {
-      width: 100%;
-      max-width: 900px;
-      padding: 0 0 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-top: 2.5rem;
-    }
-
-    .footer-ref {
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      line-height: 1.5;
-      padding: 0.75rem 0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .ref-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      opacity: 0.6;
-      display: block;
-      margin-bottom: 0.25rem;
-    }
-
-    .footer-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    footer a {
-      color: var(--text-dim);
-      text-decoration: none;
-      transition: color 0.15s;
-    }
-
-    footer a:hover { color: var(--accent); }
-
-    .equations {
-      width: 100%;
-      max-width: 900px;
-      margin-top: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .eq-label {
-      font-size: 0.68rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 0.4rem;
-    }
-
-    .eq-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .eq-row, .eq-reset {
-      padding: 0.55rem 1rem;
-    }
-
-    .eq-row .katex { color: var(--text); font-size: 1rem; }
-
-    .eq-reset { color: #b0b0b0; }
+    .eq-reset { padding: 0.55rem 1rem; color: #b0b0b0; }
     .eq-reset .katex { color: #b0b0b0; font-size: 0.85rem; }
 
-    /* ── Mobile ── */
+    @media (max-width: 760px) {
+      .plots { grid-template-columns: 1fr; }
+      #trace { height: 200px; }
+      #fi { width: 100%; max-width: 360px; height: auto; aspect-ratio: 1; justify-self: center; }
+    }
     @media (max-width: 600px) {
-      body { padding: 0 1rem 1.5rem; }
-      header h1 { font-size: 1.6rem; }
-      .widget { padding: 1.25rem 1rem 1.5rem; }
-
-      /* Dissolve the canvas+legend wrapper so its children join the widget's
-         flex column, then reorder so the explanatory legend sits AFTER the
-         controls — you can read what each control changes while dragging it. */
-      #fi-wrap     { display: contents; }
-      .widget-title{ order: 0; }
-      .presets     { order: 1; }
-      #canvas-wrap { order: 2; }
-      #fi          { order: 3; width: 100%; max-width: 100%; height: auto; }
-      .controls    { order: 4; }
-      .legend      { order: 5; flex-direction: column; }
-
-      .eq-row { overflow-x: auto; }
+      .legend { flex-direction: column; gap: 1rem; }
     }
   </style>
+  <script src="../assets/js/ui.js" defer></script>
 </head>
 <body>
 
 <header>
   <h1>LIF Neuron</h1>
-  <a href="../index.html">← Spiking Neuromorphics</a>
+  <a href="../index.html">&larr; Spiking Neuromorphics</a>
 </header>
 
 <main>
@@ -343,86 +67,182 @@
   <div class="widget-title">Real-time simulation</div>
 
   <div class="presets" id="presets">
+    <span class="win-label presets-label">Behaviour</span>
     <button class="preset-btn active" data-preset="SUB">Sub-threshold</button>
     <button class="preset-btn" data-preset="TONIC">Tonic spiking</button>
     <button class="preset-btn" data-preset="FAST">Fast spiking</button>
+    <button class="preset-btn" data-preset="ADAPT">Adapting</button>
+    <button class="preset-btn" data-preset="MEMORY">Working memory</button>
   </div>
 
-  <div id="canvas-wrap">
-    <canvas id="trace" height="200"></canvas>
-  </div>
-
-  <div id="fi-wrap">
-    <canvas id="fi" width="220" height="150"></canvas>
-    <div class="legend">
-      <div class="legend-section">
-        <div class="legend-section-title">Trace</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>V (membrane potential)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q1); opacity:.6;"></div>
-          <span>V<sub>θ</sub> (spike threshold)</span>
-        </div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-section-title">f–I curve</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>f(I) analytical</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3); opacity:.35;"></div>
-          <span>rheobase I<sub>th</sub></span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot dot" style="background: var(--gdv-q5);"></div>
-          <span>operating point</span>
-        </div>
-        <div class="freq-display" id="freq-display">—</div>
-      </div>
+  <div class="win-row">
+    <span class="win-label">Feedback</span>
+    <div class="fb-btns">
+      <button class="win-btn" id="btn-m" aria-pressed="false">+ adaptation w<sup>−</sup></button>
+      <button class="win-btn" id="btn-p" aria-pressed="false">+ self-excitation w<sup>+</sup></button>
     </div>
+    <div class="fb-btns p-show" id="pulse-btns" hidden>
+      <button class="win-btn pulse-btn" data-pulse="1">Excite pulse</button>
+      <button class="win-btn pulse-btn" data-pulse="-1">Inhibit pulse</button>
+    </div>
+    <span class="win-label mp-show" hidden>&nbsp; Right plot</span>
+    <div class="fb-btns mp-show" id="pp-btns" hidden>
+      <button class="win-btn active" data-pp="fi">f–I</button>
+      <button class="win-btn"        data-pp="mp">(w<sup>−</sup>, w<sup>+</sup>)</button>
+    </div>
+  </div>
+
+  <!-- Plots first, controls right under them, explanations last -->
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div class="fb-btns" id="win-btns">
+      <button class="win-btn" data-win="100">100 ms</button>
+      <button class="win-btn active" data-win="500">500 ms</button>
+      <button class="win-btn" data-win="1000">1 s</button>
+      <button class="win-btn" data-win="2000">2 s</button>
+    </div>
+  </div>
+
+  <div class="plots">
+    <div id="canvas-wrap">
+      <canvas id="trace" height="300"></canvas>
+    </div>
+    <canvas id="fi" width="300" height="300"></canvas>
   </div>
 
   <div class="controls">
     <div class="control-group">
-      <label><span>τ<sub>m</sub> — membrane time constant</span><span id="val-tau">100 ms</span></label>
+      <label><span>&tau;<sub>m</sub> &mdash; membrane time constant</span><span id="val-tau">100 ms</span></label>
       <input type="range" id="sl-tau" min="5" max="500" step="5" value="100" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>rest</sub> — resting potential</span><span id="val-vrest">-70 mV</span></label>
+      <label><span>V<sub>rest</sub> &mdash; resting potential</span><span id="val-vrest">-70 mV</span></label>
       <input type="range" id="sl-vrest" min="-85" max="-55" step="1" value="-70" />
     </div>
     <div class="control-group">
-      <label><span>V<sub>θ</sub> — spike threshold</span><span id="val-vthresh">-50 mV</span></label>
+      <label><span>V<sub>&theta;</sub> &mdash; spike threshold</span><span id="val-vthresh">-50 mV</span></label>
       <input type="range" id="sl-vthresh" min="-65" max="-30" step="1" value="-50" />
     </div>
     <div class="control-group">
-      <label><span>I<sub>eff</sub> — effective input</span><span id="val-I">30 mV</span></label>
+      <label><span>I<sub>eff</sub> &mdash; effective input</span><span id="val-I">30 mV</span></label>
       <input type="range" id="sl-I" min="0" max="55" step="1" value="30" />
     </div>
     <div class="control-group">
-      <label><span>speed</span><span id="val-spd">¼×</span></label>
+      <label><span>speed</span><span id="val-spd">&frac14;&times;</span></label>
       <input type="range" id="sl-spd" min="0.25" max="2" step="0.25" value="0.25" />
     </div>
   </div>
+
+  <!-- Slow feedback currents (main-site aLIF design): click a header to switch it on -->
+  <div class="fb-sections">
+    <div class="adapt-section">
+      <div class="adapt-header" id="hdr-m" role="button" tabindex="0" aria-pressed="false">
+        <button class="toggle-btn" tabindex="-1">w<sup>−</sup></button>
+        <span class="adapt-label">adaptation: inhibitory intrinsic current (aLIF)</span>
+        <div class="spark-group">
+          <span class="spark-mean" id="mean-m"></span>
+          <canvas class="adapt-sparkline" id="spark-m" width="80" height="24"></canvas>
+        </div>
+      </div>
+      <div class="adapt-sliders" id="sliders-m">
+        <div class="control-group">
+          <label><span>a<sup>−</sup> &mdash; subthreshold adapt.</span><span id="val-am">0.00</span></label>
+          <input type="range" id="sl-am" min="0" max="1" step="0.05" value="0" />
+        </div>
+        <div class="control-group">
+          <label><span>b<sup>−</sup> &mdash; spike-triggered adapt.</span><span id="val-bm">3.0 mV</span></label>
+          <input type="range" id="sl-bm" min="0" max="20" step="0.5" value="3" />
+        </div>
+        <div class="control-group">
+          <label><span>&tau;<sup>−</sup> &mdash; adapt. time const.</span><span id="val-taum">150 ms</span></label>
+          <input type="range" id="sl-taum" min="10" max="500" step="5" value="150" />
+        </div>
+      </div>
+    </div>
+    <div class="adapt-section">
+      <div class="adapt-header" id="hdr-p" role="button" tabindex="0" aria-pressed="false">
+        <button class="toggle-btn" tabindex="-1">w<sup>+</sup></button>
+        <span class="adapt-label">self-excitation: excitatory intrinsic current (as I<sub>w</sub> in the eQIF paper)</span>
+        <div class="spark-group">
+          <span class="spark-mean" id="mean-p"></span>
+          <canvas class="adapt-sparkline" id="spark-p" width="80" height="24"></canvas>
+        </div>
+      </div>
+      <div class="adapt-sliders" id="sliders-p">
+        <div class="control-group">
+          <label><span>a<sup>+</sup> &mdash; subthreshold self-exc.</span><span id="val-ap">0.00</span></label>
+          <input type="range" id="sl-ap" min="0" max="1" step="0.05" value="0" />
+        </div>
+        <div class="control-group">
+          <label><span>b<sup>+</sup> &mdash; spike-triggered self-exc.</span><span id="val-bp">5.0 mV</span></label>
+          <input type="range" id="sl-bp" min="0" max="20" step="0.5" value="5" />
+        </div>
+        <div class="control-group">
+          <label><span>&tau;<sup>+</sup> &mdash; self-exc. time const.</span><span id="val-taup">50 ms</span></label>
+          <input type="range" id="sl-taup" min="5" max="300" step="5" value="50" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <div class="legend-section">
+      <div class="legend-section-title">Trace</div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-v);"></div>
+        <span>V (membrane potential)</span>
+      </div>
+      <div class="legend-item m-show" hidden>
+        <div class="legend-dot" style="background: var(--c-neg);"></div>
+        <span>w<sup>−</sup> (adaptation current)</span>
+      </div>
+      <div class="legend-item p-show" hidden>
+        <div class="legend-dot" style="background: var(--c-pos);"></div>
+        <span>w<sup>+</sup> (self-excitatory current)</span>
+      </div>
+      <div class="legend-item p-show" hidden>
+        <div class="legend-dot" style="background: var(--c-pos);"></div>
+        <div class="legend-dot" style="background: var(--c-neg); margin-left: -2px;"></div>
+        <span>input pulses (excite up, inhibit down)</span>
+      </div>
+      <div class="legend-item rate-show" hidden>
+        <div class="legend-dot dot" style="background: var(--c-v);"></div>
+        <span>instantaneous firing rate 1/ISI (one dot per spike)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-thresh); opacity: .7;"></div>
+        <span>V<sub>&theta;</sub> (spike threshold)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: var(--c-rest); opacity: .8;"></div>
+        <span>V<sub>rest</sub> (rest &amp; reset)</span>
+      </div>
+    </div>
+    <div class="legend-section" id="pp-legend"></div>
+    <div class="legend-section">
+      <div class="legend-section-title">Firing rate</div>
+      <div class="freq-display" id="freq-display">&mdash;</div>
+    </div>
+  </div>
 </div>
-</main>
 
 <div class="equations">
   <div class="eq-label">Model equations</div>
   <div class="eq-box">
     <div class="eq-row" id="eq1"></div>
+    <div class="eq-row" id="eq-m" hidden></div>
+    <div class="eq-row" id="eq-p" hidden></div>
     <div class="eq-reset" id="eq2"></div>
   </div>
 </div>
+</main>
 
 <footer>
   <div class="footer-ref">
-    <span class="ref-label">Reference</span>
-    Lapicque, L. Recherches quantitatives sur l'excitation électrique des nerfs traitée comme une polarisation.
-    <em>J. Physiol. Pathol. Gén.</em> <strong>9</strong>, 620–635 (1907).
+    <span class="ref-label">References</span>
+    Lapicque, L. Recherches quantitatives sur l'excitation &eacute;lectrique des nerfs trait&eacute;e comme une polarisation.
+    <em>J. Physiol. Pathol. G&eacute;n.</em> <strong>9</strong>, 620&ndash;635 (1907).<br/>
+    Self-excitation: D. Depannemaecker, A. d&rsquo;Hollande <em>et al.</em> (2026). A minimal model of working memory in neural systems and neuromorphic circuits. <em>Nature Communications</em>, 17, 9867 (SI: leaky integrate-and-fire version). <a href="https://www.nature.com/articles/s41467-026-75704-3" target="_blank" rel="noopener">nature.com</a>
   </div>
   <div class="footer-bottom">
     <span>&#169; 2026 Adrien d&#x2019;Hollande. All rights reserved.</span>
@@ -431,23 +251,43 @@
 </footer>
 
 <script>
-const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
-
+// LIF with two optional slow currents (all in mV, i.e. R × current):
+//   τ_m dV/dt = −(V − V_rest) + I_eff − w⁻ + w⁺
+//   τ⁻ dw⁻/dt = a⁻ (V − V_rest) − w⁻     adaptation (aLIF), red
+//   τ⁺ dw⁺/dt = a⁺ (V − V_rest) − w⁺     self-excitation, green (paper SI: a⁺ = 0)
+//   V ≥ V_θ: V ← V_rest, w⁻ ← w⁻ + b⁻, w⁺ ← w⁺ + b⁺
+const DEFAULTS = { adapt: false, am: 0, bm: 3, tau_w: 150, excit: false, ap: 0, bp: 5, tau_p: 50 };
 const PRESETS = {
   SUB:   { tau_m: 100, V_rest: -70, V_thresh: -50, I_eff: 30 },
   TONIC: { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 25 },
   FAST:  { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 45 },
+  ADAPT: { tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 30, adapt: true, am: 0, bm: 3, tau_w: 150 },
+  // working memory (checked numerically): below rheobase (I < V_θ − V_rest), self-excitation
+  // on, persistent firing (~40 Hz) switched by Excite / Inhibit
+  MEMORY:{ tau_m: 20, V_rest: -70, V_thresh: -50, I_eff: 18, excit: true, ap: 0, bp: 5, tau_p: 50 },
 };
+const PULSE_AMP = 10, PULSE_STEPS = 50;      // ±10 mV for 50 ms (1 step = 1 ms)
 
-let params = { ...PRESETS.SUB };
+let params = { ...DEFAULTS, ...PRESETS.SUB };
 
-const TRACE_LEN = 600;
-const vHistory  = new Float32Array(TRACE_LEN);
+const TRACE_MAX = 2000;   // buffer: 2 s at 1 ms per sample
+let TRACE_LEN = 500;       // samples shown = window in ms
+const vHistory  = new Float32Array(TRACE_MAX), mHistory = new Float32Array(TRACE_MAX);
+const pHistory  = new Float32Array(TRACE_MAX), kHistory = new Int8Array(TRACE_MAX);
+const sHistory  = new Int8Array(TRACE_MAX);     // 1 where a spike happened (firing rate)
+let showRate = false;
+const rangeR = {};
 vHistory.fill(params.V_rest);
 let traceHead = 0;
 let traceFull = false;
+const PHASE_LEN = 600;
+const phM = new Float32Array(PHASE_LEN), phP = new Float32Array(PHASE_LEN);
+let phaseHead = 0;
 
-let V             = params.V_rest;
+let V             = params.V_rest, wm = 0, wp = 0;
+let lastM = null, lastP = null;
+let pulseSign = 0, pulseLeft = 0, curPulse = 0;
+let ppMode        = 'fi';
 let simStep       = 0;
 let lastSpikeStep = null;
 let simISI        = null;
@@ -458,12 +298,17 @@ const tctx        = traceCanvas.getContext('2d');
 const fiCanvas    = document.getElementById('fi');
 const fctx        = fiCanvas.getContext('2d');
 
-// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
-const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+// HiDPI: match canvas pixels exactly to the on-screen size at the current
+// pixel ratio (Windows scaling / browser zoom), and follow layout changes.
 function fitCanvas(c, ctx) {
-  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
-  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const r = c.getBoundingClientRect();
+  // hidden (collapsed panel): leave the canvas as it is, never grow it
+  if (!r.width || !r.height) { if (c._lw === undefined) { c._lw = c.width; c._lh = c.height; } return; }
+  const w = r.width, h = r.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
   c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
 }
 function resizeCanvases() {
@@ -472,17 +317,31 @@ function resizeCanvases() {
 }
 window.addEventListener('resize', resizeCanvases);
 window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(resizeCanvases);
+  ro.observe(traceCanvas); ro.observe(fiCanvas);
+}
 resizeCanvases();
 
 // ── Simulation ────────────────────────────────────────────────────────────────
+// input the membrane feels right now: I_eff (+ pulse) − w⁻ + w⁺
+const Inet = () => params.I_eff + curPulse * PULSE_AMP - (params.adapt ? wm : 0) + (params.excit ? wp : 0);
 
 function step() {
   simStep++;
-  V += (-(V - params.V_rest) + params.I_eff) / params.tau_m; // dt = 1 ms
+  curPulse = pulseLeft > 0 ? pulseSign : 0;
+  if (pulseLeft > 0) pulseLeft--;
+  const dV  = (-(V - params.V_rest) + Inet()) / params.tau_m; // dt = 1 ms
+  const dwm = params.adapt ? (params.am * (V - params.V_rest) - wm) / params.tau_w : 0;
+  const dwp = params.excit ? (params.ap * (V - params.V_rest) - wp) / params.tau_p : 0;
+  V += dV; wm += dwm; wp += dwp;
   if (V >= params.V_thresh) {
     if (lastSpikeStep !== null) simISI = simStep - lastSpikeStep;
     lastSpikeStep = simStep;
+    lastM = wm; lastP = wp;
     V = params.V_rest;
+    if (params.adapt) wm += params.bm;
+    if (params.excit) wp += params.bp;
   }
 }
 
@@ -495,59 +354,84 @@ function fiFreq(I_eff) {
 }
 
 // ── Drawing ───────────────────────────────────────────────────────────────────
-
+const rangeM = {}, rangeP = {};
 function drawTrace() {
-  const W = traceCanvas._lw, H = traceCanvas._lh;
-  tctx.clearRect(0, 0, W, H);
+  const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H; // strip below for the time axis
+  tctx.clearRect(0, 0, W, traceCanvas._lh);
   const Vr  = params.V_rest;
   const Vth = params.V_thresh;
+
+  // Oscilloscope: V scope, plus one scope per active slow current
+  const sub = [params.adapt && 'm', params.excit && 'p'].filter(Boolean);
+  const nS = sub.length + (showRate ? 1 : 0), vW = [1, 0.66, 0.5, 0.4][nS];
+  const rects = scopeRects(W, H, [vW, ...Array(nS).fill((1 - vW) / nS)]);
+  const rV = rects[0];
   const vMin = -95, vMax = -20;
-  const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
+  const yV = scopeY(rV, vMin, vMax);
+  drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V, [-80, -60, -40]);
 
-  // Horizontal grid — fixed reference lines
-  tctx.font = '10px monospace';
-  [-80, -60, -40].forEach(yv => {
-    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
-    tctx.fillStyle = '#555';
-    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
-  });
+  scopeRefLine(tctx, rV, yV(Vr), '#4a4a4a', [2, 4], 'V_rest ' + Vr + ' mV', '#666');
+  scopeRefLine(tctx, rV, yV(Vth), COL.THRESH + '66', [4, 4], 'Vθ ' + Vth + ' mV', COL.THRESH + 'cc');
 
-  // V_rest and V_thresh marker lines
-  [{ v: Vr, label: 'V_rest', color: '#555' }, { v: Vth, label: 'Vθ', color: GDV.q[0] + '99' }].forEach(({ v, label, color }) => {
-    const isThresh = v === Vth;
-    tctx.strokeStyle = isThresh ? GDV.q[0] + '55' : '#4a4a4a';
-    tctx.lineWidth = 1; tctx.setLineDash(isThresh ? [4, 4] : [2, 4]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(v)); tctx.lineTo(W, mapY(v)); tctx.stroke();
-    tctx.setLineDash([]);
-    tctx.fillStyle = color;
-    tctx.fillText(label + ' ' + v + ' mV', 4, mapY(v) - 3);
-  });
-
-  // Cursor
-  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
-  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
-
-  // V trace helper
-  const drawSeg = (from, to, alpha) => {
+  const xOf = scopeX(rV, TRACE_LEN);
+  const end = traceFull ? TRACE_LEN : traceHead;
+  const seg = (r, y, arr, col, lw, from, to, alpha) => {
     if (to <= from) return;
-    tctx.strokeStyle = GDV.q[2]; tctx.lineWidth = 1.8; tctx.globalAlpha = alpha;
-    tctx.beginPath();
-    for (let i = from; i < to; i++) {
-      const x = (i / (TRACE_LEN - 1)) * W;
-      i === from ? tctx.moveTo(x, mapY(vHistory[i])) : tctx.lineTo(x, mapY(vHistory[i]));
-    }
-    tctx.stroke(); tctx.globalAlpha = 1;
+    inScope(tctx, r, () => {
+      tctx.strokeStyle = col; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+      tctx.beginPath();
+      for (let i = from; i < to; i++) i === from ? tctx.moveTo(xOf(i), y(arr[i])) : tctx.lineTo(xOf(i), y(arr[i]));
+      tctx.stroke();
+    });
   };
+  const slow = sub.map((k, j) => {
+    const r = rects[j + 1], arr = k === 'm' ? mHistory : pHistory, st = k === 'm' ? rangeM : rangeP;
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < end; i++) { const x = arr[i]; if (x < lo) lo = x; if (x > hi) hi = x; }
+    if (!isFinite(lo)) { lo = 0; hi = 1; }
+    fbSteadyRange(st, Math.min(lo, 0) - 1, hi + 1, 5);
+    const col = k === 'm' ? COL.NEG : COL.POS;
+    drawScope(tctx, r, st.lo, st.hi, k === 'm' ? 'w− (mV)' : 'w+ (mV)', col);
+    return { r, y: scopeY(r, st.lo, st.hi), arr, col };
+  });
+  // input pulses: green block up = excite, red block down = inhibit (bottom of the V scope)
+  const pulses = (from, to, alpha) => {
+    if (!params.excit || to <= from) return;
+    const base = rV.y + rV.h - 9;
+    tctx.globalAlpha = 0.85 * alpha;
+    for (let i = from; i < to;) {
+      const sg = kHistory[i]; if (!sg) { i++; continue; }
+      let j = i; while (j < to && kHistory[j] === sg) j++;
+      const x0 = xOf(i), x1 = Math.max(xOf(j), x0 + 1);
+      tctx.fillStyle = sg > 0 ? COL.POS : COL.NEG;
+      tctx.fillRect(x0, sg > 0 ? base - 6 : base, x1 - x0, 6);
+      i = j;
+    }
+    tctx.globalAlpha = 1;
+  };
+  if (traceFull) {
+    seg(rV, yV, vHistory, COL.V, 1.8, traceHead, TRACE_LEN, 0.12);
+    slow.forEach(s => seg(s.r, s.y, s.arr, s.col, FB_TRACE.width, traceHead, TRACE_LEN, FB_TRACE.alphaOld));
+    pulses(traceHead, TRACE_LEN, 0.3);
+  }
+  seg(rV, yV, vHistory, COL.V, 1.8, 0, traceHead, 1.0);
+  slow.forEach(s => seg(s.r, s.y, s.arr, s.col, FB_TRACE.width, 0, traceHead, FB_TRACE.alpha));
+  pulses(0, traceHead, 1);
+  tctx.globalAlpha = 1;
 
-  if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
-  drawSeg(0, traceHead, 1.0);
+  // sweep cursor
+  if (showRate) drawRateScope(tctx, rects[rects.length - 1], RATE_REC, TRACE_LEN, traceHead, traceFull, 1, rangeR, COL.V);
+  const last = rects[rects.length - 1];
+  const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cx, rV.y); tctx.lineTo(cx, last.y + last.h); tctx.stroke();
+
+  drawTimeAxis(tctx, W, H, TRACE_LEN, SCOPE.ML); // 1 sample = 1 ms
 }
 
 function drawFICurve() {
   const W = fiCanvas._lw, H = fiCanvas._lh;
-  const ml = 30, mt = 10, mr = 6, mb = 26;
+  const ml = 34, mt = 14, mr = 10, mb = 32;
   const cW = W - ml - mr, cH = H - mt - mb;
 
   fctx.clearRect(0, 0, W, H);
@@ -555,23 +439,29 @@ function drawFICurve() {
 
   const dVth  = params.V_thresh - params.V_rest;
   const I_MAX = 60;
-  const F_MAX = 30;
+  const Iop   = Inet();
+  // Frequency axis follows the curve (it used to be clipped at 30 Hz)
+  const fTop  = Math.max(fiFreq(I_MAX), Iop > I_MAX ? fiFreq(Iop) : 0, 10);
+  const fStep = [5, 10, 20, 25, 50, 100, 200].find(s => fTop / s <= 4) || 500;
+  const F_MAX = Math.ceil(fTop / fStep) * fStep;
+  const fTicks = [];
+  for (let f = fStep; f <= F_MAX; f += fStep) fTicks.push(f);
   const xi = I => ml + (I / I_MAX) * cW;
   const yf = f => mt + cH - Math.min(f / F_MAX, 1) * cH;
 
   // Grid
   fctx.lineWidth = 0.5;
-  [10, 20, 30].forEach(f => {
+  fTicks.forEach(f => {
     fctx.strokeStyle = '#333';
     fctx.beginPath(); fctx.moveTo(ml, yf(f)); fctx.lineTo(ml + cW, yf(f)); fctx.stroke();
-    fctx.fillStyle = '#555'; fctx.font = '9px monospace';
-    fctx.fillText(f, 2, yf(f) + 3);
+    fctx.fillStyle = '#555'; fctx.font = '11px monospace';
+    fctx.fillText(f, 4, yf(f) + 4);
   });
   [20, 40, 60].forEach(I => {
     fctx.strokeStyle = '#333'; fctx.lineWidth = 0.5;
     fctx.beginPath(); fctx.moveTo(xi(I), mt); fctx.lineTo(xi(I), mt + cH); fctx.stroke();
-    fctx.fillStyle = '#555'; fctx.font = '9px monospace';
-    fctx.fillText(I, xi(I) - 5, mt + cH + 14);
+    fctx.fillStyle = '#555'; fctx.font = '11px monospace';
+    fctx.fillText(I, xi(I) - 7, mt + cH + 16);
   });
 
   // Axes
@@ -581,19 +471,19 @@ function drawFICurve() {
   fctx.stroke();
 
   // Axis labels
-  fctx.fillStyle = '#666'; fctx.font = '9px monospace';
-  fctx.fillText('f (Hz)', ml + 2, mt + 9);
-  fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 44, mt + cH + 22);
+  fctx.fillStyle = '#666'; fctx.font = '11px monospace';
+  fctx.fillText('f (Hz)', ml + 4, mt + 11);
+  fctx.fillText('Iᵉᶠᶠ (mV)', ml + cW - 62, mt + cH + 28);
 
   // Rheobase dashed line
   if (dVth > 0 && dVth <= I_MAX) {
-    fctx.strokeStyle = GDV.q[2] + '55'; fctx.lineWidth = 1; fctx.setLineDash([3, 3]);
+    styleInputCurve(fctx, true); // rheobase current (same style as the V-nullclines)
     fctx.beginPath(); fctx.moveTo(xi(dVth), mt); fctx.lineTo(xi(dVth), mt + cH); fctx.stroke();
     fctx.setLineDash([]);
   }
 
   // f-I curve
-  fctx.strokeStyle = GDV.q[2]; fctx.lineWidth = 1.5;
+  fctx.strokeStyle = COL.V; fctx.lineWidth = 1.5;
   fctx.beginPath();
   fctx.moveTo(ml, yf(0)); fctx.lineTo(xi(Math.min(dVth, I_MAX)), yf(0));
   let started = false;
@@ -604,13 +494,196 @@ function drawFICurve() {
   }
   fctx.stroke();
 
-  // Operating point
-  const op_I = Math.min(params.I_eff, I_MAX);
-  const op_f = fiFreq(params.I_eff);
-  fctx.beginPath();
-  fctx.arc(xi(op_I), yf(op_f), 4, 0, Math.PI * 2);
-  fctx.fillStyle = GDV.q[4]; fctx.fill();
+  // Feedback load lines (as on the main-site aLIF page). At a steady rate f the
+  // slow currents settle, on average, at w̄± = a±⟨V − V_rest⟩ + b± τ± f, and for the
+  // LIF ⟨V − V_rest⟩ = I_net − τ_m ΔV_θ f. So the input the membrane feels,
+  // I_net = I_eff − w̄⁻ + w̄⁺, is a straight line in f:
+  //   I_net(f) = (I_eff + K f) / (1 − A),  A = a⁺ − a⁻,  K = b⁺τ⁺ − b⁻τ⁻ − A τ_m ΔV_θ
+  // (f in Hz → /1000). Where it crosses the f–I curve, the firing is self-
+  // consistent: steady states (diamonds). Rest (f = 0) is one while I_net(0) < ΔV_θ.
+  if (params.adapt || params.excit) {
+    const loadLine = (A, B, color, dash, lw, r) => {
+      if (A >= 0.98) return;
+      const K = (B - A * params.tau_m * dVth) / 1000;
+      const In = f => (params.I_eff + K * f) / (1 - A);
+      fctx.save();
+      fctx.strokeStyle = color; fctx.lineWidth = lw; fctx.setLineDash(dash);
+      fctx.beginPath();
+      let on = false;
+      for (let k = 0; k <= 300; k++) {
+        const f = k / 300 * F_MAX, I = In(f);
+        if (I < 0 || I > I_MAX) { on = false; continue; }
+        on ? fctx.lineTo(xi(I), yf(f)) : fctx.moveTo(xi(I), yf(f)); on = true;
+      }
+      fctx.stroke(); fctx.setLineDash([]);
+      // filled = stable, hollow = unstable (the averaged rate moves away from it)
+      const diamond = (I, f, stable) => {
+        if (I < 0 || I > I_MAX) return;
+        const px = xi(I), py = yf(f);
+        fctx.beginPath(); fctx.moveTo(px, py - r); fctx.lineTo(px + r, py); fctx.lineTo(px, py + r); fctx.lineTo(px - r, py); fctx.closePath();
+        if (stable) { fctx.fillStyle = color; fctx.strokeStyle = '#1e1e1e'; fctx.lineWidth = 1; fctx.fill(); fctx.stroke(); }
+        else { fctx.fillStyle = '#1e1e1e'; fctx.strokeStyle = color; fctx.lineWidth = 1.4; fctx.fill(); fctx.stroke(); }
+      };
+      if (In(0) < dVth) diamond(In(0), 0, true);              // rest
+      let gPrev = null, fPrev = 0;
+      const fTop = Math.max(F_MAX, fiFreq(I_MAX) * 2);
+      for (let k = 1; k <= 800; k++) {                         // firing steady states
+        const f = k / 800 * fTop, g = fiFreq(In(f)) - f;
+        if (gPrev !== null && gPrev * g < 0) {
+          const fs = fPrev - gPrev * (f - fPrev) / (g - gPrev);
+          if (fs <= F_MAX) diamond(In(fs), fs, gPrev > 0);  // rate falls back onto it from both sides
+        }
+        gPrev = g; fPrev = f;
+      }
+      fctx.restore();
+    };
+    const E = params.excit, M = params.adapt;
+    const Ap = E ? params.ap : 0, Bp = E ? params.bp * params.tau_p : 0;
+    const Am = M ? params.am : 0, Bm = M ? params.bm * params.tau_w : 0;
+    if (E && M) {
+      loadLine(Ap, Bp, COL.POS + 'aa', [2, 4], 1.2, 3);
+      loadLine(-Am, -Bm, COL.NEG + 'aa', [2, 4], 1.2, 3);
+    }
+    const tot = (Bp - Bm) + (Ap - Am);
+    const totCol = (E && !M) ? COL.POS : (M && !E) ? COL.NEG : (tot > 0 ? COL.POS : tot < 0 ? COL.NEG : '#A0B1BA');
+    loadLine(Ap - Am, Bp - Bm, totCol + 'ee', [5, 3], 1.6, 4.5);
+  }
 
+  // With slow currents the membrane feels I_eff − w⁻ + w⁺: the operating point
+  // slides along the curve; a faint tick marks the slider value I_eff
+  if (params.adapt || params.excit) {
+    const xs = xi(Math.min(Math.max(params.I_eff, 0), I_MAX));
+    fctx.strokeStyle = 'rgba(255,255,255,0.25)'; fctx.lineWidth = 1;
+    fctx.beginPath(); fctx.moveTo(xs, mt + cH - 6); fctx.lineTo(xs, mt + cH + 4); fctx.stroke();
+  }
+  const op_I = Math.min(Math.max(Iop, 0), I_MAX);
+  // Hovering Excite / Inhibit: preview where the pulse would move the operating
+  // point (input ± pulse), green for excite, red for inhibit
+  if (hoverPulse && params.excit) {
+    const Ih = Iop - curPulse * PULSE_AMP + hoverPulse * PULSE_AMP;
+    const col = hoverPulse > 0 ? COL.POS : COL.NEG;
+    const x0 = xi(op_I), y0 = yf(fiFreq(Iop));
+    const x1 = xi(Math.min(Math.max(Ih, 0), I_MAX)), y1 = yf(fiFreq(Ih));
+    fctx.save();
+    fctx.strokeStyle = col + '55'; fctx.lineWidth = 1; fctx.setLineDash([2, 3]);
+    fctx.beginPath(); fctx.moveTo(x1, mt); fctx.lineTo(x1, mt + cH); fctx.stroke();
+    fctx.strokeStyle = col + 'cc'; fctx.setLineDash([3, 3]);
+    fctx.beginPath(); fctx.moveTo(x0, y0); fctx.lineTo(x1, y1); fctx.stroke();
+    fctx.setLineDash([]);
+    fctx.fillStyle = '#1e1e1e'; fctx.strokeStyle = col; fctx.lineWidth = 1.6;
+    fctx.beginPath(); fctx.arc(x1, y1, 4.5, 0, 2 * Math.PI); fctx.fill(); fctx.stroke();
+    fctx.fillStyle = col; fctx.font = '10px monospace'; fctx.textAlign = x1 > ml + cW - 60 ? 'right' : 'left';
+    fctx.fillText((hoverPulse > 0 ? '+' : '−') + PULSE_AMP + ' mV', x1 + (fctx.textAlign === 'right' ? -7 : 7), y1 - 6);
+    fctx.restore();
+  }
+  drawStateDot(fctx, xi(op_I), yf(fiFreq(Iop)), 4.5);
+}
+
+// Slow plane (w⁻, w⁺): only w⁺ − w⁻ matters for the membrane; a rest state
+// exists while I_eff + w⁺ − w⁻ < V_θ − V_rest, the 45° spiking line.
+const ppX = {}, ppY = {};
+function growRange(st, lo, hi, stepv) {
+  const nHi = Math.ceil(hi / stepv) * stepv, nLo = Math.floor(lo / stepv) * stepv;
+  if (st.hi === undefined || nHi > st.hi) st.hi = nHi;
+  if (st.lo === undefined || nLo < st.lo) st.lo = nLo;
+}
+function drawSlowPlane() {
+  const W = fiCanvas._lw, H = fiCanvas._lh;
+  const ml = 34, mt = 14, mr = 10, mb = 32, cW = W - ml - mr, cH = H - mt - mb;
+  fctx.clearRect(0, 0, W, H);
+  fctx.fillStyle = '#1e1e1e'; fctx.fillRect(0, 0, W, H);
+  let xl = 0, xh = 5, yl = 0, yh = 5;
+  for (let i = 0; i < PHASE_LEN; i++) {
+    if (phM[i] < xl) xl = phM[i]; if (phM[i] > xh) xh = phM[i];
+    if (phP[i] < yl) yl = phP[i]; if (phP[i] > yh) yh = phP[i];
+  }
+  const thr = params.V_thresh - params.V_rest;
+  const off = thr - (params.I_eff + curPulse * PULSE_AMP), off0 = thr - params.I_eff;
+  growRange(ppX, xl - 1, xh + 2, 5);
+  growRange(ppY, Math.min(yl - 1, off0 - 5), Math.max(yh + 2, off0 + 10), 5);
+  const x0 = ppX.lo, x1 = ppX.hi, y0 = ppY.lo, y1 = ppY.hi;
+  const xs = x => ml + (x - x0) / (x1 - x0) * cW, ys = y => mt + cH - (y - y0) / (y1 - y0) * cH;
+  fctx.lineWidth = 0.5; fctx.font = '11px monospace';
+  niceTicks(y0, y1, 4).filter(t => t > y0 && t < y1).forEach(t => {
+    fctx.strokeStyle = '#333'; fctx.beginPath(); fctx.moveTo(ml, ys(t)); fctx.lineTo(ml + cW, ys(t)); fctx.stroke();
+    fctx.fillStyle = '#555'; fctx.fillText(t, 4, ys(t) + 4);
+  });
+  fctx.textAlign = 'center';
+  niceTicks(x0, x1, 4).filter(t => t > x0 && t < x1).forEach(t => {
+    fctx.strokeStyle = '#333'; fctx.beginPath(); fctx.moveTo(xs(t), mt); fctx.lineTo(xs(t), mt + cH); fctx.stroke();
+    fctx.fillStyle = '#555'; fctx.fillText(t, xs(t), mt + cH + 16);
+  });
+  fctx.textAlign = 'left';
+  fctx.strokeStyle = '#555'; fctx.lineWidth = 1;
+  fctx.beginPath(); fctx.moveTo(ml, mt); fctx.lineTo(ml, mt + cH); fctx.lineTo(ml + cW, mt + cH); fctx.stroke();
+  fctx.fillStyle = '#666';
+  fctx.fillText('w+ (mV)', ml + 4, mt + 11);
+  fctx.textAlign = 'right'; fctx.fillText('w− (mV)', ml + cW - 2, mt + cH + 28); fctx.textAlign = 'left';
+  fctx.save(); fctx.beginPath(); fctx.rect(ml, mt, cW, cH); fctx.clip();
+  fctx.fillStyle = COL.IN + '0c';
+  fctx.beginPath(); fctx.moveTo(xs(x0), ys(x0 + off)); fctx.lineTo(xs(x1), ys(x1 + off));
+  fctx.lineTo(xs(x1), mt - 1); fctx.lineTo(xs(x0), mt - 1); fctx.closePath(); fctx.fill();
+  styleInputCurve(fctx);
+  fctx.beginPath(); fctx.moveTo(xs(x0), ys(x0 + off)); fctx.lineTo(xs(x1), ys(x1 + off)); fctx.stroke();
+  fctx.restore(); fctx.setLineDash([]);
+  fctx.fillStyle = '#666'; fctx.textAlign = 'right';
+  fctx.fillText('fires', ml + cW - 4, mt + 24);
+  fctx.fillText('can rest', ml + cW - 4, mt + cH - 6);
+  fctx.textAlign = 'left';
+  // trajectory: runs of equal opacity
+  const RUN = 40;
+  fctx.lineWidth = 1;
+  for (let i0 = 1; i0 < PHASE_LEN; i0 += RUN) {
+    const i1 = Math.min(i0 + RUN, PHASE_LEN);
+    fctx.strokeStyle = `rgba(${COL.TRAJ},${(0.12 + 0.7 * ((i0 + i1) / 2 / PHASE_LEN)).toFixed(2)})`;
+    fctx.beginPath();
+    for (let i = i0 - 1; i < i1; i++) {
+      const k = (phaseHead + i) % PHASE_LEN;
+      i === i0 - 1 ? fctx.moveTo(xs(phM[k]), ys(phP[k])) : fctx.lineTo(xs(phM[k]), ys(phP[k]));
+    }
+    fctx.stroke();
+  }
+  // last spike's jump (w⁻, w⁺) → (w⁻ + b⁻, w⁺ + b⁺), orange like the current resets
+  if (lastM !== null) {
+    const ax = xs(lastM), ay = ys(lastP), bx = xs(lastM + params.bm), by = ys(lastP + params.bp);
+    const L = Math.hypot(bx - ax, by - ay);
+    if (L > 6) {
+      const ux = (bx - ax) / L, uy = (by - ay) / L;
+      fctx.strokeStyle = COL.IRESET + 'cc'; fctx.fillStyle = COL.IRESET + 'cc'; fctx.setLineDash([3, 3]);
+      fctx.beginPath(); fctx.moveTo(ax, ay); fctx.lineTo(bx - 5 * ux, by - 5 * uy); fctx.stroke();
+      fctx.setLineDash([]);
+      fctx.beginPath(); fctx.moveTo(bx, by); fctx.lineTo(bx - 6 * ux - 3 * uy, by - 6 * uy + 3 * ux); fctx.lineTo(bx - 6 * ux + 3 * uy, by - 6 * uy - 3 * ux); fctx.closePath(); fctx.fill();
+    }
+  }
+  drawStateDot(fctx, xs(Math.max(x0, Math.min(x1, wm))), ys(Math.max(y0, Math.min(y1, wp))), 4.5);
+}
+
+// ── Sparklines (main-site aLIF design): last ~0.5 s, with mean μ ──────────────
+const SPARK_LEN = 120, SPARK_EVERY = 4;
+const sparkM = new Float32Array(SPARK_LEN), sparkP = new Float32Array(SPARK_LEN);
+let sparkHead = 0, sparkTick = 0;
+function drawSpark(id, buf, color, meanId) {
+  const cv = document.getElementById(id);
+  const r = cv.getBoundingClientRect(), Wc = r.width || 80, Hc = r.height || 24;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  if (cv.width !== Math.round(Wc * dpr)) { cv.width = Math.round(Wc * dpr); cv.height = Math.round(Hc * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, Wc, Hc);
+  let mn = Infinity, mx = -Infinity, sum = 0;
+  for (let i = 0; i < SPARK_LEN; i++) { const x = buf[i]; if (x < mn) mn = x; if (x > mx) mx = x; sum += x; }
+  const mean = sum / SPARK_LEN, range = mx - mn || 1;
+  const mapY = x => Hc - 2 - ((x - mn) / range) * (Hc - 4);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < SPARK_LEN; i++) {
+    const x = buf[(sparkHead + i) % SPARK_LEN], px = (i / (SPARK_LEN - 1)) * Wc;
+    i ? ctx.lineTo(px, mapY(x)) : ctx.moveTo(px, mapY(x));
+  }
+  ctx.stroke();
+  ctx.lineTo(Wc, Hc); ctx.lineTo(0, Hc); ctx.closePath(); ctx.fillStyle = color + '22'; ctx.fill();
+  ctx.strokeStyle = color + 'aa'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, mapY(mean)); ctx.lineTo(Wc, mapY(mean)); ctx.stroke(); ctx.setLineDash([]);
+  document.getElementById(meanId).textContent = 'μ = ' + mean.toFixed(1) + ' mV';
 }
 
 // ── Animation loop ────────────────────────────────────────────────────────────
@@ -618,20 +691,27 @@ function drawFICurve() {
 function loop() {
   const now = performance.now();
   const speed = parseFloat(document.getElementById('sl-spd').value);
-  const dtReal = lastFrameTime !== null ? now - lastFrameTime : 16.7;
+  const dtReal = lastFrameTime !== null ? Math.min(now - lastFrameTime, 100) : 16.7;
   lastFrameTime = now;
   const steps = Math.round(dtReal * speed); // 1 sim-ms per real-ms at speed=1
   for (let s = 0; s < steps; s++) {
     step();
-    vHistory[traceHead] = V;
+    vHistory[traceHead] = V; mHistory[traceHead] = wm; pHistory[traceHead] = wp; kHistory[traceHead] = curPulse; sHistory[traceHead] = lastSpikeStep === simStep ? 1 : 0; RATE_REC.sample(lastSpikeStep === simStep, 1);
     traceHead++;
     if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
+    phM[phaseHead] = wm; phP[phaseHead] = wp; phaseHead = (phaseHead + 1) % PHASE_LEN;
+    if (++sparkTick >= SPARK_EVERY) {
+      sparkTick = 0; sparkM[sparkHead] = wm; sparkP[sparkHead] = wp;
+      sparkHead = (sparkHead + 1) % SPARK_LEN;
+    }
   }
   drawTrace();
-  drawFICurve();
+  if (params.adapt && params.excit && ppMode === 'mp') drawSlowPlane(); else drawFICurve();
+  if (params.adapt) drawSpark('spark-m', sparkM, COL.NEG, 'mean-m');
+  if (params.excit) drawSpark('spark-p', sparkP, COL.POS, 'mean-p');
 
   const freqEl = document.getElementById('freq-display');
-  const theorF = fiFreq(params.I_eff);
+  const theorF = fiFreq(Inet());
   const theorStr = theorF > 0 ? theorF.toFixed(1) + ' Hz' : '—';
   const obsF = (simISI !== null && (simStep - lastSpikeStep) < 3000)
     ? (1000 / simISI).toFixed(1) + ' Hz' : '—';
@@ -640,16 +720,81 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// ── Controls ──────────────────────────────────────────────────────────────────
+// ── Feedback switches, right-plot choice, pulses ─────────────────────────────
+function setPP(mode) {
+  ppMode = mode;
+  document.querySelectorAll('#pp-btns .win-btn').forEach(b => b.classList.toggle('active', b.dataset.pp === mode));
+  const li = (col, txt, op = 1) => `<div class="legend-item"><div class="legend-dot" style="background:${col};opacity:${op}"></div><span>${txt}</span></div>`;
+  const dot = txt => `<div class="legend-item"><div class="legend-dot dot" style="background: var(--c-op);"></div><span>${txt}</span></div>`;
+  const slowOn = params.adapt || params.excit;
+  const L = (params.adapt && params.excit && mode === 'mp')
+    ? ['Slow plane (w<sup>−</sup>, w<sup>+</sup>)', li('var(--c-in)', 'spiking line I<sub>eff</sub> + w<sup>+</sup> − w<sup>−</sup> = V<sub>&theta;</sub> − V<sub>rest</sub> (set by I; fires above)') + li('var(--c-v)', 'trajectory') + dot('state (w<sup>−</sup>, w<sup>+</sup>)') + li('var(--c-ireset)', 'jump at each spike (+b<sup>−</sup>, +b<sup>+</sup>)')]
+    : ['f&ndash;I curve', li('var(--c-v)', 'f(I) analytical') + li('var(--c-in)', 'rheobase I<sub>th</sub>')
+        + dot(slowOn ? 'operating point at I<sub>eff</sub>' + (params.adapt ? ' − w<sup>−</sup>' : '') + (params.excit ? ' + w<sup>+</sup>' : '') : 'operating point')
+        + (slowOn ? li('rgba(255,255,255,0.3)', 'slider value I<sub>eff</sub> (tick)') : '')
+        + (slowOn ? li(params.adapt && params.excit ? '#A0B1BA' : params.excit ? 'var(--c-pos)' : 'var(--c-neg)', 'feedback load line: input felt at a steady rate f (dashed)')
+            + (params.adapt && params.excit ? li('var(--c-pos)', 'w<sup>+</sup> alone / ', .7).replace('</span></div>', '<span style="color:var(--c-neg)">w<sup>−</sup> alone</span> (dotted)</span></div>') : '')
+            + '<div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><path d="M6 1 L11 6 L6 11 L1 6 Z" fill="#dcdcdc"/></svg><span>steady state: filled stable, hollow unstable (rest or firing)</span></div>' : '')];
+  document.getElementById('pp-legend').innerHTML = `<div class="legend-section-title">${L[0]}</div>` + L[1];
+  delete ppX.lo; delete ppX.hi; delete ppY.lo; delete ppY.hi;
+}
+function refreshFeedbackUI() {
+  const set = (id, cls, on) => { const el = document.getElementById(id); el.classList.toggle(cls, on); el.setAttribute('aria-pressed', String(on)); };
+  set('btn-m', 'on-neg', params.adapt); set('hdr-m', 'on-neg', params.adapt);
+  set('btn-p', 'on-pos', params.excit); set('hdr-p', 'on-pos', params.excit);
+  document.getElementById('sliders-m').classList.toggle('open', params.adapt);
+  document.getElementById('sliders-p').classList.toggle('open', params.excit);
+  document.querySelectorAll('.m-show').forEach(el => { el.hidden = !params.adapt; });
+  document.querySelectorAll('.p-show').forEach(el => { el.hidden = !params.excit; });
+  document.querySelectorAll('.mp-show').forEach(el => { el.hidden = !(params.adapt && params.excit); });
+  setPP(params.adapt && params.excit ? ppMode : 'fi');
+  delete rangeM.lo; delete rangeM.hi; delete rangeP.lo; delete rangeP.hi;
+  renderEq();
+}
+function toggle(key) {
+  params[key] = !params[key];
+  if (!params.adapt) { wm = 0; sparkM.fill(0); }
+  if (!params.excit) { wp = 0; pulseLeft = 0; sparkP.fill(0); }
+  lastM = null; lastP = null;
+  refreshFeedbackUI();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+document.getElementById('btn-m').addEventListener('click', () => toggle('adapt'));
+document.getElementById('btn-p').addEventListener('click', () => toggle('excit'));
+['m', 'p'].forEach(k => {
+  const h = document.getElementById('hdr-' + k), key = k === 'm' ? 'adapt' : 'excit';
+  h.addEventListener('click', () => toggle(key));
+  h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(key); } });
+});
+document.getElementById('pp-btns').addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (b) setPP(b.dataset.pp); });
+// preview of a pulse on the f–I curve while the pointer is on its button
+let hoverPulse = 0;
+document.querySelectorAll('#pulse-btns [data-pulse]').forEach(b => {
+  const on = () => { hoverPulse = parseInt(b.dataset.pulse); }, off = () => { hoverPulse = 0; };
+  b.addEventListener('pointerenter', on); b.addEventListener('focus', on);
+  b.addEventListener('pointerleave', off); b.addEventListener('blur', off);
+});
+document.getElementById('pulse-btns').addEventListener('click', e => {
+  const b = e.target.closest('[data-pulse]'); if (!b) return;
+  pulseSign = parseInt(b.dataset.pulse); pulseLeft = PULSE_STEPS;
+  b.classList.add('fired'); setTimeout(() => b.classList.remove('fired'), 250);
+});
 
-[
+// ── Controls ──────────────────────────────────────────────────────────────────
+const SLIDERS = [
   ['tau_m',    'sl-tau',     'val-tau',     0, v => v + ' ms'],
   ['V_rest',   'sl-vrest',   'val-vrest',   0, v => v + ' mV'],
   ['V_thresh', 'sl-vthresh', 'val-vthresh', 0, v => v + ' mV'],
   ['I_eff',    'sl-I',       'val-I',       0, v => v + ' mV'],
-].forEach(([key, slId, valId, dec, fmt]) => {
+  ['am',       'sl-am',      'val-am',      2, v => v],
+  ['bm',       'sl-bm',      'val-bm',      1, v => v + ' mV'],
+  ['tau_w',    'sl-taum',    'val-taum',    0, v => v + ' ms'],
+  ['ap',       'sl-ap',      'val-ap',      2, v => v],
+  ['bp',       'sl-bp',      'val-bp',      1, v => v + ' mV'],
+  ['tau_p',    'sl-taup',    'val-taup',    0, v => v + ' ms'],
+];
+SLIDERS.forEach(([key, slId, valId, dec, fmt]) => {
   const sl = document.getElementById(slId);
-  document.getElementById(valId).textContent = fmt(parseFloat(sl.value).toFixed(dec));
   sl.addEventListener('input', () => {
     let val = parseFloat(sl.value);
     if (key === 'V_rest'   && val >= params.V_thresh - 5) { val = params.V_thresh - 5; sl.value = val; }
@@ -668,22 +813,18 @@ document.getElementById('sl-spd').addEventListener('input', function () {
 });
 
 function applyPreset(name) {
-  const p = PRESETS[name];
-  params = { ...p };
-  V = p.V_rest;
-  vHistory.fill(p.V_rest); traceHead = 0; traceFull = false;
-  lastSpikeTime = null; realISI = null;
-
-  document.getElementById('sl-tau').value     = p.tau_m;
-  document.getElementById('sl-vrest').value   = p.V_rest;
-  document.getElementById('sl-vthresh').value = p.V_thresh;
-  document.getElementById('sl-I').value       = p.I_eff;
-
-  document.getElementById('val-tau').textContent     = p.tau_m   + ' ms';
-  document.getElementById('val-vrest').textContent   = p.V_rest  + ' mV';
-  document.getElementById('val-vthresh').textContent = p.V_thresh + ' mV';
-  document.getElementById('val-I').textContent       = p.I_eff   + ' mV';
-
+  params = { ...DEFAULTS, ...PRESETS[name] };
+  V = params.V_rest; wm = 0; wp = 0; pulseLeft = 0; curPulse = 0; lastM = null; lastP = null; RATE_REC.reset();
+  vHistory.fill(params.V_rest); mHistory.fill(0); pHistory.fill(0); kHistory.fill(0); sHistory.fill(0);
+  phM.fill(0); phP.fill(0); sparkM.fill(0); sparkP.fill(0);
+  traceHead = 0; traceFull = false;
+  lastSpikeStep = null; simISI = null;
+  SLIDERS.forEach(([key, slId, valId, dec, fmt]) => {
+    document.getElementById(slId).value = params[key];
+    document.getElementById(valId).textContent = fmt(params[key].toFixed(dec));
+  });
+  ppMode = 'fi';
+  refreshFeedbackUI();
   document.querySelectorAll('.preset-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.preset === name);
   });
@@ -693,18 +834,34 @@ document.getElementById('presets').addEventListener('click', e => {
   if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
 });
 
-requestAnimationFrame(loop);
+function renderEq() {
+  if (!window.katex) return; // equations are optional (KaTeX CDN unreachable)
+  const A = params.adapt, E = params.excit, opt = { displayMode: false, throwOnError: false };
+  katex.render(String.raw`\tau_m \frac{dV}{dt} = -(V - V_{\text{rest}}) + I_{\text{eff}}` + (A ? ' - w^-' : '') + (E ? ' + w^+' : ''),
+    document.getElementById('eq1'), opt);
+  const em = document.getElementById('eq-m'), ep = document.getElementById('eq-p');
+  em.hidden = !A; ep.hidden = !E;
+  if (A) katex.render(String.raw`\tau^- \frac{dw^-}{dt} = a^-\,(V - V_{\text{rest}}) - w^- \qquad \text{(adaptation)}`, em, opt);
+  if (E) katex.render(String.raw`\tau^+ \frac{dw^+}{dt} = a^+\,(V - V_{\text{rest}}) - w^+ \qquad \text{(self-excitation)}`, ep, opt);
+  katex.render(String.raw`\text{if } V \geq V_\theta \;:\quad V \leftarrow V_{\text{rest}}`
+    + (A ? String.raw`,\quad w^- \leftarrow w^- + b^-` : '') + (E ? String.raw`,\quad w^+ \leftarrow w^+ + b^+` : ''),
+    document.getElementById('eq2'), opt);
+}
 
-window.addEventListener('load', () => {
-  katex.render(
-    String.raw`\tau_m \frac{dV}{dt} = -(V - V_{\text{rest}}) + I_{\text{eff}}`,
-    document.getElementById('eq1'), { displayMode: false }
-  );
-  katex.render(
-    String.raw`\text{if } V \geq V_\theta \;:\quad V \leftarrow V_{\text{rest}}`,
-    document.getElementById('eq2'), { displayMode: false }
-  );
-});
+// firing-rate scope, switched by the 'Firing rate' button (assets/js/ui.js)
+window.setRateView = on => { showRate = on; delete rangeR.lo; delete rangeR.hi; document.querySelectorAll('.rate-show').forEach(el => { el.hidden = !on; }); };
+
+applyPreset('SUB');
+// time window of the oscilloscope (1 sample = 1 ms); the sweep restarts
+function setWindow(ms) {
+  TRACE_LEN = Math.min(TRACE_MAX, Math.round(ms));
+  traceHead = 0; traceFull = false;
+  document.querySelectorAll('#win-btns .win-btn').forEach(b => b.classList.toggle('active', +b.dataset.win === ms));
+}
+document.getElementById('win-btns').addEventListener('click', e => { const b = e.target.closest('[data-win]'); if (b) setWindow(+b.dataset.win); });
+
+requestAnimationFrame(loop);
+window.addEventListener('load', renderEq);
 </script>
 
 </body>

@@ -3,331 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hodgkin–Huxley Neuron — Spiking Neuromorphics</title>
+  <title>Hodgkin–Huxley Neuron</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="../assets/css/site.css" />
+  <script src="../assets/js/time-axis.js"></script>
+  <script src="../assets/js/scope.js"></script>
+  <script src="../assets/js/palette.js"></script>
   <style>
-    :root {
-      --gdv-q1: #FF1F5B;
-      --gdv-q2: #00CD6C;
-      --gdv-q3: #009ADE;
-      --gdv-q4: #AF58BA;
-      --gdv-q5: #FFC61E;
-      --gdv-q6: #F28522;
-      --gdv-q7: #A0B1BA;
-      --gdv-q8: #A6761D;
-      --bg: #2b2b2b;
-      --surface: #333333;
-      --border: #444444;
-      --text: #e0e0e0;
-      --text-dim: #888888;
-      --accent: var(--gdv-q3);
-    }
+    /* Page-specific layout only - shared styles live in assets/css/site.css */
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 2rem 2rem;
-    }
-
-    header {
-      width: 100%;
-      max-width: 900px;
-      padding: 16px 0 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.05rem;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--text);
-    }
-
-    header a {
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      text-decoration: none;
-      letter-spacing: 0.04em;
-      transition: color 0.15s;
-    }
-
-    header a:hover { color: var(--accent); }
-
-    main {
-      flex: 1;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .widget {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem 2rem 2rem;
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-
-    .widget-title {
-      font-size: 0.85rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
-
-    #canvas-wrap { position: relative; width: 100%; }
-
-    #trace {
-      display: block;
-      width: 100%;
-      height: 200px;
-      border-radius: 6px;
-      background: #1e1e1e;
-    }
-
-    #phase-wrap { display: flex; gap: 1rem; align-items: flex-start; }
-
-    #phase { display: block; width: 200px; height: 200px; flex-shrink: 0; border-radius: 6px; background: #1e1e1e; }
-
-    #gates-wrap { display: flex; gap: 1rem; align-items: flex-start; }
-
-    #gates {
-      display: block;
-      flex: 1;
-      height: 180px;
-      border-radius: 6px;
-      background: #1e1e1e;
-      min-width: 0;
-    }
-
-    .controls {
+    /* Stacked scopes (V, m, h, n) left, phase plane (V, n) right; stacked on phones */
+    .plots {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.8rem 1.2rem;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 1rem;
+      align-items: start;
     }
-
-    .control-group { display: flex; flex-direction: column; gap: 0.3rem; }
-
-    .control-group label {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .control-group label span[id] {
-      color: var(--gdv-q5);
-      font-variant-numeric: tabular-nums;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      outline: none;
-      cursor: pointer;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 17px; height: 17px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: none;
-      transition: transform 0.12s ease, box-shadow 0.15s ease;
-    }
-    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
-    input[type="range"]:active::-webkit-slider-thumb {
-      transform: scale(1.12);
-      box-shadow: 0 0 0 6px rgba(0, 154, 222, 0.18);
-    }
-
-    input[type="range"]::-moz-range-track {
-      height: 6px; border-radius: 3px; background: var(--border);
-    }
-    input[type="range"]::-moz-range-thumb {
-      width: 17px; height: 17px;
-      border-radius: 50%;
-      background: var(--gdv-q3);
-      border: none;
-    }
-
-    .presets { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-    .preset-btn {
-      padding: 0.5rem 1.05rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text-dim);
-      font-size: 0.82rem;
-      font-weight: 500;
-      letter-spacing: 0.01em;
-      cursor: pointer;
-      transition: border-color 0.18s, color 0.18s, background 0.18s,
-                  transform 0.12s ease, box-shadow 0.18s;
-    }
-
-    .preset-btn:hover {
-      border-color: var(--gdv-q3);
-      color: var(--text);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    }
-
-    .preset-btn:active { transform: scale(0.97); box-shadow: none; }
-
-    .preset-btn.active {
-      border-color: var(--gdv-q3);
-      background: rgba(0, 154, 222, 0.14);
-      color: var(--gdv-q3);
-      font-weight: 600;
-    }
+    #canvas-wrap { position: relative; min-width: 0; }
+    #trace { width: 100%; height: 380px; }
+    #phase { width: 300px; height: 300px; }
 
     .legend {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-
-    .legend-section { display: flex; flex-direction: column; gap: 0.4rem; }
-
-    .legend-section-title {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      opacity: 0.6;
-      margin-bottom: 0.1rem;
-    }
-
-    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
-
-    .legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
-
-    footer {
-      width: 100%;
-      max-width: 900px;
-      padding: 0 0 1rem;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-top: 2.5rem;
-    }
-
-    .footer-ref {
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      line-height: 1.5;
-      padding: 0.75rem 0;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.8rem 2.5rem;
+      padding-top: 1rem;
       border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
     }
+    .legend-dot.dot { width: 8px; height: 8px; border-radius: 50%; }
+    .eq-icon { width: 11px; height: 11px; flex-shrink: 0; }
 
-    .ref-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      opacity: 0.6;
-      display: block;
-      margin-bottom: 0.25rem;
+    @media (max-width: 760px) {
+      .plots { grid-template-columns: 1fr; }
+      #trace { height: 340px; }
+      #phase { width: 100%; max-width: 360px; height: auto; aspect-ratio: 1; justify-self: center; }
     }
-
-    .footer-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    footer a {
-      color: var(--text-dim);
-      text-decoration: none;
-      transition: color 0.15s;
-    }
-
-    footer a:hover { color: var(--accent); }
-
-    .equations {
-      width: 100%;
-      max-width: 900px;
-      margin-top: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .eq-label {
-      font-size: 0.68rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 0.4rem;
-    }
-
-    .eq-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .eq-row { padding: 0.55rem 1rem; }
-    .eq-row:not(:last-child) { border-bottom: 1px solid var(--border); }
-    .eq-row .katex { color: var(--text); font-size: 1rem; }
-
-    /* ── Mobile ── */
     @media (max-width: 600px) {
-      body { padding: 0 1rem 1.5rem; }
-      header h1 { font-size: 1.6rem; }
-      .widget { padding: 1.25rem 1rem 1.5rem; }
-
-      /* Dissolve the canvas+legend wrappers so their children join the widget's
-         flex column, then reorder so the explanatory legends sit AFTER the
-         controls — you can read what each control changes while dragging it. */
-      #phase-wrap, #gates-wrap { display: contents; }
-      .widget-title{ order: 0; }
-      .presets     { order: 1; }
-      #canvas-wrap { order: 2; }
-      #phase       { order: 3; width: 100%; max-width: 100%; height: auto; }
-      #gates       { order: 4; width: 100%; flex: 0 0 auto; }
-      .controls    { order: 5; }
-      .legend      { order: 6; flex-direction: column; }
-
-      .eq-row { overflow-x: auto; }
+      .legend { flex-direction: column; gap: 1rem; }
     }
   </style>
+  <script src="../assets/js/ui.js" defer></script>
 </head>
 <body>
 
 <header>
-  <h1>Hodgkin–Huxley Neuron</h1>
-  <a href="../index.html">← Spiking Neuromorphics</a>
+  <h1>Hodgkin&ndash;Huxley Neuron</h1>
+  <a href="../index.html">&larr; Spiking Neuromorphics</a>
 </header>
 
 <main>
@@ -335,90 +57,76 @@
   <div class="widget-title">Real-time simulation</div>
 
   <div class="presets" id="presets">
+    <span class="win-label presets-label">Behaviour</span>
     <button class="preset-btn" data-preset="SUB">Sub-threshold</button>
     <button class="preset-btn active" data-preset="TONIC">Tonic spiking</button>
     <button class="preset-btn" data-preset="FAST">High-frequency</button>
   </div>
 
-  <div id="canvas-wrap">
-    <canvas id="trace" height="200"></canvas>
-  </div>
-
-  <div id="phase-wrap">
-    <canvas id="phase" width="200" height="200"></canvas>
-    <div class="legend">
-      <div class="legend-section">
-        <div class="legend-section-title">Phase plane (V, n)</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q5);"></div>
-          <span>dV/dt = 0 (V-nullcline)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q2);"></div>
-          <span>dn/dt = 0 (n-nullcline)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: rgba(255,255,255,0.35);"></div>
-          <span>phase trajectory</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>current state</span>
-        </div>
-      </div>
+  <!-- Plots first, controls right under them, explanations last -->
+  <div class="win-row">
+    <span class="win-label">Window</span>
+    <div class="fb-btns" id="win-btns">
+      <button class="win-btn" data-win="50">50 ms</button>
+      <button class="win-btn active" data-win="100">100 ms</button>
+      <button class="win-btn" data-win="200">200 ms</button>
+      <button class="win-btn" data-win="500">500 ms</button>
     </div>
   </div>
 
-  <div id="gates-wrap">
-    <canvas id="gates" height="180"></canvas>
-    <div class="legend">
-      <div class="legend-section">
-        <div class="legend-section-title">Trace</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q3);"></div>
-          <span>V (membrane potential)</span>
-        </div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-section-title">Gating variables</div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q6);"></div>
-          <span>m (Na⁺ activation)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q4);"></div>
-          <span>h (Na⁺ inactivation)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background: var(--gdv-q1);"></div>
-          <span>n (K⁺ activation)</span>
-        </div>
-      </div>
+  <div class="plots">
+    <div id="canvas-wrap">
+      <canvas id="trace" height="380"></canvas>
     </div>
+    <canvas id="phase" width="300" height="300"></canvas>
   </div>
 
   <div class="controls">
     <div class="control-group">
-      <label><span>I<sub>ext</sub> — injected current</span><span id="val-I">10.0 µA/cm²</span></label>
+      <label><span>I<sub>ext</sub> &mdash; injected current</span><span id="val-I">10.0 µA/cm²</span></label>
       <input type="range" id="sl-I" min="0" max="25" step="0.5" value="10" />
     </div>
     <div class="control-group">
-      <label><span>ḡ<sub>Na</sub> — max Na⁺ conductance</span><span id="val-gNa">120 mS/cm²</span></label>
+      <label><span>ḡ<sub>Na</sub> &mdash; max Na⁺ conductance</span><span id="val-gNa">120 mS/cm²</span></label>
       <input type="range" id="sl-gNa" min="50" max="150" step="5" value="120" />
     </div>
     <div class="control-group">
-      <label><span>ḡ<sub>K</sub> — max K⁺ conductance</span><span id="val-gK">36 mS/cm²</span></label>
+      <label><span>ḡ<sub>K</sub> &mdash; max K⁺ conductance</span><span id="val-gK">36 mS/cm²</span></label>
       <input type="range" id="sl-gK" min="10" max="60" step="2" value="36" />
-      <label><span>g<sub>L</sub> — leak conductance</span><span id="val-gL">0.3 mS/cm²</span></label>
+    </div>
+    <div class="control-group">
+      <label><span>g<sub>L</sub> &mdash; leak conductance</span><span id="val-gL">0.30 mS/cm²</span></label>
       <input type="range" id="sl-gL" min="0.05" max="1" step="0.05" value="0.3" />
     </div>
     <div class="control-group">
       <label><span>speed</span><span id="val-spd">0.01×</span></label>
-      <input type="range" id="sl-spd" min="0.01" max="0.1" step="0.01" value="0.01" />
+      <input type="range" id="sl-spd" min="0.01" max="0.1" step="0.01" value="0.01" autocomplete="off" />
+    </div>
+  </div>
+
+  <div class="legend" aria-label="What is what">
+    <div class="legend-section">
+      <div class="legend-section-title">Traces</div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-v);"></div><span>V (membrane potential)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-m);"></div><span>m (Na⁺ activation)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-h);"></div><span>h (Na⁺ inactivation)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-n);"></div><span>n (K⁺ activation)</span></div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Phase plane (V, n)</div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-in);"></div><span>V-nullcline (set by I)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-gate-n); opacity: .7;"></div><span>n-nullcline</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background: var(--c-v);"></div><span>trajectory</span></div>
+      <div class="legend-item"><div class="legend-dot dot" style="background: var(--c-op);"></div><span>state (V, n)</span></div>
+    </div>
+    <div class="legend-section">
+      <div class="legend-section-title">Equilibrium (full 4-D stability)</div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#dcdcdc" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>stable (rest)</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>unstable (spiking)</span></div>
+      <div class="legend-item"><svg class="eq-icon" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="#dcdcdc" stroke-width="1.5"/></svg><span>saddle</span></div>
     </div>
   </div>
 </div>
-</main>
 
 <div class="equations">
   <div class="eq-label">Model equations</div>
@@ -444,12 +152,13 @@
     <div class="eq-row" id="eq-params2"></div>
   </div>
 </div>
+</main>
 
 <footer>
   <div class="footer-ref">
     <span class="ref-label">Reference</span>
     Hodgkin, A. L. &amp; Huxley, A. F. A quantitative description of membrane current and its application to conduction and excitation in nerve.
-    <em>J. Physiol.</em> <strong>117</strong>, 500–544 (1952).
+    <em>J. Physiol.</em> <strong>117</strong>, 500&ndash;544 (1952).
     <a href="https://doi.org/10.1113/jphysiol.1952.sp004764" target="_blank" rel="noopener">https://doi.org/10.1113/jphysiol.1952.sp004764</a>
   </div>
   <div class="footer-bottom">
@@ -459,8 +168,6 @@
 </footer>
 
 <script>
-const GDV = { q: ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'] };
-
 // ── Parameters ────────────────────────────────────────────────────────────────
 const params = {
   C_m:  1,      // µF/cm²
@@ -474,9 +181,9 @@ const params = {
 };
 
 const PRESETS = {
-  SUB:   { I_ext: 5,  g_Na: 120, g_K: 36 },
-  TONIC: { I_ext: 10, g_Na: 120, g_K: 36 },
-  FAST:  { I_ext: 20, g_Na: 120, g_K: 36 },
+  SUB:   { I_ext: 5,  g_Na: 120, g_K: 36, g_L: 0.3 },
+  TONIC: { I_ext: 10, g_Na: 120, g_K: 36, g_L: 0.3 },
+  FAST:  { I_ext: 20, g_Na: 120, g_K: 36, g_L: 0.3 },
 };
 
 // ── Rate functions (modern absolute mV convention, rest ≈ −65 mV) ─────────────
@@ -486,7 +193,6 @@ function alphaN(V) { const x = V + 55; return Math.abs(x) < 1e-7 ? 0.1 : 0.01 * 
 function betaN(V)  { return 0.125 * Math.exp(-(V + 65) / 80); }
 function alphaH(V) { return 0.07 * Math.exp(-(V + 65) / 20); }
 function betaH(V)  { return 1 / (1 + Math.exp(-(V + 35) / 10)); }
-
 function xinf(aFn, bFn, Vv) { const a = aFn(Vv), b = bFn(Vv); return a / (a + b); }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -495,41 +201,46 @@ let m = xinf(alphaM, betaM, V);
 let h = xinf(alphaH, betaH, V);
 let n = xinf(alphaN, betaN, V);
 
-const TRACE_LEN = 2000;
-const vHistory = new Float32Array(TRACE_LEN);
-const mHistory = new Float32Array(TRACE_LEN);
-const hHistory = new Float32Array(TRACE_LEN);
-const nHistory = new Float32Array(TRACE_LEN);
+const DT = 0.05;                       // ms per RK4 step = per sample
+const TRACE_MAX = 10000;               // buffer: 10000 x 0.05 ms = 500 ms
+let TRACE_LEN = 2000;                  // samples shown: 2000 x 0.05 ms = 100 ms per sweep
+let TRACE_MS = TRACE_LEN * DT;
+const vHistory = new Float32Array(TRACE_MAX);
+const mHistory = new Float32Array(TRACE_MAX);
+const hHistory = new Float32Array(TRACE_MAX);
+const nHistory = new Float32Array(TRACE_MAX);
 let traceHead = 0, traceFull = false;
 vHistory.fill(V); mHistory.fill(m); hHistory.fill(h); nHistory.fill(n);
 
-const PHASE_DRAW = 400; // samples of trace history shown in phase plane (~20 ms)
-
+const PHASE_DRAW = 600;                // samples of history shown in the phase plane (30 ms)
 let lastFrameTime = null;
 
 // ── Canvases ──────────────────────────────────────────────────────────────────
 const traceCanvas = document.getElementById('trace');
 const tctx = traceCanvas.getContext('2d');
-const gatesCanvas = document.getElementById('gates');
-const gctx = gatesCanvas.getContext('2d');
 const phaseCanvas = document.getElementById('phase');
 const pctx = phaseCanvas.getContext('2d');
 
-// HiDPI: back the canvases with devicePixelRatio so they stay crisp when zoomed
-const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+// HiDPI: match canvas pixels exactly to the on-screen size at the current
+// pixel ratio (Windows scaling / browser zoom), and follow layout changes.
 function fitCanvas(c, ctx) {
-  const w = c.clientWidth || c.width, h = c.clientHeight || c.height;
-  c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  c._lw = w; c._lh = h; // logical (CSS px) size used by drawing code
+  const r = c.getBoundingClientRect();
+  // hidden (collapsed panel): leave the canvas as it is, never grow it
+  if (!r.width || !r.height) { if (c._lw === undefined) { c._lw = c.width; c._lh = c.height; } return; }
+  const w = r.width, hh = r.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const bw = Math.round(w * dpr), bh = Math.round(hh * dpr);
+  if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
+  ctx.setTransform(bw / w, 0, 0, bh / hh, 0, 0);
+  c._lw = w; c._lh = hh;
 }
-function resizeCanvases() {
-  fitCanvas(traceCanvas, tctx);
-  fitCanvas(gatesCanvas, gctx);
-  fitCanvas(phaseCanvas, pctx);
-}
+function resizeCanvases() { fitCanvas(traceCanvas, tctx); fitCanvas(phaseCanvas, pctx); }
 window.addEventListener('resize', resizeCanvases);
 window.addEventListener('load', resizeCanvases);
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(resizeCanvases);
+  ro.observe(traceCanvas); ro.observe(phaseCanvas);
+}
 resizeCanvases();
 
 // ── RK4 integration ───────────────────────────────────────────────────────────
@@ -544,29 +255,73 @@ function hhDerivs(Vv, mv, hv, nv) {
     alphaN(Vv) * (1 - nv) - betaN(Vv) * nv,
   ];
 }
-
-const DT = 0.05;              // ms per RK4 step
-const SUBSTEPS = 1;           // RK4 steps per sample → 0.05 ms per sample
-const MS_PER_SAMPLE = SUBSTEPS * DT;  // 0.05 ms
-
 function hhStep() {
   const [k1V, k1m, k1h, k1n] = hhDerivs(V, m, h, n);
   const [k2V, k2m, k2h, k2n] = hhDerivs(V + 0.5*DT*k1V, m + 0.5*DT*k1m, h + 0.5*DT*k1h, n + 0.5*DT*k1n);
   const [k3V, k3m, k3h, k3n] = hhDerivs(V + 0.5*DT*k2V, m + 0.5*DT*k2m, h + 0.5*DT*k2h, n + 0.5*DT*k2n);
   const [k4V, k4m, k4h, k4n] = hhDerivs(V + DT*k3V,     m + DT*k3m,     h + DT*k3h,     n + DT*k3n);
   V += DT / 6 * (k1V + 2*k2V + 2*k3V + k4V);
-  m += DT / 6 * (k1m + 2*k2m + 2*k3m + k4m);
-  h += DT / 6 * (k1h + 2*k2h + 2*k3h + k4h);
-  n += DT / 6 * (k1n + 2*k2n + 2*k3n + k4n);
-  m = Math.max(0, Math.min(1, m));
-  h = Math.max(0, Math.min(1, h));
-  n = Math.max(0, Math.min(1, n));
+  m = Math.max(0, Math.min(1, m + DT / 6 * (k1m + 2*k2m + 2*k3m + k4m)));
+  h = Math.max(0, Math.min(1, h + DT / 6 * (k1h + 2*k2h + 2*k3h + k4h)));
+  n = Math.max(0, Math.min(1, n + DT / 6 * (k1n + 2*k2n + 2*k3n + k4n)));
+}
+function advanceOneSample() {
+  hhStep();
+  vHistory[traceHead] = V; mHistory[traceHead] = m; hHistory[traceHead] = h; nHistory[traceHead] = n;
+  traceHead++;
+  if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
 }
 
-// V-nullcline: dV/dt = 0, fix m = m∞(V) and h = h∞(V), solve for n
+// ── Equilibrium and its stability (full 4-D model) ────────────────────────────
+// Rest points: all gates at steady state, net current zero.
+function netCurrentInf(Vv) {
+  const mi = xinf(alphaM, betaM, Vv), hi = xinf(alphaH, betaH, Vv), ni = xinf(alphaN, betaN, Vv);
+  return params.I_ext - params.g_Na*mi*mi*mi*hi*(Vv-params.E_Na) - params.g_K*ni*ni*ni*ni*(Vv-params.E_K) - params.g_L*(Vv-params.E_L);
+}
+function findEquilibria() {
+  const out = [], lo = -100, hi = 40, N = 560;
+  let x0 = lo, f0 = netCurrentInf(lo);
+  for (let k = 1; k <= N; k++) {
+    const x1 = lo + (hi - lo) * k / N, f1 = netCurrentInf(x1);
+    if (f0 === 0 || f0 * f1 < 0) {
+      let l = x0, r = x1, fl = f0;
+      for (let it = 0; it < 40; it++) { const md = (l + r) / 2, fm = netCurrentInf(md); if (fl * fm <= 0) r = md; else { l = md; fl = fm; } }
+      out.push((l + r) / 2);
+    }
+    x0 = x1; f0 = f1;
+  }
+  return out;
+}
+// Classify from the 4x4 Jacobian: characteristic polynomial (Faddeev–LeVerrier)
+// + Routh–Hurwitz for stability; det(J) < 0 means an odd number of unstable
+// real directions -> saddle.
+function classifyHH(Ve) {
+  const s0 = [Ve, xinf(alphaM, betaM, Ve), xinf(alphaH, betaH, Ve), xinf(alphaN, betaN, Ve)];
+  const J = [[], [], [], []], eps = 1e-6;
+  for (let j = 0; j < 4; j++) {
+    const sp = s0.slice(), sm = s0.slice(); sp[j] += eps; sm[j] -= eps;
+    const fp = hhDerivs(...sp), fm = hhDerivs(...sm);
+    for (let i = 0; i < 4; i++) J[i][j] = (fp[i] - fm[i]) / (2 * eps);
+  }
+  const mul = (A, B) => A.map((r, i) => B[0].map((_, j) => r.reduce((s, _, k) => s + A[i][k] * B[k][j], 0)));
+  const tr = A => A[0][0] + A[1][1] + A[2][2] + A[3][3];
+  const I4 = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+  let M = I4.map(r => r.slice()), c = [1];
+  for (let k = 1; k <= 4; k++) {
+    const AM = mul(J, M);
+    const ck = -tr(AM) / k;
+    c.push(ck);
+    M = AM.map((r, i) => r.map((v, j) => v + (i === j ? ck : 0)));
+  }
+  const [, a1, a2, a3, a4] = c;           // λ^4 + a1 λ^3 + a2 λ^2 + a3 λ + a4
+  if (a4 < 0) return 'saddle';
+  const stable = a1 > 0 && a3 > 0 && a4 > 0 && a1 * a2 * a3 > a3 * a3 + a1 * a1 * a4;
+  return stable ? 'stable' : 'unstable';
+}
+
+// V-nullcline in the (V, n) plane: m = m∞(V), h = h∞(V), solve dV/dt = 0 for n
 function vNullclineN(vi) {
-  const mi = xinf(alphaM, betaM, vi);
-  const hi = xinf(alphaH, betaH, vi);
+  const mi = xinf(alphaM, betaM, vi), hi = xinf(alphaH, betaH, vi);
   const num = params.I_ext - params.g_Na*mi*mi*mi*hi*(vi-params.E_Na) - params.g_L*(vi-params.E_L);
   const den = params.g_K * (vi - params.E_K);
   if (Math.abs(den) < 1e-9) return null;
@@ -576,177 +331,113 @@ function vNullclineN(vi) {
   return val <= 1 ? val : null;
 }
 
+// ── Drawing: stacked scopes ───────────────────────────────────────────────────
+function drawTrace() {
+  const W = traceCanvas._lw, H = traceCanvas._lh - TIME_AXIS_H;
+  tctx.clearRect(0, 0, W, traceCanvas._lh);
+  const [rV, rM, rH, rN] = scopeRects(W, H, [0.52, 0.16, 0.16, 0.16]);
+  const vMin = -90, vMax = 50;
+  const yV = scopeY(rV, vMin, vMax);
+  drawScope(tctx, rV, vMin, vMax, 'V (mV)', COL.V, [-65, -40, 0, 40]);
+  drawScope(tctx, rM, 0, 1, 'm', COL.GATE_M, [0.5]);
+  drawScope(tctx, rH, 0, 1, 'h', COL.GATE_H, [0.5]);
+  drawScope(tctx, rN, 0, 1, 'n', COL.GATE_N, [0.5]);
+
+  const xOf = scopeX(rV, TRACE_LEN);
+  const drawSeg = (r, arr, from, to, color, lw, alpha, yFn) => {
+    if (to <= from) return;
+    inScope(tctx, r, () => {
+      tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
+      tctx.beginPath();
+      for (let i = from; i < to; i++) i === from ? tctx.moveTo(xOf(i), yFn(arr[i])) : tctx.lineTo(xOf(i), yFn(arr[i]));
+      tctx.stroke();
+    });
+  };
+  const rows = [
+    [rV, vHistory, COL.V,           1.8, yV],
+    [rM, mHistory, COL.GATE_M,      2.0, scopeY(rM, 0, 1)],   // m predominant
+    [rH, hHistory, COL.GATE_H,      1.5, scopeY(rH, 0, 1)],
+    [rN, nHistory, COL.GATE_N,      1.5, scopeY(rN, 0, 1)],
+  ];
+  rows.forEach(([r, arr, col, lw, yF], k) => {
+    const a = 1;
+    if (traceFull) drawSeg(r, arr, traceHead, TRACE_LEN, col, lw, 0.12 * a, yF);
+    drawSeg(r, arr, 0, traceHead, col, lw, (k === 0 ? 1 : FB_TRACE.alpha) * a, yF);
+  });
+
+  // sweep cursor through all scopes
+  const cx = Math.round(rV.x + (traceHead / TRACE_LEN) * rV.w) + 0.5;
+  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
+  tctx.beginPath(); tctx.moveTo(cx, rV.y); tctx.lineTo(cx, rN.y + rN.h); tctx.stroke();
+
+  drawTimeAxis(tctx, W, H, TRACE_MS, SCOPE.ML);
+}
+
+// ── Drawing: phase plane (V, n) ───────────────────────────────────────────────
 function drawPhase() {
   const W = phaseCanvas._lw, H = phaseCanvas._lh;
-  const ml = 26, mt = 8, mr = 6, mb = 18;
+  const ml = 30, mt = 12, mr = 10, mb = 24;
   const cW = W - ml - mr, cH = H - mt - mb;
   const vMin = -90, vMax = 50;
-  const mx = v  => ml + (v  - vMin) / (vMax - vMin) * cW;
+  const mx = v  => ml + (v - vMin) / (vMax - vMin) * cW;
   const my = xv => mt + cH * (1 - xv);
 
   pctx.clearRect(0, 0, W, H);
   pctx.fillStyle = '#1e1e1e'; pctx.fillRect(0, 0, W, H);
 
-  // Grid
+  // faint grid + labels
   pctx.strokeStyle = '#2a2a2a'; pctx.lineWidth = 0.5;
-  [-60, -30, 0, 30].forEach(v => {
-    pctx.beginPath(); pctx.moveTo(mx(v), mt); pctx.lineTo(mx(v), mt + cH); pctx.stroke();
-  });
-  [0.25, 0.5, 0.75].forEach(xv => {
-    pctx.beginPath(); pctx.moveTo(ml, my(xv)); pctx.lineTo(ml + cW, my(xv)); pctx.stroke();
-  });
-
-  // Axis tick labels
-  pctx.font = '9px monospace'; pctx.fillStyle = '#555';
-  [-60, 0].forEach(v => pctx.fillText(v, mx(v) - (v < 0 ? 10 : 3), mt + cH + 12));
-  pctx.fillText('1',  3, my(1)   + 8);
-  pctx.fillText('.5', 3, my(0.5) + 3);
-  pctx.fillText('0',  3, my(0)   - 2);
-
-  // Axis titles inside the chart — colored to match their signal
-  pctx.font = 'bold 10px monospace';
-  pctx.fillStyle = GDV.q[1]; // green — n (K⁺ activation)
+  [-60, -30, 0, 30].forEach(v => { pctx.beginPath(); pctx.moveTo(mx(v), mt); pctx.lineTo(mx(v), mt + cH); pctx.stroke(); });
+  [0.25, 0.5, 0.75].forEach(xv => { pctx.beginPath(); pctx.moveTo(ml, my(xv)); pctx.lineTo(ml + cW, my(xv)); pctx.stroke(); });
+  pctx.font = '11px monospace'; pctx.fillStyle = '#666';
+  [-60, 0].forEach(v => pctx.fillText(v, mx(v) - (v < 0 ? 12 : 3), mt + cH + 16));
+  pctx.fillText('1', 6, my(1) + 9); pctx.fillText('.5', 4, my(0.5) + 4); pctx.fillText('0', 6, my(0) - 2);
   pctx.fillText('n', ml + 4, mt + 11);
-  pctx.fillStyle = GDV.q[4]; // yellow — V (membrane potential)
-  pctx.fillText('V', ml + cW - 10, mt + cH - 4);
+  pctx.textAlign = 'right'; pctx.fillText('V (mV)', ml + cW - 2, mt + cH - 4); pctx.textAlign = 'left';
 
-  // V-nullcline: dV/dt = 0 (m = m∞, h = h∞, solve for n)
-  pctx.strokeStyle = GDV.q[4] + 'cc'; pctx.lineWidth = 1.5;
-  pctx.beginPath(); let startedV = false;
+  // V-nullcline: shifts with the input current (shared input-curve style)
+  pctx.save();
+  pctx.beginPath(); pctx.rect(ml, mt, cW, cH); pctx.clip();
+  styleInputCurve(pctx);
+  pctx.beginPath(); let started = false;
   for (let vi = vMin; vi <= vMax; vi += 0.5) {
     const yv = vNullclineN(vi);
-    if (yv === null) { startedV = false; continue; }
-    startedV ? pctx.lineTo(mx(vi), my(yv)) : (pctx.moveTo(mx(vi), my(yv)), startedV = true);
+    if (yv === null) { started = false; continue; }
+    started ? pctx.lineTo(mx(vi), my(yv)) : (pctx.moveTo(mx(vi), my(yv)), started = true);
   }
   pctx.stroke();
+  pctx.restore();
 
-  // n-nullcline: dn/dt = 0 → n = n∞(V)
-  pctx.strokeStyle = GDV.q[1] + 'cc'; pctx.lineWidth = 1.5;
+  // n-nullcline: n = n∞(V), in the colour of n
+  pctx.strokeStyle = COL.GATE_N + 'bb'; pctx.lineWidth = 1.2; pctx.setLineDash([]);  // n-nullcline in n's colour
   pctx.beginPath();
   for (let vi = vMin; vi <= vMax; vi += 0.5) {
-    vi === vMin ? pctx.moveTo(mx(vi), my(xinf(alphaN, betaN, vi)))
-                : pctx.lineTo(mx(vi), my(xinf(alphaN, betaN, vi)));
+    const yv = my(xinf(alphaN, betaN, vi));
+    vi === vMin ? pctx.moveTo(mx(vi), yv) : pctx.lineTo(mx(vi), yv);
   }
   pctx.stroke();
 
-  // Phase trajectory from trace history (fading)
-  const drawCount = Math.min(PHASE_DRAW, traceFull ? TRACE_LEN : traceHead);
-  for (let i = 0; i < drawCount - 1; i++) {
-    const idx  = (traceHead - drawCount + i     + TRACE_LEN) % TRACE_LEN;
-    const idx1 = (traceHead - drawCount + i + 1 + TRACE_LEN) % TRACE_LEN;
-    pctx.strokeStyle = `rgba(255,255,255,${(i / drawCount) * 0.45})`;
-    pctx.lineWidth = 1;
+  // trajectory (blue, fading), drawn in short runs
+  const count = Math.min(PHASE_DRAW, traceFull ? TRACE_LEN : traceHead);
+  const idxOf = i => (traceHead - count + i + TRACE_LEN) % TRACE_LEN;
+  const RUN = 20;
+  pctx.lineWidth = 1.2; pctx.lineJoin = 'round';
+  for (let i0 = 0; i0 < count - 1; i0 += RUN) {
+    const i1 = Math.min(i0 + RUN, count - 1);
+    pctx.strokeStyle = `rgba(${COL.TRAJ},${(0.1 + 0.75 * ((i0 + i1) / 2) / count).toFixed(2)})`;
     pctx.beginPath();
-    pctx.moveTo(mx(vHistory[idx]),  my(nHistory[idx]));
-    pctx.lineTo(mx(vHistory[idx1]), my(nHistory[idx1]));
+    for (let i = i0; i <= i1; i++) {
+      const k = idxOf(i);
+      i === i0 ? pctx.moveTo(mx(vHistory[k]), my(nHistory[k])) : pctx.lineTo(mx(vHistory[k]), my(nHistory[k]));
+    }
     pctx.stroke();
   }
 
-  // Current state dot
-  pctx.beginPath();
-  pctx.arc(mx(V), my(n), 3, 0, Math.PI * 2);
-  pctx.fillStyle = GDV.q[2]; pctx.fill();
-}
+  // equilibrium (rest point) with its stability in the full model
+  const eqs = findEquilibria().map(Ve => ({ x: mx(Ve), y: my(xinf(alphaN, betaN, Ve)), type: classifyHH(Ve) }));
+  drawEquilibria(pctx, eqs, W, H);
 
-function advanceOneSample() {
-  for (let k = 0; k < SUBSTEPS; k++) hhStep();
-  vHistory[traceHead] = V;
-  mHistory[traceHead] = m;
-  hHistory[traceHead] = h;
-  nHistory[traceHead] = n;
-  traceHead++;
-  if (traceHead >= TRACE_LEN) { traceHead = 0; traceFull = true; }
-}
-
-// ── Drawing ───────────────────────────────────────────────────────────────────
-function drawTrace() {
-  const W = traceCanvas._lw, H = traceCanvas._lh;
-  tctx.clearRect(0, 0, W, H);
-  const vMin = -90, vMax = 50;
-  const mapY = v => H * (1 - (v - vMin) / (vMax - vMin));
-
-  tctx.font = '10px monospace';
-  [-65, -40, 0, 40].forEach(yv => {
-    tctx.strokeStyle = '#3a3a3a'; tctx.lineWidth = 1; tctx.setLineDash([]);
-    tctx.beginPath(); tctx.moveTo(0, mapY(yv)); tctx.lineTo(W, mapY(yv)); tctx.stroke();
-    tctx.fillStyle = '#555';
-    tctx.fillText(yv + ' mV', 4, mapY(yv) - 3);
-  });
-
-  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
-  tctx.strokeStyle = 'rgba(255,255,255,0.12)'; tctx.lineWidth = 1;
-  tctx.beginPath(); tctx.moveTo(cursorX, 0); tctx.lineTo(cursorX, H); tctx.stroke();
-
-  const drawSeg = (arr, from, to, color, lw, alpha) => {
-    if (to <= from) return;
-    tctx.strokeStyle = color; tctx.lineWidth = lw; tctx.globalAlpha = alpha;
-    tctx.beginPath();
-    for (let i = from; i < to; i++) {
-      const x = (i / (TRACE_LEN - 1)) * W;
-      i === from ? tctx.moveTo(x, mapY(arr[i])) : tctx.lineTo(x, mapY(arr[i]));
-    }
-    tctx.stroke(); tctx.globalAlpha = 1;
-  };
-
-  if (traceFull) drawSeg(vHistory, traceHead, TRACE_LEN, GDV.q[2], 1.8, 0.12);
-  drawSeg(vHistory, 0, traceHead, GDV.q[2], 1.8, 1.0);
-}
-
-function drawGates() {
-  const W = gatesCanvas._lw, H = gatesCanvas._lh;
-  gctx.clearRect(0, 0, W, H);
-  gctx.fillStyle = '#1e1e1e'; gctx.fillRect(0, 0, W, H);
-
-  const bands = [
-    { arr: mHistory, color: GDV.q[5], label: 'm' },
-    { arr: hHistory, color: GDV.q[3], label: 'h' },
-    { arr: nHistory, color: GDV.q[0], label: 'n' },
-  ];
-  const bandH = H / bands.length;
-  const cursorX = Math.round((traceHead / TRACE_LEN) * W);
-
-  bands.forEach(({ arr, color, label }, idx) => {
-    const top = idx * bandH;
-    const mapY = v => top + bandH * (1 - v);
-
-    // Separator line above each band (except the first)
-    if (idx > 0) {
-      gctx.strokeStyle = '#3a3a3a'; gctx.lineWidth = 1; gctx.setLineDash([]);
-      gctx.beginPath(); gctx.moveTo(0, top); gctx.lineTo(W, top); gctx.stroke();
-    }
-
-    // Midline at 0.5
-    gctx.strokeStyle = '#2a2a2a'; gctx.lineWidth = 0.5;
-    gctx.beginPath(); gctx.moveTo(0, mapY(0.5)); gctx.lineTo(W, mapY(0.5)); gctx.stroke();
-
-    // Axis labels
-    gctx.font = '9px monospace'; gctx.fillStyle = '#555';
-    gctx.fillText('1', 3, top + 9);
-    gctx.fillText('0', 3, top + bandH - 2);
-
-    // Variable label in band color
-    gctx.fillStyle = color; gctx.font = 'bold 10px monospace';
-    gctx.fillText(label, 16, top + 10);
-
-    // Cursor
-    gctx.strokeStyle = 'rgba(255,255,255,0.10)'; gctx.lineWidth = 1;
-    gctx.beginPath(); gctx.moveTo(cursorX, top); gctx.lineTo(cursorX, top + bandH); gctx.stroke();
-
-    // Trace
-    const drawSeg = (from, to, alpha) => {
-      if (to <= from) return;
-      gctx.strokeStyle = color; gctx.lineWidth = 1.5; gctx.globalAlpha = alpha;
-      gctx.beginPath();
-      for (let i = from; i < to; i++) {
-        const x = (i / (TRACE_LEN - 1)) * W;
-        i === from ? gctx.moveTo(x, mapY(arr[i])) : gctx.lineTo(x, mapY(arr[i]));
-      }
-      gctx.stroke(); gctx.globalAlpha = 1;
-    };
-
-    if (traceFull) drawSeg(traceHead, TRACE_LEN, 0.12);
-    drawSeg(0, traceHead, 1.0);
-  });
+  drawStateDot(pctx, mx(V), my(n), 4.5);
 }
 
 // ── Animation loop ────────────────────────────────────────────────────────────
@@ -755,82 +446,70 @@ function loop() {
   const speed = parseFloat(document.getElementById('sl-spd').value);
   const dtReal = lastFrameTime !== null ? Math.min(now - lastFrameTime, 50) : 16.7;
   lastFrameTime = now;
-  const numSamples = Math.round(dtReal * speed / MS_PER_SAMPLE);
+  const numSamples = Math.round(dtReal * speed / DT);
   for (let s = 0; s < numSamples; s++) advanceOneSample();
   drawTrace();
   drawPhase();
-  drawGates();
   requestAnimationFrame(loop);
 }
 
 // ── Controls ──────────────────────────────────────────────────────────────────
-[
+const SLIDERS = [
   ['I_ext', 'sl-I',   'val-I',   v => v.toFixed(1) + ' µA/cm²'],
   ['g_Na',  'sl-gNa', 'val-gNa', v => v + ' mS/cm²'],
   ['g_K',   'sl-gK',  'val-gK',  v => v + ' mS/cm²'],
   ['g_L',   'sl-gL',  'val-gL',  v => v.toFixed(2) + ' mS/cm²'],
-].forEach(([key, slId, valId, fmt]) => {
+];
+SLIDERS.forEach(([key, slId, valId, fmt]) => {
   const sl = document.getElementById(slId);
   document.getElementById(valId).textContent = fmt(parseFloat(sl.value));
   sl.addEventListener('input', () => {
-    const val = parseFloat(sl.value);
-    params[key] = val;
-    document.getElementById(valId).textContent = fmt(val);
+    params[key] = parseFloat(sl.value);
+    document.getElementById(valId).textContent = fmt(params[key]);
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   });
 });
-
 document.getElementById('sl-spd').addEventListener('input', function () {
-  const v = parseFloat(this.value);
-  const label = v === 0.25 ? '¼×' : v === 0.5 ? '½×' : v === 1 ? '1×' : v.toFixed(2).replace(/0$/, '') + '×';
-  document.getElementById('val-spd').textContent = label;
+  document.getElementById('val-spd').textContent = parseFloat(this.value).toFixed(2) + '×';
 });
 
 function resetState() {
   V = -65;
-  m = xinf(alphaM, betaM, V);
-  h = xinf(alphaH, betaH, V);
-  n = xinf(alphaN, betaN, V);
+  m = xinf(alphaM, betaM, V); h = xinf(alphaH, betaH, V); n = xinf(alphaN, betaN, V);
   vHistory.fill(V); mHistory.fill(m); hHistory.fill(h); nHistory.fill(n);
   traceHead = 0; traceFull = false;
 }
-
 function applyPreset(name) {
-  const p = PRESETS[name];
-  params.I_ext = p.I_ext;
-  params.g_Na  = p.g_Na;
-  params.g_K   = p.g_K;
+  Object.assign(params, PRESETS[name]);
   resetState();
-  document.getElementById('sl-I').value   = p.I_ext;
-  document.getElementById('sl-gNa').value = p.g_Na;
-  document.getElementById('sl-gK').value  = p.g_K;
-  document.getElementById('val-I').textContent   = p.I_ext.toFixed(1) + ' µA/cm²';
-  document.getElementById('val-gNa').textContent = p.g_Na + ' mS/cm²';
-  document.getElementById('val-gK').textContent  = p.g_K  + ' mS/cm²';
-  document.querySelectorAll('.preset-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.preset === name);
+  SLIDERS.forEach(([key, slId, valId, fmt]) => {
+    document.getElementById(slId).value = params[key];
+    document.getElementById(valId).textContent = fmt(params[key]);
   });
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
 }
-
 document.getElementById('presets').addEventListener('click', e => {
   if (e.target.dataset.preset) applyPreset(e.target.dataset.preset);
 });
 
+// time window of the oscilloscope (0.05 ms per sample); the sweep restarts
+function setWindow(ms) {
+  TRACE_LEN = Math.min(TRACE_MAX, Math.round(ms / DT)); TRACE_MS = TRACE_LEN * DT;
+  traceHead = 0; traceFull = false;
+  document.querySelectorAll('#win-btns .win-btn').forEach(b => b.classList.toggle('active', +b.dataset.win === ms));
+}
+document.getElementById('win-btns').addEventListener('click', e => { const b = e.target.closest('[data-win]'); if (b) setWindow(+b.dataset.win); });
+
 requestAnimationFrame(loop);
 
 window.addEventListener('load', () => {
-  const R = (tex, id) => katex.render(tex, document.getElementById(id), { displayMode: false });
-
-  // Model equations
+  if (!window.katex) return; // equations are optional (KaTeX CDN unreachable)
+  const R = (tex, id) => katex.render(tex, document.getElementById(id), { displayMode: false, throwOnError: false });
   R(String.raw`C_m \frac{dV}{dt} = I_{\mathrm{ext}} - \bar{g}_{\mathrm{Na}}\,m^3 h\,(V - E_{\mathrm{Na}}) - \bar{g}_{\mathrm{K}}\,n^4\,(V - E_{\mathrm{K}}) - g_L\,(V - E_L)`, 'eq1');
   R(String.raw`\frac{dx}{dt} = \alpha_x(V)\,(1-x) - \beta_x(V)\,x, \qquad x \in \{m,\,h,\,n\}`, 'eq2');
-
-  // Rate functions
   R(String.raw`\alpha_m(V) = \dfrac{0.1\,(V+40)}{1 - e^{-(V+40)/10}} \qquad \beta_m(V) = 4\,e^{-(V+65)/18}`, 'eq-am-bm');
   R(String.raw`\alpha_h(V) = 0.07\,e^{-(V+65)/20} \qquad \beta_h(V) = \dfrac{1}{1 + e^{-(V+35)/10}}`, 'eq-ah-bh');
   R(String.raw`\alpha_n(V) = \dfrac{0.01\,(V+55)}{1 - e^{-(V+55)/10}} \qquad \beta_n(V) = 0.125\,e^{-(V+65)/80}`, 'eq-an-bn');
-
-  // Fixed parameters
   R(String.raw`E_{\mathrm{Na}} = 50\ \mathrm{mV} \qquad E_{\mathrm{K}} = -77\ \mathrm{mV} \qquad E_L = -54.4\ \mathrm{mV}`, 'eq-params1');
   R(String.raw`C_m = 1\ \mathrm{\mu F/cm^2}`, 'eq-params2');
 });
